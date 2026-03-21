@@ -2,7 +2,6 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "installCommand": "npm install",
-  "outputDirectory": ".next",
   "env": {
     "GOOGLE_CLIENT_ID": "@google_client_id",
     "GOOGLE_CLIENT_SECRET": "@google_client_secret",
