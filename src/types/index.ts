@@ -1,8 +1,4 @@
-export type SubjectCategory =
-  | "power-engineering"
-  | "networking"
-  | "coding"
-  | "coming-soon";
+export type SubjectCategory = "power-engineering" | "networking" | "coding";
 
 export interface Course {
   id: string;
@@ -12,8 +8,8 @@ export interface Course {
   level: "Beginner" | "Intermediate" | "Advanced";
   lessons: number;
   subjectId: string;
-  thumbnail: string;
   tags: string[];
+  comingSoon?: boolean;
 }
 
 export interface Subject {
@@ -21,12 +17,12 @@ export interface Subject {
   title: string;
   shortTitle: string;
   description: string;
-  icon: string;
+  /** Lucide icon name */
+  iconName: string;
   color: string;
   gradient: string;
   category: SubjectCategory;
   courses: Course[];
-  totalStudents: number;
 }
 
 export interface EnrolledCourse {
@@ -42,7 +38,8 @@ export interface Achievement {
   id: string;
   title: string;
   description: string;
-  icon: string;
+  /** Lucide icon name */
+  iconName: string;
   unlockedAt?: string;
   locked: boolean;
   xp: number;
@@ -56,4 +53,16 @@ export interface UserStats {
   completedCourses: number;
   streak: number;
   rank: string;
+}
+
+export interface UserProfile {
+  id: string;
+  name: string | null;
+  email: string;
+  image: string | null;
+  jobTitle: string | null;
+  organization: string | null;
+  location: string | null;
+  bio: string | null;
+  phone: string | null;
 }
