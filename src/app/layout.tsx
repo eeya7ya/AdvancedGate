@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { Suspense } from "react";
 import { SessionProvider } from "@/components/auth/session-provider";
 import "./globals.css";
 
@@ -37,7 +38,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-[#080c14]">
-        <SessionProvider>{children}</SessionProvider>
+        <Suspense>
+          <SessionProvider>{children}</SessionProvider>
+        </Suspense>
       </body>
     </html>
   );
