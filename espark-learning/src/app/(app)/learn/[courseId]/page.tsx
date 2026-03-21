@@ -23,11 +23,14 @@ function generateLessons(count: number, baseTitle: string) {
   }));
 }
 
-async function CourseContent({ courseId }: { courseId: string }) {
+async function CourseContent({
+  found,
+  courseId,
+}: {
+  found: NonNullable<ReturnType<typeof getCourseById>>;
+  courseId: string;
+}) {
   "use cache";
-  const found = getCourseById(courseId);
-  if (!found) notFound();
-
   const { course, subject } = found;
   const enrollment = mockEnrolledCourses.find((e) => e.courseId === courseId);
   const lessons = generateLessons(course.lessons, course.title);
@@ -216,16 +219,18 @@ function CourseSkeleton() {
   );
 }
 
-export default function LearnPage({
+export default async function LearnPage({
   params,
 }: {
   params: Promise<{ courseId: string }>;
 }) {
+  const { courseId } = await params;
+  const found = getCourseById(courseId);
+  if (!found) notFound();
+
   return (
     <Suspense fallback={<CourseSkeleton />}>
-      {params.then(({ courseId }) => (
-        <CourseContent courseId={courseId} />
-      ))}
+      <CourseContent found={found} courseId={courseId} />
     </Suspense>
   );
 }

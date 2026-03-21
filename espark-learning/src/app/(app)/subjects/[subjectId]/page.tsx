@@ -4,10 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-async function SubjectContent({ subjectId }: { subjectId: string }) {
+async function SubjectContent({ subject }: { subject: NonNullable<ReturnType<typeof getSubjectById>> }) {
   "use cache";
-  const subject = getSubjectById(subjectId);
-  if (!subject) notFound();
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -137,16 +135,18 @@ function SubjectSkeleton() {
   );
 }
 
-export default function SubjectPage({
+export default async function SubjectPage({
   params,
 }: {
   params: Promise<{ subjectId: string }>;
 }) {
+  const { subjectId } = await params;
+  const subject = getSubjectById(subjectId);
+  if (!subject) notFound();
+
   return (
     <Suspense fallback={<SubjectSkeleton />}>
-      {params.then(({ subjectId }) => (
-        <SubjectContent subjectId={subjectId} />
-      ))}
+      <SubjectContent subject={subject} />
     </Suspense>
   );
 }
