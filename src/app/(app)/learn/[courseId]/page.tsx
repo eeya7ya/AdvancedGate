@@ -1,97 +1,77 @@
 import { Suspense } from "react";
-import { getCourseById, mockEnrolledCourses } from "@/lib/data";
+import { getCourseById } from "@/lib/data";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ChevronLeft, BookOpen, CheckCircle, Lock, PlayCircle, Clock } from "lucide-react";
 
-// Mock lesson generator (pure function, no async)
 function generateLessons(count: number, baseTitle: string) {
-  const types = ["📖 Reading", "🎥 Video", "💡 Quiz", "🛠️ Exercise"];
   return Array.from({ length: count }, (_, i) => ({
     id: i + 1,
     title:
       i === 0
         ? `Introduction to ${baseTitle}`
         : i === count - 1
-        ? `Final Assessment`
+        ? "Final Assessment"
         : `Lesson ${i + 1}: ${["Core Concepts", "Deep Dive", "Practical Application", "Case Study", "Review & Practice"][i % 5]}`,
-    type: types[i % types.length],
     duration: `${8 + (i % 7) * 3}m`,
-    completed: i < 3,
-    locked: i > 5,
+    completed: false,
+    locked: i > 0,
   }));
 }
 
 async function CourseContent({
   found,
-  courseId,
 }: {
   found: NonNullable<ReturnType<typeof getCourseById>>;
-  courseId: string;
 }) {
   "use cache";
   const { course, subject } = found;
-  const enrollment = mockEnrolledCourses.find((e) => e.courseId === courseId);
   const lessons = generateLessons(course.lessons, course.title);
-  const completedLessons = enrollment?.completedLessons ?? 0;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6 pt-2">
       {/* Back */}
       <Link
         href={`/subjects/${subject.id}`}
-        className="inline-flex items-center gap-2 text-[#94a3b8] hover:text-[#f1f5f9] text-sm font-medium transition-colors"
+        className="inline-flex items-center gap-1.5 text-[#475569] hover:text-[#94a3b8] text-sm font-medium transition-colors"
       >
-        ← {subject.shortTitle}
+        <ChevronLeft size={15} />
+        {subject.shortTitle}
       </Link>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* ── Main content area ──────────────────────────── */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* Main area */}
+        <div className="lg:col-span-2 space-y-5">
           {/* Course hero */}
           <div
             className="relative overflow-hidden rounded-3xl p-6 lg:p-8 border"
             style={{
-              background: `linear-gradient(135deg, ${subject.color}10 0%, rgba(13,20,36,0.98) 70%)`,
-              borderColor: `${subject.color}25`,
+              background: `linear-gradient(135deg, ${subject.color}08 0%, #0d1424 70%)`,
+              borderColor: `${subject.color}20`,
             }}
           >
             <div className="flex items-start gap-4">
               <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0"
-                style={{ background: `${subject.color}20` }}
+                className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
+                style={{ background: `${subject.color}12`, color: subject.color }}
               >
-                {course.thumbnail}
+                <BookOpen size={24} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
-                  <Badge
-                    variant={
-                      course.level === "Beginner"
-                        ? "green"
-                        : course.level === "Intermediate"
-                        ? "blue"
-                        : "purple"
-                    }
-                  >
+                  <Badge variant={course.level === "Beginner" ? "green" : course.level === "Intermediate" ? "blue" : "purple"}>
                     {course.level}
                   </Badge>
-                  <Badge variant="default">⏱ {course.duration}</Badge>
-                  <Badge variant="default">📖 {course.lessons} lessons</Badge>
+                  <span className="text-[#475569] text-xs">{course.duration}</span>
+                  <span className="text-[#475569] text-xs">&middot; {course.lessons} lessons</span>
                 </div>
-                <h1 className="text-xl lg:text-2xl font-bold text-[#f1f5f9] mb-2">
-                  {course.title}
-                </h1>
-                <p className="text-[#94a3b8] text-sm leading-relaxed">
-                  {course.description}
-                </p>
-                <div className="flex gap-1 mt-3 flex-wrap">
+                <h1 className="text-xl lg:text-2xl font-bold text-[#f1f5f9] mb-2">{course.title}</h1>
+                <p className="text-[#64748b] text-sm leading-relaxed">{course.description}</p>
+                <div className="flex gap-1.5 mt-3 flex-wrap">
                   {course.tags.map((tag: string) => (
-                    <span
-                      key={tag}
-                      className="px-2 py-0.5 rounded-md bg-[rgba(255,255,255,0.06)] text-[#94a3b8] text-xs"
-                    >
+                    <span key={tag} className="px-2 py-0.5 rounded-md bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] text-[#475569] text-[11px]">
                       {tag}
                     </span>
                   ))}
@@ -100,72 +80,59 @@ async function CourseContent({
             </div>
           </div>
 
-          {/* Current lesson player area */}
-          <div className="rounded-3xl bg-[#111827] border border-[rgba(255,255,255,0.06)] overflow-hidden">
-            <div className="aspect-video bg-gradient-to-br from-[#0d1424] to-[#111827] flex flex-col items-center justify-center relative">
-              <div className="text-7xl mb-4 animate-float">{course.thumbnail}</div>
-              <h3 className="text-[#f1f5f9] font-bold text-lg mb-2">
-                {lessons[completedLessons]?.title ?? lessons[0].title}
-              </h3>
-              <p className="text-[#94a3b8] text-sm">
-                Click a lesson below to start
-              </p>
-              <div className="absolute inset-0 bg-grid opacity-30 pointer-events-none" />
+          {/* Lesson player placeholder */}
+          <div className="rounded-2xl bg-[#0d1424] border border-[rgba(255,255,255,0.06)] overflow-hidden">
+            <div className="aspect-video flex flex-col items-center justify-center relative bg-[#080c14]">
+              <div className="absolute inset-0 bg-grid opacity-15 pointer-events-none" />
+              <div className="relative z-10 text-center">
+                <div
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                  style={{ background: `${subject.color}12`, color: subject.color }}
+                >
+                  <BookOpen size={28} />
+                </div>
+                <h3 className="text-[#f1f5f9] font-bold text-lg mb-1">{lessons[0].title}</h3>
+                <p className="text-[#475569] text-sm">Select a lesson to begin</p>
+              </div>
             </div>
             <div className="p-4 flex items-center justify-between border-t border-[rgba(255,255,255,0.06)]">
-              <div className="text-[#94a3b8] text-sm">
-                Lesson {Math.min(completedLessons + 1, course.lessons)} of{" "}
-                {course.lessons}
-              </div>
-              <button className="px-5 py-2 rounded-xl bg-[#4f9eff] hover:bg-[#2d7dd2] text-white text-sm font-semibold transition-all hover:shadow-[0_0_20px_rgba(79,158,255,0.4)]">
-                ▶ Continue Learning
+              <span className="text-[#475569] text-sm">Lesson 1 of {course.lessons}</span>
+              <button className="px-5 py-2 rounded-xl bg-[#4f9eff] hover:bg-[#2d7dd2] text-white text-sm font-semibold transition-all hover:shadow-[0_0_20px_rgba(79,158,255,0.35)]">
+                Start Course
               </button>
             </div>
           </div>
         </div>
 
-        {/* ── Sidebar: lessons list ────────────────────────── */}
+        {/* Sidebar: lessons */}
         <div className="space-y-4">
-          {/* Progress */}
-          {enrollment && (
-            <div className="p-4 rounded-2xl bg-[#111827] border border-[rgba(255,255,255,0.06)]">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[#f1f5f9] font-semibold text-sm">
-                  Your Progress
-                </span>
-                <span className="text-[#f5a623] font-bold text-sm">
-                  {enrollment.progress}%
-                </span>
-              </div>
-              <Progress value={enrollment.progress} color="gold" size="md" />
-              <p className="text-[#94a3b8] text-xs mt-2">
-                {enrollment.completedLessons} of {course.lessons} lessons done
-              </p>
-            </div>
-          )}
+          {/* Enroll CTA */}
+          <div className="p-4 rounded-2xl bg-[rgba(79,158,255,0.05)] border border-[rgba(79,158,255,0.15)]">
+            <p className="text-[#f1f5f9] font-semibold text-sm mb-1">Not yet enrolled</p>
+            <p className="text-[#475569] text-xs mb-3 leading-relaxed">
+              Enroll to track progress, earn XP, and unlock the next courses in this discipline.
+            </p>
+            <button className="w-full py-2.5 rounded-xl bg-[#4f9eff] hover:bg-[#2d7dd2] text-white text-sm font-semibold transition-all">
+              Enroll — Free
+            </button>
+          </div>
 
-          {!enrollment && (
-            <div className="p-4 rounded-2xl bg-[rgba(79,158,255,0.05)] border border-[rgba(79,158,255,0.2)]">
-              <p className="text-[#f1f5f9] font-semibold text-sm mb-1">
-                Not yet enrolled
-              </p>
-              <p className="text-[#94a3b8] text-xs mb-3">
-                Enroll to track your progress and earn XP
-              </p>
-              <button className="w-full py-2 rounded-xl bg-[#4f9eff] text-white text-sm font-semibold hover:bg-[#2d7dd2] transition-all">
-                Enroll for Free
-              </button>
+          {/* Progress placeholder */}
+          <div className="p-4 rounded-2xl bg-[#0d1424] border border-[rgba(255,255,255,0.06)]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[#f1f5f9] font-semibold text-sm">Progress</span>
+              <span className="text-[#475569] text-sm font-bold">0%</span>
             </div>
-          )}
+            <Progress value={0} color="gold" size="md" />
+            <p className="text-[#334155] text-xs mt-2">0 of {course.lessons} lessons completed</p>
+          </div>
 
           {/* Lesson list */}
-          <div className="rounded-2xl bg-[#111827] border border-[rgba(255,255,255,0.06)] overflow-hidden">
+          <div className="rounded-2xl bg-[#0d1424] border border-[rgba(255,255,255,0.06)] overflow-hidden">
             <div className="p-4 border-b border-[rgba(255,255,255,0.06)]">
-              <h3 className="text-[#f1f5f9] font-bold text-sm">
-                Course Content
-              </h3>
+              <h3 className="text-[#f1f5f9] font-bold text-sm">Course Content</h3>
             </div>
-            <div className="divide-y divide-[rgba(255,255,255,0.04)] max-h-[420px] overflow-y-auto">
+            <div className="divide-y divide-[rgba(255,255,255,0.04)] max-h-96 overflow-y-auto">
               {lessons.map((lesson) => (
                 <div
                   key={lesson.id}
@@ -175,30 +142,23 @@ async function CourseContent({
                       : "hover:bg-[rgba(255,255,255,0.03)] cursor-pointer"
                   }`}
                 >
-                  <div
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 ${
-                      lesson.completed
-                        ? "bg-[rgba(74,222,128,0.2)] text-[#4ade80]"
-                        : lesson.locked
-                        ? "bg-[rgba(255,255,255,0.05)] text-[#475569]"
-                        : "bg-[rgba(79,158,255,0.15)] text-[#4f9eff]"
-                    }`}
-                  >
-                    {lesson.completed ? "✓" : lesson.locked ? "🔒" : lesson.id}
+                  <div className="flex-shrink-0">
+                    {lesson.completed ? (
+                      <CheckCircle size={16} className="text-[#4ade80]" />
+                    ) : lesson.locked ? (
+                      <Lock size={14} className="text-[#334155]" />
+                    ) : (
+                      <PlayCircle size={16} className="text-[#4f9eff]" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p
-                      className={`text-xs font-medium truncate ${
-                        lesson.completed
-                          ? "text-[#94a3b8] line-through"
-                          : "text-[#f1f5f9]"
-                      }`}
-                    >
+                    <p className={`text-xs font-medium truncate ${lesson.completed ? "text-[#475569] line-through" : "text-[#f1f5f9]"}`}>
                       {lesson.title}
                     </p>
-                    <p className="text-[#475569] text-[10px]">
-                      {lesson.type} · {lesson.duration}
-                    </p>
+                    <div className="flex items-center gap-1 text-[#334155] text-[10px] mt-0.5">
+                      <Clock size={9} />
+                      {lesson.duration}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -212,9 +172,9 @@ async function CourseContent({
 
 function CourseSkeleton() {
   return (
-    <div className="max-w-6xl mx-auto space-y-6 animate-pulse">
+    <div className="max-w-6xl mx-auto space-y-6 animate-pulse pt-2">
       <div className="h-4 w-24 rounded bg-[#1a2540]" />
-      <div className="h-48 rounded-3xl bg-[#111827]" />
+      <div className="h-48 rounded-3xl bg-[#0d1424]" />
     </div>
   );
 }
@@ -230,7 +190,7 @@ export default async function LearnPage({
 
   return (
     <Suspense fallback={<CourseSkeleton />}>
-      <CourseContent found={found} courseId={courseId} />
+      <CourseContent found={found} />
     </Suspense>
   );
 }
