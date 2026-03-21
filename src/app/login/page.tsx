@@ -1,5 +1,6 @@
 import { GoogleSignInButton } from "@/components/auth/google-sign-in";
 import Image from "next/image";
+import { Lock, CheckCircle, GraduationCap } from "lucide-react";
 
 // Middleware redirects authenticated users away from /login
 export default function LoginPage() {
@@ -13,20 +14,13 @@ export default function LoginPage() {
           loop
           muted
           playsInline
+          preload="auto"
           className="absolute inset-0 w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-[#080c14]/40 via-transparent to-[#080c14]/90" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#080c14]/60 via-transparent to-transparent" />
 
         <div className="relative z-10 flex flex-col justify-between h-full p-12">
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl overflow-hidden bg-white/10 backdrop-blur-sm flex items-center justify-center">
-              <Image src="/logo.png" alt="eSpark" width={36} height={36} className="object-contain" />
-            </div>
-            <span className="text-white font-bold text-xl tracking-tight">eSpark</span>
-          </div>
-
           {/* Tagline */}
           <div className="max-w-lg">
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2 mb-6">
@@ -116,15 +110,15 @@ export default function LoginPage() {
 
             <div className="space-y-3">
               {[
-                { icon: "🔒", text: "Your data is encrypted and secure" },
-                { icon: "✅", text: "Progress synced across all devices" },
-                { icon: "🎓", text: "Access all enrolled courses instantly" },
+                { icon: <Lock size={16} className="text-[#94a3b8]" />, text: "Your data is encrypted and secure" },
+                { icon: <CheckCircle size={16} className="text-[#4ade80]" />, text: "Progress synced across all devices" },
+                { icon: <GraduationCap size={16} className="text-[#4f9eff]" />, text: "Access all enrolled courses instantly" },
               ].map((item) => (
                 <div
                   key={item.text}
                   className="flex items-center gap-3 p-3 rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)]"
                 >
-                  <span className="text-base">{item.icon}</span>
+                  <span className="flex items-center justify-center w-5 h-5">{item.icon}</span>
                   <span className="text-[#94a3b8] text-sm">{item.text}</span>
                 </div>
               ))}
