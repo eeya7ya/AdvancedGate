@@ -6,8 +6,15 @@ import { Lock, CheckCircle, GraduationCap } from "lucide-react";
 export default function LoginPage() {
   return (
     <div className="h-screen w-screen flex overflow-hidden bg-[#080c14]">
+      {/* Preload the video so the browser fetches it at highest priority */}
+      {/* eslint-disable-next-line @next/next/no-head-element */}
+      <link rel="preload" as="video" href="/background.mp4" type="video/mp4" />
+
       {/* ─── LHS: Looping Video ─────────────────────────────────────── */}
-      <div className="relative hidden lg:flex lg:w-3/5 xl:w-[60%] overflow-hidden">
+      <div
+        className="relative hidden lg:flex lg:w-3/5 xl:w-[60%] overflow-hidden"
+        style={{ background: "linear-gradient(135deg,#0d1424 0%,#111827 100%)" }}
+      >
         <video
           src="/background.mp4"
           autoPlay
@@ -15,6 +22,8 @@ export default function LoginPage() {
           muted
           playsInline
           preload="auto"
+          // @ts-expect-error — fetchpriority is a valid HTML attribute not yet typed
+          fetchpriority="high"
           className="absolute inset-0 w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-[#080c14]/40 via-transparent to-[#080c14]/90" />
