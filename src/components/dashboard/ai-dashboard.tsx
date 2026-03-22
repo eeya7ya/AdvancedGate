@@ -120,6 +120,40 @@ function looksLikePlanAttempt(text: string): boolean {
   return t.startsWith("{") || t.startsWith("```") || t.includes('"type": "LEARNING_PLAN"');
 }
 
+/* ── Translations ───────────────────────────────────────────────── */
+const D: Record<string, { en: string; ar: string }> = {
+  badge:          { en: "Real-time AI Advisor · Powered by Claude", ar: "مستشار ذكاء اصطناعي · مدعوم بـ Claude" },
+  heroTitle:      { en: "Achieve Any Dream With", ar: "حقق أي حلم بمساعدة" },
+  heroAI:         { en: "Your AI Advisor", ar: "مستشارك الذكي" },
+  heroDesc:       { en: "No matter what your goal is — career, business, creative, academic, or personal — your AI advisor will understand your unique situation and build a real-time roadmap with mind maps, charts, and actionable steps to help you get there.", ar: "مهما كان هدفك — مهني، تجاري، إبداعي، أكاديمي أو شخصي — سيفهم مستشارك الذكي وضعك الفريد ويبني لك خارطة طريق حقيقية بخرائط ذهنية ورسوم بيانية وخطوات عملية توصلك إلى ما تريد." },
+  startSession:   { en: "Start AI Session", ar: "ابدأ الجلسة الذكية" },
+  chip1:          { en: "Any goal, any domain", ar: "أي هدف، أي مجال" },
+  chip2:          { en: "Mind maps & charts", ar: "خرائط ذهنية ورسوم بيانية" },
+  chip3:          { en: "Real-time action plan", ar: "خطة عمل آنية" },
+  chip4:          { en: "Saves your progress", ar: "يحفظ تقدمك" },
+  yourPlan:       { en: "Your Personalized Action Plan", ar: "خطتك الشخصية" },
+  marketNotice:   { en: "Market Notice", ar: "تنبيه السوق" },
+  viewRoadmap:    { en: "View Roadmap", ar: "عرض خارطة الطريق" },
+  restart:        { en: "Restart", ar: "ابدأ من جديد" },
+  todayFocus:     { en: "Today's Focus", ar: "تركيز اليوم" },
+  recCourses:     { en: "Recommended Courses", ar: "الدورات الموصى بها" },
+  open:           { en: "Open", ar: "فتح" },
+  search:         { en: "Search", ar: "بحث" },
+  by:             { en: "by", ar: "بواسطة" },
+  nextSteps:      { en: "Your Next Steps", ar: "خطواتك القادمة" },
+  advisorLabel:   { en: "AI Life Advisor", ar: "مستشار الحياة الذكي" },
+  chatHeading:    { en: "let's map your path", ar: "لنرسم طريقك" },
+  startOver:      { en: "Start over", ar: "ابدأ من جديد" },
+  placeholder:    { en: "Message AI Advisor... (Enter to send, Shift+Enter for new line)", ar: "اكتب رسالتك... (Enter للإرسال، Shift+Enter لسطر جديد)" },
+  crafting:       { en: "Crafting your personalized roadmap...", ar: "جارٍ إنشاء خارطة طريقك الشخصية..." },
+  startOverTitle: { en: "Start Over?", ar: "البدء من جديد؟" },
+  startOverMsg:   { en: "This will permanently delete your saved roadmap and all session data, then restart from scratch. This cannot be undone.", ar: "سيؤدي هذا إلى حذف خارطة طريقك المحفوظة وجميع بيانات الجلسة نهائياً، ثم البدء من الصفر. لا يمكن التراجع عن هذا." },
+  startOverConfirm: { en: "Yes, Delete & Restart", ar: "نعم، احذف وابدأ من جديد" },
+};
+function td(key: string, ar: boolean): string {
+  return ar ? (D[key]?.ar ?? key) : (D[key]?.en ?? key);
+}
+
 /* ── Sub-components ─────────────────────────────────────────────── */
 
 function AIAvatar() {
@@ -134,6 +168,8 @@ function AIAvatar() {
 }
 
 function TypingIndicator({ isPlan = false }: { isPlan?: boolean }) {
+  const { lang } = useLang();
+  const ar = lang === "ar";
   return (
     <div className="flex items-end gap-3">
       <AIAvatar />
@@ -148,7 +184,7 @@ function TypingIndicator({ isPlan = false }: { isPlan?: boolean }) {
         </div>
         {isPlan && (
           <p className="text-xs font-medium animate-pulse" style={{ color: "var(--text-muted)" }}>
-            Crafting your personalized roadmap...
+            {td("crafting", ar)}
           </p>
         )}
       </div>
@@ -564,12 +600,18 @@ function TopicConnections({ links }: { links: TopicLink[] }) {
 
 /* ── Welcome Screen ─────────────────────────────────────────────── */
 function WelcomeScreen({ onStart }: { onStart: () => void }) {
+  const { lang } = useLang();
+  const ar = lang === "ar";
+  const chips = [
+    td("chip1", ar), td("chip2", ar), td("chip3", ar), td("chip4", ar),
+  ];
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4"
+      dir={ar ? "rtl" : "ltr"}
     >
       {/* Glowing brain icon */}
       <motion.div
@@ -604,22 +646,20 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
           }}
         >
           <Sparkles size={11} />
-          Real-time AI Advisor · Powered by Claude
+          {td("badge", ar)}
         </div>
         <h1
           className="text-3xl lg:text-4xl font-bold mb-4 leading-tight max-w-lg mx-auto"
           style={{ color: "var(--text-primary)" }}
         >
-          Achieve Any Dream With{" "}
-          <span className="gradient-text-ai">Your AI Advisor</span>
+          {td("heroTitle", ar)}{" "}
+          <span className="gradient-text-ai">{td("heroAI", ar)}</span>
         </h1>
         <p
           className="max-w-lg mx-auto text-base leading-relaxed mb-10"
           style={{ color: "var(--text-secondary)" }}
         >
-          No matter what your goal is — career, business, creative, academic, or personal —
-          your AI advisor will understand your unique situation and build a real-time roadmap
-          with mind maps, charts, and actionable steps to help you get there.
+          {td("heroDesc", ar)}
         </p>
 
         <motion.button
@@ -637,7 +677,7 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
             style={{ background: "linear-gradient(135deg, #00c090, #0ea5c5)" }}
           />
           <Brain size={18} className="relative z-10" />
-          <span className="relative z-10">Start AI Session</span>
+          <span className="relative z-10">{td("startSession", ar)}</span>
           <ArrowRight size={18} className="relative z-10" />
         </motion.button>
       </motion.div>
@@ -649,14 +689,9 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
         transition={{ delay: 0.4 }}
         className="flex flex-wrap items-center justify-center gap-3 mt-10"
       >
-        {[
-          { icon: "✦", text: "Any goal, any domain" },
-          { icon: "✦", text: "Mind maps & charts" },
-          { icon: "✦", text: "Real-time action plan" },
-          { icon: "✦", text: "Saves your progress" },
-        ].map((f) => (
+        {chips.map((text) => (
           <div
-            key={f.text}
+            key={text}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
             style={{
               background: "var(--bg-card)",
@@ -664,8 +699,8 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
               color: "var(--text-secondary)",
             }}
           >
-            <span style={{ color: "var(--brand-teal)" }}>{f.icon}</span>
-            {f.text}
+            <span style={{ color: "var(--brand-teal)" }}>✦</span>
+            {text}
           </div>
         ))}
       </motion.div>
@@ -675,11 +710,14 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
 
 /* ── Plan View ──────────────────────────────────────────────────── */
 function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }) {
+  const { lang } = useLang();
+  const ar = lang === "ar";
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="space-y-6"
+      dir={ar ? "rtl" : "ltr"}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
@@ -693,7 +731,7 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
             }}
           >
             <Sparkles size={11} />
-            Your Personalized Action Plan
+            {td("yourPlan", ar)}
           </div>
           <p className="text-sm max-w-2xl leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             {plan.profile.summary}
@@ -726,7 +764,7 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
               style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)" }}>
               <div className="flex items-center gap-1.5 mb-1.5">
                 <AlertTriangle size={12} style={{ color: "#f59e0b" }} />
-                <span className="text-xs font-bold tracking-wide" style={{ color: "#f59e0b" }}>Market Notice</span>
+                <span className="text-xs font-bold tracking-wide" style={{ color: "#f59e0b" }}>{td("marketNotice", ar)}</span>
               </div>
               <p className="text-xs leading-relaxed" style={{ color: "#fbbf24" }}>
                 {plan.marketInsights.notice}
@@ -744,7 +782,7 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
             }}
           >
             <Map size={12} />
-            View Roadmap
+            {td("viewRoadmap", ar)}
           </Link>
           <button
             onClick={onReset}
@@ -756,7 +794,7 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
             }}
           >
             <RotateCcw size={12} />
-            Restart
+            {td("restart", ar)}
           </button>
         </div>
       </div>
@@ -782,7 +820,7 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
             style={{ background: "rgba(0,212,161,0.12)", color: "#00d4a1" }}
           >
             <Target size={11} />
-            Today&apos;s Focus
+            {td("todayFocus", ar)}
           </div>
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div className="flex-1">
@@ -854,7 +892,7 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
         >
           <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
             <BookOpen size={15} style={{ color: "#a78bfa" }} />
-            Recommended Courses
+            {td("recCourses", ar)}
           </h3>
           <div className="grid sm:grid-cols-2 gap-3">
             {plan.courseRecommendations.map((course, i) => (
@@ -892,7 +930,7 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
                         whiteSpace: "nowrap",
                       }}
                     >
-                      Open
+                      {td("open", ar)}
                       <ExternalLink size={9} />
                     </a>
                   ) : (
@@ -908,7 +946,7 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
                         whiteSpace: "nowrap",
                       }}
                     >
-                      Search
+                      {td("search", ar)}
                       <ExternalLink size={9} />
                     </a>
                   )}
@@ -924,7 +962,7 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
                     {course.phase}
                   </span>
                   <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                    by {course.instructor}
+                    {td("by", ar)} {course.instructor}
                   </span>
                 </div>
               </div>
@@ -949,7 +987,7 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
           style={{ color: "var(--text-primary)" }}
         >
           <ArrowRight size={15} style={{ color: "var(--brand-teal)" }} />
-          Your Next Steps
+          {td("nextSteps", ar)}
         </h3>
         <ol className="space-y-3">
           {plan.nextSteps.map((step, i) => (
@@ -1179,13 +1217,15 @@ export function AIDashboard({ firstName }: { firstName: string }) {
     <div className="max-w-4xl mx-auto">
       {/* Page header */}
       {phase !== "welcome" && (
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6" dir={lang === "ar" ? "rtl" : "ltr"}>
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>
-              AI Life Advisor
+              {td("advisorLabel", lang === "ar")}
             </p>
             <h1 className="text-2xl lg:text-3xl font-bold" style={{ color: "var(--text-primary)" }}>
-              {phase === "chat" ? `Hey ${firstName}, let's map your path` : `${firstName}'s Action Plan`}
+              {phase === "chat"
+                ? `${firstName}، ${td("chatHeading", lang === "ar")}`
+                : `${firstName}'s Action Plan`}
             </h1>
           </div>
           {phase === "chat" && (
@@ -1199,7 +1239,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
               }}
             >
               <RotateCcw size={12} />
-              Start over
+              {td("startOver", lang === "ar")}
             </button>
           )}
         </div>
@@ -1231,7 +1271,10 @@ export function AIDashboard({ firstName }: { firstName: string }) {
 
               {messages.map((msg, i) => {
                 // Don't render the silent greeting sent at start
-                if (msg.role === "user" && msg.content === "Hello! I'm ready to get my personalized action plan.") return null;
+                if (msg.role === "user" && (
+                  msg.content === "Hello! I'm ready to get my personalized action plan." ||
+                  msg.content === "مرحباً! أنا مستعد للحصول على خطة العمل الشخصية الخاصة بي."
+                )) return null;
                 return <ChatBubble key={i} msg={msg} />;
               })}
 
@@ -1262,7 +1305,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
                   el.style.height = Math.min(el.scrollHeight, 120) + "px";
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder="Message AI Advisor... (Enter to send, Shift+Enter for new line)"
+                placeholder={td("placeholder", lang === "ar")}
                 rows={1}
                 disabled={isLoading}
                 dir={getTextDir(input)}
@@ -1305,9 +1348,9 @@ export function AIDashboard({ firstName }: { firstName: string }) {
         {showResetConfirm && (
           <ConfirmDialog
             open={showResetConfirm}
-            title="Start Over?"
-            message="This will permanently delete your saved roadmap and all session data, then restart from scratch. This cannot be undone."
-            confirmLabel="Yes, Delete & Restart"
+            title={td("startOverTitle", lang === "ar")}
+            message={td("startOverMsg", lang === "ar")}
+            confirmLabel={td("startOverConfirm", lang === "ar")}
             onConfirm={handleConfirmReset}
             onCancel={() => setShowResetConfirm(false)}
             isLoading={isDeleting}
