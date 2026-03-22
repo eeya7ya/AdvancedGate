@@ -391,21 +391,22 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
           }}
         >
           <Sparkles size={11} />
-          Powered by Claude AI · Sonnet 4.6
+          Real-time AI Advisor · Powered by Claude
         </div>
         <h1
           className="text-3xl lg:text-4xl font-bold mb-4 leading-tight"
           style={{ color: "var(--text-primary)" }}
         >
-          Discover Your Perfect{" "}
-          <span className="gradient-text-ai">Learning Path</span>
+          Achieve Any Dream With{" "}
+          <span className="gradient-text-ai">Your AI Advisor</span>
         </h1>
         <p
           className="max-w-md text-base leading-relaxed mb-10"
           style={{ color: "var(--text-secondary)" }}
         >
-          Our AI advisor will ask you 4–5 smart questions to understand your background,
-          goals, and learning style — then build a personalized engineering roadmap just for you.
+          No matter what your goal is — career, business, creative, academic, or personal —
+          your AI advisor will understand your unique situation and build a real-time roadmap
+          with mind maps, charts, and actionable steps to help you get there.
         </p>
 
         <motion.button
@@ -423,7 +424,7 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
             style={{ background: "linear-gradient(135deg, #00c090, #0ea5c5)" }}
           />
           <Brain size={18} className="relative z-10" />
-          <span className="relative z-10">Start AI Interview</span>
+          <span className="relative z-10">Start AI Session</span>
           <ArrowRight size={18} className="relative z-10" />
         </motion.button>
       </motion.div>
@@ -436,10 +437,10 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
         className="flex flex-wrap items-center justify-center gap-3 mt-10"
       >
         {[
-          { icon: "✦", text: "4–5 smart questions" },
-          { icon: "✦", text: "Personalized roadmap" },
-          { icon: "✦", text: "Visual learning plan" },
-          { icon: "✦", text: "Topic connections" },
+          { icon: "✦", text: "Any goal, any domain" },
+          { icon: "✦", text: "Mind maps & charts" },
+          { icon: "✦", text: "Real-time action plan" },
+          { icon: "✦", text: "Saves your progress" },
         ].map((f) => (
           <div
             key={f.text}
@@ -479,7 +480,7 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
             }}
           >
             <Sparkles size={11} />
-            Your Personalized Learning Plan
+            Your Personalized Action Plan
           </div>
           <p className="text-sm max-w-2xl leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             {plan.profile.summary}
@@ -603,8 +604,14 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
           {plan.nextSteps.map((step, i) => (
             <li key={i} className="flex items-start gap-3">
               <span
-                className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)" }}
+                className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+                style={{
+                  background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
+                  color: "#0a1628",
+                  border: "2px solid rgba(255,255,255,0.3)",
+                  boxShadow: "0 0 10px rgba(0,212,161,0.4)",
+                  minWidth: "28px",
+                }}
               >
                 {i + 1}
               </span>
@@ -694,7 +701,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
     setStreamedText("");
 
     try {
-      const greeting = `Hello! I'm ready to build my personalized learning plan.`;
+      const greeting = `Hello! I'm ready to get my personalized action plan.`;
       const initMessages: Message[] = [{ role: "user", content: greeting }];
       setMessages(initMessages);
 
@@ -721,7 +728,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
     } catch {
       setMessages([
         { role: "user", content: "Hello!" },
-        { role: "assistant", content: "Welcome! I'm your AI learning advisor. Tell me a bit about yourself — what's your educational or professional background?" },
+        { role: "assistant", content: "Welcome! I'm your AI life advisor. I'm here to help you achieve any goal or dream. Tell me a bit about yourself — who are you and where are you in life right now?" },
       ]);
     } finally {
       setIsLoading(false);
@@ -752,10 +759,10 @@ export function AIDashboard({ firstName }: { firstName: string }) {
         <div className="flex items-center justify-between mb-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>
-              AI Learning Advisor
+              AI Life Advisor
             </p>
             <h1 className="text-2xl lg:text-3xl font-bold" style={{ color: "var(--text-primary)" }}>
-              {phase === "chat" ? `Hey ${firstName}, let's map your path` : `${firstName}'s Learning Plan`}
+              {phase === "chat" ? `Hey ${firstName}, let's map your path` : `${firstName}'s Action Plan`}
             </h1>
           </div>
           {phase === "chat" && (
@@ -794,7 +801,8 @@ export function AIDashboard({ firstName }: { firstName: string }) {
               className="flex-1 overflow-y-auto rounded-2xl p-5 space-y-5 mb-4"
               style={{
                 background: "var(--bg-card)",
-                border: "1px solid var(--border-subtle)",
+                border: "2px solid rgba(0,212,161,0.15)",
+                boxShadow: "inset 0 1px 0 rgba(0,212,161,0.06)",
               }}
             >
               {/* Progress */}
@@ -847,7 +855,8 @@ export function AIDashboard({ firstName }: { firstName: string }) {
               className="flex items-end gap-3 p-3 rounded-2xl"
               style={{
                 background: "var(--bg-card)",
-                border: "1px solid var(--border-subtle)",
+                border: "2px solid rgba(0,212,161,0.25)",
+                boxShadow: "0 0 0 1px rgba(0,212,161,0.08)",
               }}
             >
               <textarea
@@ -858,11 +867,12 @@ export function AIDashboard({ firstName }: { firstName: string }) {
                 placeholder="Type your answer... (Enter to send)"
                 rows={1}
                 disabled={isLoading}
-                className="flex-1 resize-none bg-transparent outline-none text-sm leading-relaxed py-1 placeholder:opacity-50 disabled:opacity-40"
+                className="flex-1 resize-none bg-transparent outline-none text-sm leading-relaxed py-1 disabled:opacity-40"
                 style={{
                   color: "var(--text-primary)",
                   maxHeight: "120px",
                   overflowY: "auto",
+                  caretColor: "#00d4a1",
                 }}
               />
               <button
@@ -874,6 +884,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
                     ? "linear-gradient(135deg, #00d4a1, #22d3ee)"
                     : "var(--bg-base)",
                   boxShadow: input.trim() && !isLoading ? "0 0 16px rgba(0,212,161,0.4)" : "none",
+                  border: "1px solid rgba(0,212,161,0.2)",
                 }}
               >
                 <Send size={15} className="text-white" />
