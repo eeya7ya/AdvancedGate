@@ -136,6 +136,49 @@ function TypingIndicator() {
   );
 }
 
+function formatAIMessage(content: string, isStreaming?: boolean) {
+  const lines = content.split("\n");
+  const elements: React.ReactNode[] = [];
+  let key = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      elements.push(<div key={key++} className="h-2" />);
+      continue;
+    }
+    // Detect Q1:, Q2: ... lines
+    const qMatch = trimmed.match(/^(Q\d+):\s*(.+)$/);
+    if (qMatch) {
+      elements.push(
+        <div key={key++} className="flex gap-2 mt-1">
+          <span
+            className="flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded-md mt-0.5"
+            style={{ background: "rgba(0,212,161,0.15)", color: "#00d4a1" }}
+          >
+            {qMatch[1]}
+          </span>
+          <span className="leading-relaxed">{qMatch[2]}</span>
+        </div>
+      );
+    } else {
+      elements.push(<p key={key++} className="leading-relaxed">{trimmed}</p>);
+    }
+  }
+
+  if (isStreaming) {
+    elements.push(
+      <span
+        key="cursor"
+        className="inline-block w-0.5 h-4 ml-0.5 align-middle animate-pulse"
+        style={{ background: "var(--brand-teal)" }}
+      />
+    );
+  }
+
+  return elements;
+}
+
 function ChatBubble({ msg, isStreaming }: { msg: Message; isStreaming?: boolean }) {
   const isAI = msg.role === "assistant";
   return (
@@ -156,7 +199,7 @@ function ChatBubble({ msg, isStreaming }: { msg: Message; isStreaming?: boolean 
         </div>
       )}
       <div
-        className="max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed"
+        className="max-w-[80%] px-4 py-3 rounded-2xl text-sm"
         style={
           isAI
             ? {
@@ -172,13 +215,7 @@ function ChatBubble({ msg, isStreaming }: { msg: Message; isStreaming?: boolean 
               }
         }
       >
-        {msg.content}
-        {isStreaming && (
-          <span
-            className="inline-block w-0.5 h-4 ml-0.5 align-middle animate-pulse"
-            style={{ background: "var(--brand-teal)" }}
-          />
-        )}
+        {isAI ? formatAIMessage(msg.content, isStreaming) : <p className="leading-relaxed">{msg.content}</p>}
       </div>
     </motion.div>
   );
