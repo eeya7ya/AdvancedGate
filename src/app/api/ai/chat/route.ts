@@ -330,7 +330,7 @@ export async function POST(req: NextRequest) {
           system: SYSTEM_PROMPT,
           messages,
           ...(isInit ? {} : {
-            tools: [{ type: "web_search_20250305" as const, name: "web_search", max_uses: 5 }],
+            tools: [{ type: "web_search_20250305" as const, name: "web_search" as const, max_uses: 5 }],
           }),
         };
         const stream = client.messages.stream(streamParams);
