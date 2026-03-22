@@ -561,7 +561,7 @@ export function ScheduleClient({
           {/* Day grid */}
           <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
             {weekDates.map((dateStr) => {
-              const day = dayMap.get(dateStr);
+              const day = dayMap.get(dateStr) ?? null;
               const isToday = dateStr === today;
 
               if (!day) {
