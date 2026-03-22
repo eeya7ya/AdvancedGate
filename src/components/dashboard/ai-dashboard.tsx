@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Sparkles, Brain, Target, Clock, ArrowRight, ChevronRight, RotateCcw, Zap } from "lucide-react";
+import Link from "next/link";
+import { Send, Sparkles, Brain, Target, Clock, ArrowRight, ChevronRight, RotateCcw, Zap, Map } from "lucide-react";
 
 /* ── Types ─────────────────────────────────────────────────────── */
 interface Message {
@@ -394,14 +395,14 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
           Real-time AI Advisor · Powered by Claude
         </div>
         <h1
-          className="text-3xl lg:text-4xl font-bold mb-4 leading-tight"
+          className="text-3xl lg:text-4xl font-bold mb-4 leading-tight max-w-lg mx-auto"
           style={{ color: "var(--text-primary)" }}
         >
           Achieve Any Dream With{" "}
           <span className="gradient-text-ai">Your AI Advisor</span>
         </h1>
         <p
-          className="max-w-md text-base leading-relaxed mb-10"
+          className="max-w-lg mx-auto text-base leading-relaxed mb-10"
           style={{ color: "var(--text-secondary)" }}
         >
           No matter what your goal is — career, business, creative, academic, or personal —
@@ -486,18 +487,31 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
             {plan.profile.summary}
           </p>
         </div>
-        <button
-          onClick={onReset}
-          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all hover:opacity-80"
-          style={{
-            background: "var(--bg-card)",
-            border: "1px solid var(--border-subtle)",
-            color: "var(--text-muted)",
-          }}
-        >
-          <RotateCcw size={12} />
-          Restart
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Link
+            href="/roadmap"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-90"
+            style={{
+              background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
+              color: "#0a1628",
+            }}
+          >
+            <Map size={12} />
+            View Roadmap
+          </Link>
+          <button
+            onClick={onReset}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all hover:opacity-80"
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--border-subtle)",
+              color: "var(--text-muted)",
+            }}
+          >
+            <RotateCcw size={12} />
+            Restart
+          </button>
+        </div>
       </div>
 
       {/* Today's Focus */}
@@ -681,6 +695,12 @@ export function AIDashboard({ firstName }: { firstName: string }) {
         setPlan(detected);
         setPhase("plan");
         setMessages([...newMessages, { role: "assistant", content: full }]);
+        // Persist to database
+        fetch("/api/user/roadmap", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ plan: detected }),
+        }).catch(() => null);
       } else {
         setMessages([...newMessages, { role: "assistant", content: full }]);
       }

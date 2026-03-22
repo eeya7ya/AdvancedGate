@@ -57,6 +57,17 @@ export async function createTables() {
       UNIQUE (user_id, achievement_id)
     );
   `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS user_roadmap (
+      user_id    TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      plan_json  JSONB NOT NULL,
+      email_reminders_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      reminder_email TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
 }
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
@@ -121,6 +132,59 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
     return rows[0] as UserProfile;
   } catch {
     return null;
+  }
+}
+
+export async function getUserRoadmap(userId: string): Promise<{ planJson: unknown; emailRemindersEnabled: boolean; reminderEmail: string | null } | null> {
+  try {
+    const { rows } = await sql`
+      SELECT plan_json AS "planJson",
+             email_reminders_enabled AS "emailRemindersEnabled",
+             reminder_email AS "reminderEmail"
+      FROM user_roadmap
+      WHERE user_id = ${userId}
+    `;
+    if (!rows[0]) return null;
+    return rows[0] as { planJson: unknown; emailRemindersEnabled: boolean; reminderEmail: string | null };
+  } catch {
+    return null;
+  }
+}
+
+export async function upsertUserRoadmap(
+  userId: string,
+  planJson: unknown,
+): Promise<boolean> {
+  try {
+    await sql`
+      INSERT INTO user_roadmap (user_id, plan_json, updated_at)
+      VALUES (${userId}, ${JSON.stringify(planJson)}, NOW())
+      ON CONFLICT (user_id) DO UPDATE
+        SET plan_json  = EXCLUDED.plan_json,
+            updated_at = NOW()
+    `;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function updateRoadmapEmailSettings(
+  userId: string,
+  enabled: boolean,
+  email: string | null,
+): Promise<boolean> {
+  try {
+    await sql`
+      UPDATE user_roadmap
+      SET email_reminders_enabled = ${enabled},
+          reminder_email = ${email},
+          updated_at = NOW()
+      WHERE user_id = ${userId}
+    `;
+    return true;
+  } catch {
+    return false;
   }
 }
 

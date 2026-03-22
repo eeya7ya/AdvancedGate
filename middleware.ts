@@ -8,6 +8,7 @@ export default auth((req) => {
   const isProtected =
     nextUrl.pathname.startsWith("/dashboard") ||
     nextUrl.pathname.startsWith("/subjects") ||
+    nextUrl.pathname.startsWith("/roadmap") ||
     nextUrl.pathname.startsWith("/learn") ||
     nextUrl.pathname.startsWith("/profile");
 
