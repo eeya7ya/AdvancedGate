@@ -1,18 +1,16 @@
 import { auth } from "~/auth";
 import { getUserRoadmap } from "@/lib/db";
-import { RoadmapClient } from "./roadmap-client";
+import { ScheduleClient } from "./schedule-client";
 import Link from "next/link";
-import { Brain, ArrowRight } from "lucide-react";
+import { CalendarDays, Brain, ArrowRight } from "lucide-react";
 
-export default async function RoadmapPage() {
+export default async function SchedulePage() {
   const session = await auth();
   const userId = session?.user?.id;
   const roadmapData = userId ? await getUserRoadmap(userId) : null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const plan = roadmapData?.planJson as any ?? null;
-  const emailEnabled = roadmapData?.emailRemindersEnabled ?? false;
-  const reminderEmail = roadmapData?.reminderEmail ?? (session?.user?.email ?? "");
   const createdAt = roadmapData?.createdAt ?? null;
 
   if (!plan) {
@@ -22,13 +20,13 @@ export default async function RoadmapPage() {
           className="w-20 h-20 rounded-3xl flex items-center justify-center mb-6"
           style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)", boxShadow: "0 0 40px rgba(0,212,161,0.3)" }}
         >
-          <Brain size={36} className="text-white" strokeWidth={1.5} />
+          <CalendarDays size={36} className="text-white" strokeWidth={1.5} />
         </div>
         <h1 className="text-3xl font-bold mb-3" style={{ color: "var(--text-primary)" }}>
-          No Roadmap Yet
+          No Schedule Yet
         </h1>
         <p className="text-base mb-8 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-          Start a session with your AI Advisor to generate a personalized roadmap. It only takes a few minutes.
+          Generate a personalized roadmap with your AI Advisor first — your day-by-day schedule will appear here.
         </p>
         <Link
           href="/dashboard"
@@ -43,12 +41,5 @@ export default async function RoadmapPage() {
     );
   }
 
-  return (
-    <RoadmapClient
-      plan={plan}
-      initialEmailEnabled={emailEnabled}
-      initialReminderEmail={reminderEmail}
-      createdAt={createdAt}
-    />
-  );
+  return <ScheduleClient plan={plan} createdAt={createdAt} />;
 }

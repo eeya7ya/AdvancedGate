@@ -282,6 +282,23 @@ FINAL CRITICAL RULES:
 - salaryRange must be specific to their stated target market (Gulf, Europe, local, etc.) — not just generic USD
 - All descriptions are full meaningful sentences — this is someone's life roadmap, not a keyword list`;
 
+/* ── Refine mode system prompt ────────────────────────────────
+   Used when the user wants to adjust an existing plan without
+   starting a new session. Outputs the same JSON format.        */
+const REFINE_SYSTEM_PROMPT = `You are eSpark — an expert AI life advisor.
+The user has an existing learning plan and wants to refine it.
+You will receive their current plan as JSON plus their refinement request.
+
+Your task: Apply ONLY the changes the user explicitly requests. Keep every other field exactly as it is in the original. Output ONLY valid JSON in the exact same LEARNING_PLAN format — no text before or after, no markdown fences.
+
+Rules:
+- Do NOT change fields the user did not mention.
+- Keep all real course URLs, names, and platform data from the original.
+- If the user asks to change time allocation, recalculate hours proportionally.
+- If the user asks to change priorities, update scores and descriptions accordingly.
+- Never invent new courses that weren't in the original unless specifically asked.
+- Maintain all personalization (name, country, market, etc.) from the original.`;
+
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) {
@@ -289,9 +306,13 @@ export async function POST(req: NextRequest) {
   }
 
   let messages: Anthropic.MessageParam[];
+  let mode: string = "chat";
+  let existingPlan: unknown = null;
   try {
     const body = await req.json();
     messages = body.messages;
+    mode = body.mode ?? "chat";
+    existingPlan = body.existingPlan ?? null;
   } catch {
     return new Response("Invalid JSON", { status: 400 });
   }
@@ -300,24 +321,52 @@ export async function POST(req: NextRequest) {
     return new Response("Messages required", { status: 400 });
   }
 
+  // ── Model routing ──────────────────────────────────────────
+  // Greeting call: first user message is just the session opener —
+  // no web search needed, Haiku is fast & cheap.
+  // Plan generation / refine: use Sonnet for quality & accuracy.
+  const userMsgCount = messages.filter((m) => m.role === "user").length;
+  const isGreeting = userMsgCount === 1 && mode === "chat";
+  const model = isGreeting ? "claude-haiku-4-5-20251001" : "claude-sonnet-4-6";
+
+  // Tools only for main plan generation (not greeting, not refine)
+  const useTools = !isGreeting && mode !== "refine";
+
+  // For refine mode: inject the existing plan as context into the messages
+  let effectiveMessages = messages;
+  if (mode === "refine" && existingPlan) {
+    const planJson = JSON.stringify(existingPlan, null, 2);
+    effectiveMessages = [
+      {
+        role: "user",
+        content: `Here is my current plan:\n\n${planJson}\n\nPlease apply this refinement: ${messages[messages.length - 1]?.content ?? ""}`,
+      },
+    ];
+  }
+
   const encoder = new TextEncoder();
 
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        const stream = client.messages.stream({
-          model: "claude-sonnet-4-6",
+        const streamParams: Parameters<typeof client.messages.stream>[0] = {
+          model,
           max_tokens: 8000,
-          system: SYSTEM_PROMPT,
-          tools: [
+          system: mode === "refine" ? REFINE_SYSTEM_PROMPT : SYSTEM_PROMPT,
+          messages: effectiveMessages,
+        };
+
+        if (useTools) {
+          streamParams.tools = [
             {
               type: "web_search_20250305" as const,
               name: "web_search",
               max_uses: 5,
             },
-          ],
-          messages,
-        });
+          ];
+        }
+
+        const stream = client.messages.stream(streamParams);
 
         stream.on("text", (text) => {
           controller.enqueue(encoder.encode(text));
