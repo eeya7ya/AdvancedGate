@@ -1,5 +1,5 @@
 import { auth } from "~/auth";
-import { sql, getUserRoadmap, upsertUserRoadmap, updateRoadmapEmailSettings, ensureTables } from "@/lib/db";
+import { sql, getUserRoadmap, upsertUserRoadmap, updateRoadmapEmailSettings, ensureTables, deleteUserRoadmap } from "@/lib/db";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -41,6 +41,15 @@ export async function POST(req: Request) {
   if (!ok) {
     return NextResponse.json({ error: "Failed to save roadmap" }, { status: 500 });
   }
+  return NextResponse.json({ ok });
+}
+
+export async function DELETE() {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const ok = await deleteUserRoadmap(session.user.id);
+  if (!ok) return NextResponse.json({ error: "Failed to delete roadmap" }, { status: 500 });
   return NextResponse.json({ ok });
 }
 

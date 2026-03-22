@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Navbar } from "@/components/layout/navbar";
+import { VisitLogger } from "@/components/layout/visit-logger";
 
 function SidebarFallback() {
   return (
@@ -34,6 +35,7 @@ export default function AppLayout({
         <Suspense fallback={<NavbarFallback />}>
           <Navbar />
         </Suspense>
+        <VisitLogger />
         <main className="flex-1 p-4 lg:p-8 overflow-auto">{children}</main>
       </div>
     </div>

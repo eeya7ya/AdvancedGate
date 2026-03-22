@@ -163,7 +163,8 @@ All description fields must be full, meaningful sentences — never 2-word label
       "estimatedHours": 20,
       "level": "Beginner",
       "focus": "1-2 sentences: specifically what this course covers and exactly why it is the right match for their current level, goal, and the phase they should take it in",
-      "phase": "Month 1-2"
+      "phase": "Month 1-2",
+      "url": "The direct URL to this course page — from your web search results. Must be a real, working link (e.g. https://www.coursera.org/learn/..., https://www.udemy.com/course/..., https://youtu.be/...). Leave as empty string if you cannot confirm the exact URL."
     },
     {
       "title": "Second course — real title from search",
@@ -172,7 +173,8 @@ All description fields must be full, meaningful sentences — never 2-word label
       "estimatedHours": 15,
       "level": "Beginner to Intermediate",
       "focus": "1-2 sentences on what it covers and why it fits their path at this stage",
-      "phase": "Month 2-3"
+      "phase": "Month 2-3",
+      "url": "Direct URL to this course from your search results, or empty string"
     },
     {
       "title": "Third course — real title from search",
@@ -181,7 +183,8 @@ All description fields must be full, meaningful sentences — never 2-word label
       "estimatedHours": 25,
       "level": "Intermediate",
       "focus": "1-2 sentences on what it covers and why it comes after the previous courses",
-      "phase": "Month 3-4"
+      "phase": "Month 3-4",
+      "url": "Direct URL to this course from your search results, or empty string"
     },
     {
       "title": "Fourth course — real title from search",
@@ -190,7 +193,8 @@ All description fields must be full, meaningful sentences — never 2-word label
       "estimatedHours": 30,
       "level": "Intermediate to Advanced",
       "focus": "1-2 sentences on what it unlocks for their career at this stage",
-      "phase": "Month 4-6"
+      "phase": "Month 4-6",
+      "url": "Direct URL to this course from your search results, or empty string"
     }
   ],
   "schedule": {
@@ -260,6 +264,7 @@ All description fields must be full, meaningful sentences — never 2-word label
 FINAL CRITICAL RULES:
 - Every field reflects their actual answers — personalized to who they are, where they live, and what they said
 - courseRecommendations must contain REAL courses found via your web searches — real titles, real instructors, real platforms
+- courseRecommendations.url must be the actual direct URL to the course page from your search results — users will click it directly
 - roadmap phase count and total duration MUST match their stated timeline exactly
 - notice in marketInsights appears ONLY for genuine strategic concerns — never invent problems
 - salaryRange must be specific to their stated target market (Gulf, Europe, local, etc.) — not just generic USD
