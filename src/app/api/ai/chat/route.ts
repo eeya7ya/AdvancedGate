@@ -304,9 +304,11 @@ export async function POST(req: NextRequest) {
   }
 
   let messages: Anthropic.MessageParam[];
+  let isInit = false;
   try {
     const body = await req.json();
     messages = body.messages;
+    isInit = body.isInit === true;
   } catch {
     return new Response("Invalid JSON", { status: 400 });
   }
@@ -315,24 +317,23 @@ export async function POST(req: NextRequest) {
     return new Response("Messages required", { status: 400 });
   }
 
+  const model = isInit ? "claude-haiku-4-5-20251001" : "claude-sonnet-4-6";
+
   const encoder = new TextEncoder();
 
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        const stream = client.messages.stream({
-          model: "claude-sonnet-4-6",
-          max_tokens: 8000,
+        const streamParams = {
+          model,
+          max_tokens: isInit ? 2048 : 8000,
           system: SYSTEM_PROMPT,
-          tools: [
-            {
-              type: "web_search_20250305" as const,
-              name: "web_search",
-              max_uses: 5,
-            },
-          ],
           messages,
-        });
+          ...(isInit ? {} : {
+            tools: [{ type: "web_search_20250305" as const, name: "web_search", max_uses: 5 }],
+          }),
+        };
+        const stream = client.messages.stream(streamParams);
 
         stream.on("text", (text) => {
           controller.enqueue(encoder.encode(text));

@@ -7,10 +7,10 @@ import { LayoutDashboard, Map, User, Brain, Sparkles, Terminal } from "lucide-re
 import { useLang } from "@/lib/language";
 
 const nav = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "AI Advisor"  },
-  { href: "/roadmap",   icon: Map,              label: "My Roadmap"  },
-  { href: "/profile",   icon: User,             label: "Profile"     },
-  { href: "/console",   icon: Terminal,         label: "Console"     },
+  { href: "/dashboard", icon: LayoutDashboard, en: "AI Advisor",  ar: "المستشار الذكي" },
+  { href: "/roadmap",   icon: Map,              en: "My Roadmap",  ar: "خارطة طريقي"   },
+  { href: "/profile",   icon: User,             en: "Profile",     ar: "الملف الشخصي"  },
+  { href: "/console",   icon: Terminal,         en: "Console",     ar: "وحدة التحكم"   },
 ];
 
 export function Sidebar() {
@@ -19,6 +19,7 @@ export function Sidebar() {
 
   return (
     <aside
+      dir={lang === "ar" ? "rtl" : "ltr"}
       className="hidden lg:flex flex-col w-60 h-screen sticky top-0 flex-shrink-0 overflow-y-auto"
       style={{
         background: "linear-gradient(180deg, #0a1628 0%, #0d2a1e 100%)",
@@ -76,7 +77,7 @@ export function Sidebar() {
           className="text-[9px] font-bold uppercase tracking-[0.12em] px-3 mb-3"
           style={{ color: "rgba(255,255,255,0.3)" }}
         >
-          Navigation
+          {lang === "ar" ? "التنقل" : "Navigation"}
         </p>
         {nav.map((item) => {
           const active =
@@ -109,10 +110,10 @@ export function Sidebar() {
                 strokeWidth={active ? 2.2 : 1.8}
                 style={{ color: active ? "#00d4a1" : "rgba(255,255,255,0.45)" }}
               />
-              {item.label}
+              {lang === "ar" ? item.ar : item.en}
               {active && (
                 <span
-                  className="ml-auto w-1.5 h-1.5 rounded-full flex-shrink-0"
+                  className="ms-auto w-1.5 h-1.5 rounded-full flex-shrink-0"
                   style={{ background: "#00d4a1", boxShadow: "0 0 6px #00d4a1" }}
                 />
               )}
