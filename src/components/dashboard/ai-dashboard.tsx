@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { Send, Sparkles, Brain, Target, Clock, ArrowRight, ChevronRight, RotateCcw, Zap, Map, AlertTriangle, Globe, ExternalLink, BookOpen, X, Trash2 } from "lucide-react";
+import { useLang } from "@/lib/language";
 
 /* ── Types ─────────────────────────────────────────────────────── */
 interface Message {
@@ -987,6 +988,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
   const [isInitializing, setIsInitializing] = useState(true);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const { lang } = useLang();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const streamBufferRef = useRef("");
@@ -1084,7 +1086,9 @@ export function AIDashboard({ firstName }: { firstName: string }) {
     setStreamedText("");
 
     try {
-      const greeting = `Hello! I'm ready to get my personalized action plan.`;
+      const greeting = lang === "ar"
+        ? "مرحباً! أنا مستعد للحصول على خطة العمل الشخصية الخاصة بي."
+        : "Hello! I'm ready to get my personalized action plan.";
       const initMessages: Message[] = [{ role: "user", content: greeting }];
       setMessages(initMessages);
 
@@ -1118,7 +1122,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
       setIsLoading(false);
       setStreamedText("");
     }
-  }, []);
+  }, [lang]);
 
   const handleReset = useCallback(() => {
     setShowResetConfirm(true);

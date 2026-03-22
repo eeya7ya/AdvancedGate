@@ -7,7 +7,7 @@ import { LangProvider } from "@/lib/language";
 function SidebarFallback() {
   return (
     <aside
-      className="hidden lg:flex flex-col w-60 min-h-screen flex-shrink-0"
+      className="hidden lg:flex flex-col w-60 h-screen sticky top-0 flex-shrink-0"
       style={{ background: "var(--bg-surface)", borderRight: "1px solid var(--border-subtle)" }}
     />
   );
