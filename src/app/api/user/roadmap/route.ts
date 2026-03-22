@@ -1,5 +1,5 @@
 import { auth } from "~/auth";
-import { getUserRoadmap, upsertUserRoadmap, updateRoadmapEmailSettings } from "@/lib/db";
+import { sql, getUserRoadmap, upsertUserRoadmap, updateRoadmapEmailSettings, ensureTables } from "@/lib/db";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -18,7 +18,29 @@ export async function POST(req: Request) {
   const { plan } = body;
   if (!plan) return NextResponse.json({ error: "Missing plan" }, { status: 400 });
 
+  // Ensure tables exist and the user row is present before saving the roadmap.
+  // This prevents the FK constraint from failing silently when the users table
+  // doesn't yet have a row for this session's user (e.g. fresh DB or ID mismatch).
+  try {
+    await ensureTables();
+    await sql`
+      INSERT INTO users (id, name, email, image)
+      VALUES (
+        ${session.user.id},
+        ${session.user.name ?? null},
+        ${session.user.email ?? null},
+        ${session.user.image ?? null}
+      )
+      ON CONFLICT DO NOTHING
+    `;
+  } catch (err) {
+    console.error("[roadmap POST] user upsert error:", err);
+  }
+
   const ok = await upsertUserRoadmap(session.user.id, plan);
+  if (!ok) {
+    return NextResponse.json({ error: "Failed to save roadmap" }, { status: 500 });
+  }
   return NextResponse.json({ ok });
 }
 
