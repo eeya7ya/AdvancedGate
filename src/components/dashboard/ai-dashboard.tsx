@@ -156,7 +156,7 @@ function ChatBubble({ msg, isStreaming }: { msg: Message; isStreaming?: boolean 
         </div>
       )}
       <div
-        className="max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed"
+        className={`${isAI ? "max-w-[85%]" : "max-w-[75%]"} px-4 py-3 rounded-2xl text-sm leading-relaxed`}
         style={
           isAI
             ? {
@@ -172,12 +172,28 @@ function ChatBubble({ msg, isStreaming }: { msg: Message; isStreaming?: boolean 
               }
         }
       >
-        {msg.content}
-        {isStreaming && (
-          <span
-            className="inline-block w-0.5 h-4 ml-0.5 align-middle animate-pulse"
-            style={{ background: "var(--brand-teal)" }}
-          />
+        {isAI ? (
+          <div className="space-y-2">
+            {msg.content.split("\n").filter((line) => line.trim() !== "").map((line, idx) => (
+              <p key={idx}>{line}</p>
+            ))}
+            {isStreaming && (
+              <span
+                className="inline-block w-0.5 h-4 ml-0.5 align-middle animate-pulse"
+                style={{ background: "var(--brand-teal)" }}
+              />
+            )}
+          </div>
+        ) : (
+          <>
+            {msg.content}
+            {isStreaming && (
+              <span
+                className="inline-block w-0.5 h-4 ml-0.5 align-middle animate-pulse"
+                style={{ background: "var(--brand-teal)" }}
+              />
+            )}
+          </>
         )}
       </div>
     </motion.div>
@@ -366,30 +382,31 @@ function TopicConnections({ links }: { links: TopicLink[] }) {
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: i * 0.12, duration: 0.4 }}
-            className="flex items-start gap-3 p-4 rounded-xl"
+            className="p-4 rounded-xl"
             style={{
               background: "var(--bg-base)",
               border: "1px solid var(--border-subtle)",
             }}
           >
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <span
-                className="px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap flex-shrink-0"
-                style={{ background: "rgba(0,212,161,0.12)", color: "#00d4a1" }}
-              >
-                {link.from}
-              </span>
-              <ChevronRight size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
-              <p className="text-xs flex-1 min-w-0" style={{ color: "var(--text-secondary)" }}>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  className="px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap"
+                  style={{ background: "rgba(0,212,161,0.12)", color: "#00d4a1" }}
+                >
+                  {link.from}
+                </span>
+                <ChevronRight size={13} style={{ color: "var(--text-muted)" }} />
+                <span
+                  className="px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap"
+                  style={{ background: "rgba(34,211,238,0.12)", color: "#22d3ee" }}
+                >
+                  {link.to}
+                </span>
+              </div>
+              <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
                 {link.bridge}
               </p>
-              <ChevronRight size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
-              <span
-                className="px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap flex-shrink-0"
-                style={{ background: "rgba(34,211,238,0.12)", color: "#22d3ee" }}
-              >
-                {link.to}
-              </span>
             </div>
           </motion.div>
         ))}
@@ -561,9 +578,10 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
             <div className="flex items-start gap-2 mt-3 px-3 py-2.5 rounded-xl"
               style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)" }}>
               <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" style={{ color: "#f59e0b" }} />
-              <p className="text-xs leading-relaxed" style={{ color: "#f59e0b" }}>
-                <span className="font-semibold">Market notice: </span>{plan.marketInsights.notice}
-              </p>
+              <div className="text-xs leading-relaxed">
+                <span className="font-semibold" style={{ color: "#f59e0b" }}>Market notice: </span>
+                <span style={{ color: "rgba(253,230,138,0.9)" }}>{plan.marketInsights.notice}</span>
+              </div>
             </div>
           )}
         </div>
@@ -953,31 +971,6 @@ export function AIDashboard({ firstName }: { firstName: string }) {
                 boxShadow: "inset 0 1px 0 rgba(0,212,161,0.06)",
               }}
             >
-              {/* Progress */}
-              {messages.length > 0 && (
-                <div className="flex items-center gap-2 pb-2" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                  <div className="flex gap-1.5">
-                    {[1, 2, 3, 4, 5, 6].map((n) => {
-                      const answered = Math.floor(messages.filter(m => m.role === "user").length / 1);
-                      return (
-                        <div
-                          key={n}
-                          className="w-6 h-1.5 rounded-full transition-all duration-500"
-                          style={{
-                            background: n <= answered
-                              ? "linear-gradient(90deg, #00d4a1, #22d3ee)"
-                              : "var(--bg-base)",
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                    {Math.min(messages.filter(m => m.role === "user").length, 6)}/6 questions
-                  </span>
-                </div>
-              )}
-
               {messages.map((msg, i) => {
                 // Don't render the silent greeting sent at start
                 if (msg.role === "user" && msg.content === "Hello! I'm ready to get my personalized action plan.") return null;
@@ -1017,7 +1010,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Type your answer... (Enter to send)"
+                placeholder="Ask anything... (Enter to send, Shift+Enter for new line)"
                 rows={1}
                 disabled={isLoading}
                 className="flex-1 resize-none bg-transparent outline-none text-sm leading-relaxed py-1 disabled:opacity-40"
