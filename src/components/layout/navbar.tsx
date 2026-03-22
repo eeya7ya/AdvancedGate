@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useState } from "react";
 import { LogOut, User, LayoutDashboard, Map } from "lucide-react";
+import { useLang } from "@/lib/language";
 
 const mobileNav = [
   { href: "/dashboard", icon: LayoutDashboard, label: "AI Advisor"  },
@@ -27,6 +28,7 @@ export function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { lang, toggle: toggleLang } = useLang();
   const user = session?.user;
   const segment = pathname.split("/")[1] || "dashboard";
   const crumb = BREADCRUMB_MAP[segment] ?? segment;
@@ -59,6 +61,21 @@ export function Navbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-2.5">
+          {/* Language toggle */}
+          <button
+            onClick={toggleLang}
+            title={lang === "en" ? "Switch to Arabic" : "التبديل إلى الإنجليزية"}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all hover:opacity-80"
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid rgba(0,212,161,0.3)",
+              color: "#00d4a1",
+              letterSpacing: "0.04em",
+            }}
+          >
+            {lang === "en" ? "عربي" : "EN"}
+          </button>
+
           {/* Theme toggle */}
           <ThemeToggle />
 

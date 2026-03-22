@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect, createContext, useContext, useMemo } from "react";
+import { useLang } from "@/lib/language";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
@@ -11,13 +12,20 @@ import {
 } from "lucide-react";
 
 /* ── Language / RTL Helper ─────────────────────────────────── */
-const ARABIC_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
-function isArabicPlan(plan: { profile: { summary: string } }): boolean {
-  return ARABIC_REGEX.test(plan.profile.summary);
-}
-
 const RTLContext = createContext(false);
 function useRTL() { return useContext(RTLContext); }
+
+/** Strip trailing symbols (+, &, ,, -, etc.) and cap at 3 meaningful words */
+function smartLabel(subject: string): string {
+  const words = subject.trim().split(/\s+/);
+  // Take up to 3 words, filter out words that are only symbols at the end
+  let taken = words.slice(0, 3);
+  // Remove trailing symbol-only tokens ("+", "&", ",", "-", etc.)
+  while (taken.length > 1 && /^[^a-zA-Z0-9\u0600-\u06FF]+$/.test(taken[taken.length - 1])) {
+    taken = taken.slice(0, -1);
+  }
+  return taken.join(" ");
+}
 
 const UI_LABELS: Record<string, { en: string; ar: string }> = {
   priorities:     { en: "Learning Priorities",       ar: "أولويات التعلم" },
@@ -136,9 +144,7 @@ function SectionTitle({ icon: Icon, label, color }: { icon: React.ElementType; l
 }
 
 function PriorityBars({ priorities }: { priorities: Priority[] }) {
-  const [animated, setAnimated] = useState(false);
   const isRTL = useRTL();
-  useEffect(() => { const t = setTimeout(() => setAnimated(true), 300); return () => clearTimeout(t); }, []);
 
   return (
     <SectionCard delay={0.2}>
@@ -152,9 +158,9 @@ function PriorityBars({ priorities }: { priorities: Priority[] }) {
             </div>
             <div className="relative h-2.5 rounded-full overflow-hidden" style={{ background: "var(--bg-base)" }}>
               <div
-                className="absolute inset-y-0 left-0 rounded-full transition-all duration-1000 ease-out"
+                className="absolute inset-y-0 left-0 rounded-full"
                 style={{
-                  width: animated ? `${p.score}%` : "0%",
+                  width: `${p.score}%`,
                   background: `linear-gradient(90deg, ${p.color}cc, ${p.color})`,
                   boxShadow: `0 0 8px ${p.color}66`,
                 }}
@@ -222,58 +228,93 @@ function WeeklySchedule({ slices }: { slices: TimeSlice[] }) {
   const schedule = buildSchedule(slices);
   const isRTL = useRTL();
 
+  // Compute uniform row heights: each block-row uses the tallest block in that position
+  const maxBlocks = useMemo(
+    () => Math.max(...schedule.map((d) => d.blocks.length), 1),
+    [schedule]
+  );
+  const rowHeights = useMemo(
+    () =>
+      Array.from({ length: maxBlocks }, (_, i) =>
+        Math.max(88, Math.max(...schedule.map((d) => (d.blocks[i]?.minutes ?? 0))) * 1.1)
+      ),
+    [schedule, maxBlocks]
+  );
+
   return (
     <SectionCard delay={0.4}>
       <SectionTitle icon={CalendarDays} label={t("weeklySchedule", isRTL)} color="#a78bfa" />
+
+      {/* Flat 7-column grid — headers first, then one row per block position */}
       <div className="grid grid-cols-7 gap-2">
-        {schedule.map(({ day, blocks }) => {
+        {/* ── Day headers ── */}
+        {schedule.map(({ day }) => {
           const isWeekend = day === "Sat" || day === "Sun";
           return (
-            <div key={day} className="flex flex-col gap-2">
-              {/* Day header */}
-              <div
-                className="rounded-lg py-1.5 text-center"
-                style={{
-                  background: isWeekend ? "rgba(167,139,250,0.1)" : "rgba(34,211,238,0.08)",
-                  border: `1px solid ${isWeekend ? "rgba(167,139,250,0.25)" : "rgba(34,211,238,0.2)"}`,
-                }}
-              >
-                <p className="text-xs font-bold" style={{ color: isWeekend ? "#a78bfa" : "#22d3ee" }}>{day}</p>
-              </div>
-              {/* Blocks */}
-              {blocks.length === 0 ? (
-                <div className="rounded-xl flex items-center justify-center" style={{ background: "var(--bg-base)", border: "1px dashed var(--border-subtle)", minHeight: "80px" }}>
-                  <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{t("rest", isRTL)}</p>
-                </div>
-              ) : (
-                blocks.map((b, i) => (
-                  <div
-                    key={i}
-                    className="rounded-xl flex flex-col items-center justify-center px-2 py-4 text-center gap-1.5"
-                    style={{
-                      background: `${b.color}15`,
-                      border: `1px solid ${b.color}40`,
-                      minHeight: `${Math.max(80, b.minutes * 0.9)}px`,
-                    }}
-                  >
-                    <p
-                      className="text-[11px] font-bold leading-snug w-full text-center break-words hyphens-auto"
-                      style={{ color: b.color }}
-                    >
-                      {b.subject.split(" ").slice(0, 4).join(" ")}
-                    </p>
-                    <p className="text-[11px] font-semibold" style={{ color: "var(--text-secondary)" }}>
-                      {b.minutes >= 60
-                        ? `${(b.minutes / 60).toFixed(1).replace(/\.0$/, "")}h`
-                        : `${b.minutes}m`}
-                    </p>
-                  </div>
-                ))
-              )}
+            <div
+              key={`h-${day}`}
+              className="rounded-lg py-2 text-center"
+              style={{
+                background: isWeekend ? "rgba(167,139,250,0.1)" : "rgba(34,211,238,0.08)",
+                border: `1px solid ${isWeekend ? "rgba(167,139,250,0.25)" : "rgba(34,211,238,0.2)"}`,
+              }}
+            >
+              <p className="text-xs font-bold" style={{ color: isWeekend ? "#a78bfa" : "#22d3ee" }}>{day}</p>
             </div>
           );
         })}
+
+        {/* ── Block rows (each position = same height across all 7 columns) ── */}
+        {Array.from({ length: maxBlocks }, (_, bi) =>
+          schedule.map(({ day, blocks }) => {
+            const b = blocks[bi];
+            const isWeekend = day === "Sat" || day === "Sun";
+            const rowH = rowHeights[bi];
+
+            if (!b) {
+              // Empty slot: keep the row height consistent
+              return (
+                <div
+                  key={`${day}-${bi}-empty`}
+                  className="rounded-xl flex items-center justify-center"
+                  style={{
+                    height: `${rowH}px`,
+                    background: "var(--bg-base)",
+                    border: `1px dashed ${isWeekend ? "rgba(167,139,250,0.2)" : "var(--border-subtle)"}`,
+                  }}
+                >
+                  <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{t("rest", isRTL)}</p>
+                </div>
+              );
+            }
+
+            return (
+              <div
+                key={`${day}-${bi}`}
+                className="rounded-xl flex flex-col items-center justify-center px-2 text-center gap-1.5"
+                style={{
+                  height: `${rowH}px`,
+                  background: `${b.color}15`,
+                  border: `1px solid ${b.color}40`,
+                }}
+              >
+                <p
+                  className="text-[11px] font-bold leading-tight w-full text-center"
+                  style={{ color: b.color, wordBreak: "break-word" }}
+                >
+                  {smartLabel(b.subject)}
+                </p>
+                <p className="text-[11px] font-semibold" style={{ color: "var(--text-secondary)" }}>
+                  {b.minutes >= 60
+                    ? `${(b.minutes / 60).toFixed(1).replace(/\.0$/, "")}h`
+                    : `${b.minutes}m`}
+                </p>
+              </div>
+            );
+          })
+        )}
       </div>
+
       <p className="text-xs mt-4" style={{ color: "var(--text-muted)" }}>
         {t("scheduleNote", isRTL)}
       </p>
@@ -637,7 +678,8 @@ export function RoadmapClient({
   initialEmailEnabled: boolean;
   initialReminderEmail: string;
 }) {
-  const isRTL = isArabicPlan(plan);
+  const { lang } = useLang();
+  const isRTL = lang === "ar";
   return (
     <RTLContext.Provider value={isRTL}>
     <div className="max-w-4xl mx-auto space-y-6" dir={isRTL ? "rtl" : "ltr"}>
