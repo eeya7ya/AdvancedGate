@@ -161,19 +161,19 @@ All description fields must be full, meaningful sentences — never 2-word label
   ],
   "timeAllocation": [
     {
-      "subject": "Core skill area — descriptive name matching their goal",
+      "subject": "CRITICAL: 1-3 word max, no trailing +/&/,. Good: 'KNX & CCNA', 'Hands-On Labs', 'Portfolio Building'. BAD: 'KNX + CCNA + Networking'",
       "percentage": 50,
       "color": "#00d4a1",
       "hours": 10
     },
     {
-      "subject": "Supporting knowledge or tools relevant to their path",
+      "subject": "CRITICAL: 1-3 word max, no trailing symbols. Example: 'Networking Tools', 'Cloud Skills', 'Python Basics'",
       "percentage": 30,
       "color": "#22d3ee",
       "hours": 6
     },
     {
-      "subject": "Projects, portfolio building, and real-world practice",
+      "subject": "CRITICAL: 1-3 word max. Example: 'Portfolio Work', 'Real Projects', 'Career Prep'",
       "percentage": 20,
       "color": "#a78bfa",
       "hours": 4
@@ -293,7 +293,9 @@ FINAL CRITICAL RULES:
 - roadmap phase count and total duration MUST match their stated timeline exactly
 - notice in marketInsights appears ONLY for genuine strategic concerns — never invent problems
 - salaryRange must be specific to their stated target market (Gulf, Europe, local, etc.) — not just generic USD
-- All descriptions are full meaningful sentences — this is someone's life roadmap, not a keyword list`;
+- All descriptions are full meaningful sentences — this is someone's life roadmap, not a keyword list
+- timeAllocation[].subject MUST be 1–3 words maximum, clean and readable, with NO trailing symbols (+, &, ,, -). These names display in a weekly schedule grid. BAD: "KNX + CCNA + Networking Fundamentals". GOOD: "KNX & CCNA", "Hands-On Labs", "Portfolio Work"
+- This roadmap is real and will be used by real people to change their lives — every number, course, salary, and recommendation must be accurate and specific`;
 
 export async function POST(req: NextRequest) {
   const session = await auth();
