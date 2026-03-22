@@ -7,16 +7,17 @@ import { signOut, useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useState } from "react";
-import { LogOut, User, LayoutDashboard, BookOpen } from "lucide-react";
+import { LogOut, User, LayoutDashboard, Map } from "lucide-react";
 
 const mobileNav = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "AI Advisor"   },
-  { href: "/subjects",  icon: BookOpen,         label: "Subjects"    },
-  { href: "/profile",   icon: User,              label: "Profile"     },
+  { href: "/dashboard", icon: LayoutDashboard, label: "AI Advisor"  },
+  { href: "/roadmap",   icon: Map,              label: "My Roadmap" },
+  { href: "/profile",   icon: User,             label: "Profile"    },
 ];
 
 const BREADCRUMB_MAP: Record<string, string> = {
   dashboard: "AI Advisor",
+  roadmap:   "My Roadmap",
   subjects:  "Subjects",
   learn:     "Course",
   profile:   "Profile",

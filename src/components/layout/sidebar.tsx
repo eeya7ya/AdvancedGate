@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, BookOpen, User, Brain, Sparkles } from "lucide-react";
+import { LayoutDashboard, Map, User, Brain, Sparkles } from "lucide-react";
 
 const nav = [
   { href: "/dashboard", icon: LayoutDashboard, label: "AI Advisor"  },
-  { href: "/subjects",  icon: BookOpen,         label: "Subjects"    },
-  { href: "/profile",   icon: User,              label: "Profile"     },
+  { href: "/roadmap",   icon: Map,              label: "My Roadmap"  },
+  { href: "/profile",   icon: User,             label: "Profile"     },
 ];
 
 export function Sidebar() {
