@@ -92,10 +92,23 @@ function parsePlan(text: string): LearningPlan | null {
     }
     const start = cleaned.indexOf("{");
     if (start === -1) return null;
-    const json = cleaned.slice(start);
-    const end = json.lastIndexOf("}");
+    // Walk brace depth to find the matching closing brace, ignoring any
+    // text (e.g. multilingual closing remarks) that appears after the JSON.
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    let end = -1;
+    for (let i = start; i < cleaned.length; i++) {
+      const ch = cleaned[i];
+      if (escape) { escape = false; continue; }
+      if (ch === "\\") { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === "{") depth++;
+      else if (ch === "}") { depth--; if (depth === 0) { end = i; break; } }
+    }
     if (end === -1) return null;
-    const parsed = JSON.parse(json.slice(0, end + 1));
+    const parsed = JSON.parse(cleaned.slice(start, end + 1));
     if (parsed.type === "LEARNING_PLAN") return parsed as LearningPlan;
     return null;
   } catch {
