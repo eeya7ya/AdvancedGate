@@ -104,8 +104,7 @@ function parsePlan(text: string): LearningPlan | null {
 }
 
 function looksLikePlanAttempt(text: string): boolean {
-  const t = text.trim();
-  return t.startsWith("{") || t.startsWith("```") || t.includes('"type": "LEARNING_PLAN"');
+  return text.includes('"type": "LEARNING_PLAN"') || text.includes('"type":"LEARNING_PLAN"');
 }
 
 /* ── Sub-components ─────────────────────────────────────────────── */
