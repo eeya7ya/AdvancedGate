@@ -167,18 +167,19 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
   }
 }
 
-export async function getUserRoadmap(userId: string): Promise<{ planJson: unknown; emailRemindersEnabled: boolean; reminderEmail: string | null } | null> {
+export async function getUserRoadmap(userId: string): Promise<{ planJson: unknown; emailRemindersEnabled: boolean; reminderEmail: string | null; createdAt: string | null } | null> {
   try {
     await ensureTables();
     const { rows } = await sql`
       SELECT plan_json AS "planJson",
              email_reminders_enabled AS "emailRemindersEnabled",
-             reminder_email AS "reminderEmail"
+             reminder_email AS "reminderEmail",
+             created_at AS "createdAt"
       FROM user_roadmap
       WHERE user_id = ${userId}
     `;
     if (!rows[0]) return null;
-    return rows[0] as { planJson: unknown; emailRemindersEnabled: boolean; reminderEmail: string | null };
+    return rows[0] as { planJson: unknown; emailRemindersEnabled: boolean; reminderEmail: string | null; createdAt: string | null };
   } catch (err) {
     console.error("[db] getUserRoadmap error:", err);
     return null;

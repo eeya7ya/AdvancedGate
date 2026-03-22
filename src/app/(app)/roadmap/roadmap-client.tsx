@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import {
   Target, Clock, ArrowRight, ChevronRight, Zap, Brain,
   Map, Bell, BellOff, Mail, RotateCcw, CheckCircle, Loader2,
   CalendarDays, TrendingUp, Globe, BookOpen, AlertTriangle,
-  Printer, Flag, Layers,
+  Printer, Flag, Layers, Pencil, Send, X, Sparkles,
 } from "lucide-react";
 
 /* ── Types ────────────────────────────────────────────────── */
@@ -77,6 +77,7 @@ function buildSchedule(slices: TimeSlice[]) {
         subject: s.subject,
         color: s.color,
         minutes: Math.round(s.hours * 60 * dayFraction),
+        percentage: s.percentage, // weekly allocation % — used for proportional card height
       }))
       .filter((b) => b.minutes >= 10);
     return { day, blocks };
@@ -218,11 +219,12 @@ function WeeklySchedule({ slices }: { slices: TimeSlice[] }) {
                 blocks.map((b, i) => (
                   <div
                     key={i}
-                    className="rounded-xl flex flex-col items-center justify-center px-1.5 py-3 text-center gap-1"
+                    className="rounded-xl flex flex-col items-center justify-center px-1.5 py-3 text-center gap-1 overflow-hidden"
                     style={{
                       background: `${b.color}15`,
                       border: `1px solid ${b.color}40`,
-                      minHeight: `${Math.max(64, b.minutes / 1.2)}px`,
+                      // Height scales directly with weekly allocation % — 50%→140px, 30%→84px, 20%→56px
+                      height: `${Math.max(48, b.percentage * 2.8)}px`,
                     }}
                   >
                     <p
@@ -590,18 +592,199 @@ function EmailReminders({
   );
 }
 
+/* ── Refine Plan Panel ─────────────────────────────────────── */
+function RefinePlanPanel({
+  currentPlan,
+  onPlanUpdated,
+}: {
+  currentPlan: LearningPlan;
+  onPlanUpdated: (updated: LearningPlan) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleRefine = async () => {
+    if (!input.trim() || loading) return;
+    setLoading(true);
+    setError(null);
+    setSuccess(false);
+
+    try {
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "refine",
+          existingPlan: currentPlan,
+          messages: [{ role: "user", content: input.trim() }],
+        }),
+      });
+
+      if (!res.ok || !res.body) throw new Error("API error");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let full = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        full += decoder.decode(value, { stream: true });
+      }
+
+      // Try to parse the updated plan
+      const parsed = (() => {
+        try {
+          let cleaned = full.trim();
+          if (cleaned.startsWith("```")) {
+            cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+          }
+          const start = cleaned.indexOf("{");
+          if (start === -1) return null;
+          const json = cleaned.slice(start);
+          const end = json.lastIndexOf("}");
+          if (end === -1) return null;
+          const p = JSON.parse(json.slice(0, end + 1));
+          return p.type === "LEARNING_PLAN" ? (p as LearningPlan) : null;
+        } catch { return null; }
+      })();
+
+      if (!parsed) {
+        setError("Couldn't parse the updated plan. Please try again with a clearer request.");
+        return;
+      }
+
+      // Save to DB
+      await fetch("/api/user/roadmap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: parsed }),
+      });
+
+      onPlanUpdated(parsed);
+      setSuccess(true);
+      setInput("");
+      setTimeout(() => { setSuccess(false); setOpen(false); }, 2000);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
+      {/* Toggle header */}
+      <button
+        onClick={() => { setOpen(v => !v); setTimeout(() => textareaRef.current?.focus(), 100); }}
+        className="w-full flex items-center justify-between px-5 py-4 transition-all hover:opacity-80"
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+            style={{ background: "rgba(167,139,250,0.15)", border: "1px solid rgba(167,139,250,0.3)" }}>
+            <Pencil size={12} style={{ color: "#a78bfa" }} />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Refine with AI</p>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Adjust your plan without starting over
+            </p>
+          </div>
+        </div>
+        <div
+          className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+          style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}
+        >
+          {open ? <X size={12} style={{ color: "var(--text-muted)" }} /> : <ChevronRight size={12} style={{ color: "var(--text-muted)" }} />}
+        </div>
+      </button>
+
+      {/* Expandable body */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            style={{ overflow: "hidden", borderTop: "1px solid var(--border-subtle)" }}
+          >
+            <div className="p-5">
+              <div className="flex items-start gap-2 mb-3 px-3 py-2.5 rounded-xl text-xs"
+                style={{ background: "rgba(167,139,250,0.06)", border: "1px solid rgba(167,139,250,0.2)", color: "var(--text-muted)" }}>
+                <Sparkles size={12} style={{ color: "#a78bfa", flexShrink: 0, marginTop: 1 }} />
+                <span>Examples: &ldquo;Change time allocation to 60% core skills&rdquo; · &ldquo;Add a cybersecurity phase&rdquo; · &ldquo;Reduce timeline to 6 months&rdquo;</span>
+              </div>
+
+              <div
+                className="flex items-end gap-2 rounded-xl p-3"
+                style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}
+              >
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleRefine(); } }}
+                  placeholder="Describe what you'd like to change…"
+                  rows={2}
+                  className="flex-1 bg-transparent outline-none resize-none text-sm leading-relaxed"
+                  style={{ color: "var(--text-primary)" }}
+                />
+                <button
+                  onClick={handleRefine}
+                  disabled={!input.trim() || loading}
+                  className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all disabled:opacity-40"
+                  style={{ background: "linear-gradient(135deg, #a78bfa, #7c3aed)" }}
+                >
+                  {loading
+                    ? <Loader2 size={14} className="animate-spin text-white" />
+                    : success
+                      ? <CheckCircle size={14} className="text-white" />
+                      : <Send size={14} className="text-white" />}
+                </button>
+              </div>
+
+              {error && (
+                <p className="mt-2 text-xs" style={{ color: "#f87171" }}>{error}</p>
+              )}
+              {success && (
+                <p className="mt-2 text-xs font-semibold" style={{ color: "#00d4a1" }}>
+                  Plan updated successfully!
+                </p>
+              )}
+              {loading && (
+                <p className="mt-2 text-xs animate-pulse" style={{ color: "var(--text-muted)" }}>
+                  Refining your plan…
+                </p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 /* ── Main Client Component ─────────────────────────────────── */
 export function RoadmapClient({
-  plan,
+  plan: initialPlan,
   initialEmailEnabled,
   initialReminderEmail,
+  createdAt: _createdAt,
 }: {
   plan: LearningPlan;
   initialEmailEnabled: boolean;
   initialReminderEmail: string;
+  createdAt?: string | null;
 }) {
+  const [plan, setPlan] = useState<LearningPlan>(initialPlan);
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
       {/* Page header */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between gap-4">
         <div>
@@ -613,14 +796,14 @@ export function RoadmapClient({
             {plan.profile.name}&apos;s Action Plan
           </h1>
         </div>
-        <Link
-          href="/dashboard"
+        <button
+          onClick={() => document.getElementById("refine-panel")?.scrollIntoView({ behavior: "smooth", block: "center" })}
           className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all hover:opacity-80"
-          style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}
+          style={{ background: "var(--bg-card)", border: "1px solid rgba(167,139,250,0.4)", color: "#a78bfa" }}
         >
-          <RotateCcw size={12} />
-          Modify Plan
-        </Link>
+          <Pencil size={12} />
+          Refine Plan
+        </button>
       </motion.div>
 
       {/* Summary card */}
@@ -755,21 +938,26 @@ export function RoadmapClient({
       {/* Email reminders */}
       <EmailReminders initialEnabled={initialEmailEnabled} initialEmail={initialReminderEmail} />
 
-      {/* Modify plan CTA */}
+      {/* Refine Plan — quick AI adjustments without a full restart */}
+      <div id="refine-panel">
+        <RefinePlanPanel currentPlan={plan} onPlanUpdated={setPlan} />
+      </div>
+
+      {/* Full restart CTA — for major life changes */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.7 }}
         className="flex items-center justify-center gap-4 py-4"
       >
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Your situation changed?</p>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Major change in your situation?</p>
         <Link
           href="/dashboard"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)", boxShadow: "0 0 20px rgba(0,212,161,0.3)" }}
         >
           <RotateCcw size={14} />
-          Update My Roadmap
+          Start Over
           <ArrowRight size={14} />
         </Link>
       </motion.div>

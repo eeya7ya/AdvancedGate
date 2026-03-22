@@ -6,7 +6,7 @@ import { VisitLogger } from "@/components/layout/visit-logger";
 function SidebarFallback() {
   return (
     <aside
-      className="hidden lg:flex flex-col w-60 min-h-screen flex-shrink-0"
+      className="hidden lg:flex flex-col w-60 flex-shrink-0 sticky top-0 h-screen"
       style={{ background: "var(--bg-surface)", borderRight: "1px solid var(--border-subtle)" }}
     />
   );
@@ -27,16 +27,16 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen" style={{ background: "var(--bg-base)" }}>
+    <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg-base)" }}>
       <Suspense fallback={<SidebarFallback />}>
         <Sidebar />
       </Suspense>
-      <div className="flex flex-col flex-1 min-w-0">
+      <div className="flex flex-col flex-1 min-w-0 overflow-y-auto">
         <Suspense fallback={<NavbarFallback />}>
           <Navbar />
         </Suspense>
         <VisitLogger />
-        <main className="flex-1 p-4 lg:p-8 overflow-auto">{children}</main>
+        <main className="flex-1 p-4 lg:p-8">{children}</main>
       </div>
     </div>
   );

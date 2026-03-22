@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Map, User, Brain, Sparkles, Terminal } from "lucide-react";
+import { LayoutDashboard, Map, User, Brain, Sparkles, Terminal, CalendarDays } from "lucide-react";
 
 const nav = [
   { href: "/dashboard", icon: LayoutDashboard, label: "AI Advisor"  },
   { href: "/roadmap",   icon: Map,              label: "My Roadmap"  },
+  { href: "/schedule",  icon: CalendarDays,     label: "Schedule"    },
   { href: "/profile",   icon: User,             label: "Profile"     },
   { href: "/console",   icon: Terminal,         label: "Console"     },
 ];
@@ -17,7 +18,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className="hidden lg:flex flex-col w-60 min-h-screen flex-shrink-0"
+      className="hidden lg:flex flex-col w-60 flex-shrink-0 sticky top-0 h-screen overflow-y-auto"
       style={{
         background: "linear-gradient(180deg, #0a1628 0%, #0d2a1e 100%)",
         borderRight: "1px solid rgba(0,212,161,0.12)",
