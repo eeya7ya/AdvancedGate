@@ -651,6 +651,19 @@ export function AIDashboard({ firstName }: { firstName: string }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Restore saved plan from DB on mount
+  useEffect(() => {
+    fetch("/api/user/roadmap")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.planJson && (data.planJson as LearningPlan).type === "LEARNING_PLAN") {
+          setPlan(data.planJson as LearningPlan);
+          setPhase("plan");
+        }
+      })
+      .catch(() => null);
+  }, []);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamedText, isLoading]);
@@ -852,7 +865,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
 
               {messages.map((msg, i) => {
                 // Don't render the silent greeting sent at start
-                if (msg.role === "user" && msg.content === "Hello! I'm ready to build my personalized learning plan.") return null;
+                if (msg.role === "user" && msg.content === "Hello! I'm ready to get my personalized action plan.") return null;
                 return <ChatBubble key={i} msg={msg} />;
               })}
 
