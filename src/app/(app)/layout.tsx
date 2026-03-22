@@ -4,13 +4,19 @@ import { Navbar } from "@/components/layout/navbar";
 
 function SidebarFallback() {
   return (
-    <aside className="hidden lg:flex flex-col w-64 min-h-screen bg-[#0d1424] border-r border-[rgba(255,255,255,0.06)] flex-shrink-0" />
+    <aside
+      className="hidden lg:flex flex-col w-60 min-h-screen flex-shrink-0"
+      style={{ background: "var(--bg-surface)", borderRight: "1px solid var(--border-subtle)" }}
+    />
   );
 }
 
 function NavbarFallback() {
   return (
-    <div className="sticky top-0 z-40 h-16 bg-[#0d1424]/90 border-b border-[rgba(255,255,255,0.06)]" />
+    <div
+      className="sticky top-0 z-40 h-16"
+      style={{ background: "var(--bg-base)", borderBottom: "1px solid var(--border-subtle)" }}
+    />
   );
 }
 
@@ -20,7 +26,7 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen bg-[#080c14]">
+    <div className="flex min-h-screen" style={{ background: "var(--bg-base)" }}>
       <Suspense fallback={<SidebarFallback />}>
         <Sidebar />
       </Suspense>

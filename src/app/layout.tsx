@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { Suspense } from "react";
 import { SessionProvider } from "@/components/auth/session-provider";
+import { ThemeProvider } from "@/lib/theme";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -21,11 +22,12 @@ export const metadata: Metadata = {
     "networking",
     "coding",
     "e-learning",
+    "AI learning advisor",
   ],
   authors: [{ name: "eSpark" }],
   openGraph: {
     title: "eSpark-Learning KIT",
-    description: "Level up your engineering career",
+    description: "AI-powered engineering career advisor",
     type: "website",
   },
 };
@@ -36,11 +38,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-[#080c14]">
-        <Suspense>
-          <SessionProvider>{children}</SessionProvider>
-        </Suspense>
+    <html lang="en" className={`${geistSans.variable} h-full antialiased`} data-theme="dark" suppressHydrationWarning>
+      <body className="min-h-full flex flex-col" style={{ background: "var(--bg-base)" }}>
+        <ThemeProvider>
+          <Suspense>
+            <SessionProvider>{children}</SessionProvider>
+          </Suspense>
+        </ThemeProvider>
       </body>
     </html>
   );
