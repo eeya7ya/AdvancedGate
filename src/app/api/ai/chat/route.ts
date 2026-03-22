@@ -2,8 +2,6 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { auth } from "~/auth";
 
-export const dynamic = "force-dynamic";
-
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
