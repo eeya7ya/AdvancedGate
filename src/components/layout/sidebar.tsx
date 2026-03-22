@@ -23,7 +23,7 @@ export function Sidebar() {
       className="hidden lg:flex flex-col w-60 h-screen sticky top-0 flex-shrink-0 overflow-y-auto"
       style={{
         background: "linear-gradient(180deg, #0a1628 0%, #0d2a1e 100%)",
-        borderRight: "1px solid rgba(0,212,161,0.12)",
+        borderInlineEnd: "1px solid rgba(0,212,161,0.12)",
       }}
     >
       {/* Logo */}

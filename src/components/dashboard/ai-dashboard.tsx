@@ -281,6 +281,27 @@ function ConfirmDialog({
   );
 }
 
+/* Map Q-number to a distinct accent color so each question feels unique */
+const Q_COLORS: Record<string, { bg: string; text: string; glow: string; border: string }> = {
+  Q1: { bg: "linear-gradient(135deg, #00d4a1, #22d3ee)", text: "#fff", glow: "rgba(0,212,161,0.35)", border: "rgba(0,212,161,0.3)" },
+  Q2: { bg: "linear-gradient(135deg, #6366f1, #818cf8)", text: "#fff", glow: "rgba(99,102,241,0.3)",  border: "rgba(99,102,241,0.3)" },
+  Q3: { bg: "linear-gradient(135deg, #f59e0b, #fbbf24)", text: "#0a1628", glow: "rgba(245,158,11,0.3)", border: "rgba(245,158,11,0.3)" },
+  Q4: { bg: "linear-gradient(135deg, #ec4899, #f472b6)", text: "#fff", glow: "rgba(236,72,153,0.3)",  border: "rgba(236,72,153,0.3)" },
+  Q5: { bg: "linear-gradient(135deg, #14b8a6, #06b6d4)", text: "#fff", glow: "rgba(20,184,166,0.3)",  border: "rgba(20,184,166,0.3)" },
+};
+
+function renderInlineMarkdown(text: string, baseKey: number): React.ReactNode {
+  /* Handle **bold** inline segments */
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  if (parts.length === 1) return text;
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={baseKey + i} style={{ color: "var(--text-primary)", fontWeight: 700 }}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+}
+
 function formatAIMessage(content: string, isStreaming?: boolean) {
   const lines = content.split("\n");
   const elements: React.ReactNode[] = [];
@@ -294,28 +315,51 @@ function formatAIMessage(content: string, isStreaming?: boolean) {
       continue;
     }
 
-    // Detect Q1:, Q2: ... lines — render as a highlighted question
+    // Detect Q1:, Q2: ... lines — render as an ornate highlighted question card
     const qMatch = trimmed.match(/^(Q\d+):\s*(.+)$/);
     if (qMatch) {
       if (pendingBlank && elements.length > 0) elements.push(<div key={key++} className="h-3" />);
       pendingBlank = false;
+      const qNum = qMatch[1];
+      const qColors = Q_COLORS[qNum] ?? Q_COLORS.Q1;
+      const startKey = key;
+      key += 20; // reserve space for inline keys
       elements.push(
-        <div key={key++} className="flex gap-2 mt-1">
+        <div
+          key={startKey}
+          className="flex items-start gap-3 mt-2 p-3 rounded-xl"
+          style={{
+            background: `rgba(0,0,0,0.15)`,
+            border: `1px solid ${qColors.border}`,
+            boxShadow: `0 0 14px ${qColors.glow}`,
+          }}
+        >
           <span
-            className="flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded-md mt-0.5"
-            style={{ background: "rgba(0,212,161,0.15)", color: "#00d4a1" }}
+            className="flex-shrink-0 text-xs font-black px-2.5 py-1 rounded-lg tracking-wide"
+            style={{
+              background: qColors.bg,
+              color: qColors.text,
+              boxShadow: `0 0 10px ${qColors.glow}`,
+              letterSpacing: "0.06em",
+              minWidth: "36px",
+              textAlign: "center",
+            }}
           >
-            {qMatch[1]}
+            {qNum}
           </span>
-          <span className="leading-relaxed text-sm">{qMatch[2]}</span>
+          <span className="leading-relaxed text-sm font-medium pt-0.5" style={{ color: "var(--text-primary)" }}>
+            {renderInlineMarkdown(qMatch[2], startKey + 1)}
+          </span>
         </div>
       );
     } else {
       if (pendingBlank && elements.length > 0) elements.push(<div key={key++} className="h-2" />);
       pendingBlank = false;
+      const startKey = key;
+      key += 20;
       elements.push(
-        <p key={key++} className="leading-relaxed text-sm" style={{ wordBreak: "break-word" }}>
-          {trimmed}
+        <p key={startKey} className="leading-relaxed text-sm" style={{ wordBreak: "break-word" }}>
+          {renderInlineMarkdown(trimmed, startKey + 1)}
         </p>
       );
     }
