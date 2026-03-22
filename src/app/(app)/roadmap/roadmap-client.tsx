@@ -244,14 +244,15 @@ function TopicConnections({ links }: { links: TopicLink[] }) {
             className="flex items-start gap-3 p-4 rounded-xl"
             style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}
           >
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <span className="px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap flex-shrink-0"
-                style={{ background: "rgba(0,212,161,0.12)", color: "#00d4a1" }}>{link.from}</span>
-              <ChevronRight size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
-              <p className="text-xs flex-1 min-w-0" style={{ color: "var(--text-secondary)" }}>{link.bridge}</p>
-              <ChevronRight size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
-              <span className="px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap flex-shrink-0"
-                style={{ background: "rgba(34,211,238,0.12)", color: "#22d3ee" }}>{link.to}</span>
+            <div className="flex flex-col gap-2 min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-2.5 py-1 rounded-lg text-xs font-semibold"
+                  style={{ background: "rgba(0,212,161,0.12)", color: "#00d4a1" }}>{link.from}</span>
+                <ChevronRight size={13} style={{ color: "var(--text-muted)" }} />
+                <span className="px-2.5 py-1 rounded-lg text-xs font-semibold"
+                  style={{ background: "rgba(34,211,238,0.12)", color: "#22d3ee" }}>{link.to}</span>
+              </div>
+              <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{link.bridge}</p>
             </div>
           </motion.div>
         ))}
@@ -266,9 +267,12 @@ function MarketInsightsSection({ insights }: { insights: MarketInsights }) {
     <SectionCard delay={0.35}>
       <SectionTitle icon={Globe} label="Market Intelligence" color="#22d3ee" />
       {insights.notice && (
-        <div className="flex items-start gap-3 mb-5 px-4 py-3 rounded-xl"
-          style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
-          <AlertTriangle size={15} className="flex-shrink-0 mt-0.5" style={{ color: "#f59e0b" }} />
+        <div className="mb-5 px-4 py-3 rounded-xl"
+          style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)" }}>
+          <div className="flex items-center gap-2 mb-1.5">
+            <AlertTriangle size={13} style={{ color: "#f59e0b" }} />
+            <span className="text-xs font-bold tracking-wide" style={{ color: "#f59e0b" }}>Market Notice</span>
+          </div>
           <p className="text-sm leading-relaxed" style={{ color: "#fbbf24" }}>{insights.notice}</p>
         </div>
       )}

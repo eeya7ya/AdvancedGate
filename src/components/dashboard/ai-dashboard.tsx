@@ -140,16 +140,20 @@ function formatAIMessage(content: string, isStreaming?: boolean) {
   const lines = content.split("\n");
   const elements: React.ReactNode[] = [];
   let key = 0;
+  let pendingBlank = false;
 
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) {
-      elements.push(<div key={key++} className="h-2" />);
+      pendingBlank = true;
       continue;
     }
-    // Detect Q1:, Q2: ... lines
+
+    // Detect Q1:, Q2: ... lines — render as a highlighted question
     const qMatch = trimmed.match(/^(Q\d+):\s*(.+)$/);
     if (qMatch) {
+      if (pendingBlank && elements.length > 0) elements.push(<div key={key++} className="h-3" />);
+      pendingBlank = false;
       elements.push(
         <div key={key++} className="flex gap-2 mt-1">
           <span
@@ -158,11 +162,17 @@ function formatAIMessage(content: string, isStreaming?: boolean) {
           >
             {qMatch[1]}
           </span>
-          <span className="leading-relaxed">{qMatch[2]}</span>
+          <span className="leading-relaxed text-sm">{qMatch[2]}</span>
         </div>
       );
     } else {
-      elements.push(<p key={key++} className="leading-relaxed">{trimmed}</p>);
+      if (pendingBlank && elements.length > 0) elements.push(<div key={key++} className="h-2" />);
+      pendingBlank = false;
+      elements.push(
+        <p key={key++} className="leading-relaxed text-sm" style={{ wordBreak: "break-word" }}>
+          {trimmed}
+        </p>
+      );
     }
   }
 
@@ -199,23 +209,26 @@ function ChatBubble({ msg, isStreaming }: { msg: Message; isStreaming?: boolean 
         </div>
       )}
       <div
-        className="max-w-[80%] px-4 py-3 rounded-2xl text-sm"
+        className={`px-4 py-3 rounded-2xl ${isAI ? "max-w-[85%]" : "max-w-[75%]"}`}
         style={
           isAI
             ? {
                 background: "var(--bg-card)",
                 border: "1px solid var(--border-subtle)",
                 color: "var(--text-primary)",
-                borderBottomLeftRadius: "4px",
+                borderBottomLeftRadius: "6px",
+                lineHeight: "1.65",
               }
             : {
                 background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
-                color: "#0f172a",
-                borderBottomRightRadius: "4px",
+                color: "#0a1628",
+                borderBottomRightRadius: "6px",
+                lineHeight: "1.6",
+                fontWeight: 500,
               }
         }
       >
-        {isAI ? formatAIMessage(msg.content, isStreaming) : <p className="leading-relaxed">{msg.content}</p>}
+        {isAI ? formatAIMessage(msg.content, isStreaming) : <p className="leading-relaxed text-sm">{msg.content}</p>}
       </div>
     </motion.div>
   );
@@ -409,24 +422,25 @@ function TopicConnections({ links }: { links: TopicLink[] }) {
               border: "1px solid var(--border-subtle)",
             }}
           >
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <span
-                className="px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap flex-shrink-0"
-                style={{ background: "rgba(0,212,161,0.12)", color: "#00d4a1" }}
-              >
-                {link.from}
-              </span>
-              <ChevronRight size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
-              <p className="text-xs flex-1 min-w-0" style={{ color: "var(--text-secondary)" }}>
+            <div className="flex flex-col gap-2 min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  className="px-2.5 py-1 rounded-lg text-xs font-semibold"
+                  style={{ background: "rgba(0,212,161,0.12)", color: "#00d4a1" }}
+                >
+                  {link.from}
+                </span>
+                <ChevronRight size={13} style={{ color: "var(--text-muted)" }} />
+                <span
+                  className="px-2.5 py-1 rounded-lg text-xs font-semibold"
+                  style={{ background: "rgba(34,211,238,0.12)", color: "#22d3ee" }}
+                >
+                  {link.to}
+                </span>
+              </div>
+              <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
                 {link.bridge}
               </p>
-              <ChevronRight size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
-              <span
-                className="px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap flex-shrink-0"
-                style={{ background: "rgba(34,211,238,0.12)", color: "#22d3ee" }}
-              >
-                {link.to}
-              </span>
             </div>
           </motion.div>
         ))}
@@ -595,11 +609,14 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
           </div>
           {/* Market notice badge — only if AI flagged a concern */}
           {plan.marketInsights?.notice && (
-            <div className="flex items-start gap-2 mt-3 px-3 py-2.5 rounded-xl"
-              style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)" }}>
-              <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" style={{ color: "#f59e0b" }} />
-              <p className="text-xs leading-relaxed" style={{ color: "#f59e0b" }}>
-                <span className="font-semibold">Market notice: </span>{plan.marketInsights.notice}
+            <div className="mt-3 px-3 py-3 rounded-xl"
+              style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)" }}>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <AlertTriangle size={12} style={{ color: "#f59e0b" }} />
+                <span className="text-xs font-bold tracking-wide" style={{ color: "#f59e0b" }}>Market Notice</span>
+              </div>
+              <p className="text-xs leading-relaxed" style={{ color: "#fbbf24" }}>
+                {plan.marketInsights.notice}
               </p>
             </div>
           )}
@@ -983,37 +1000,13 @@ export function AIDashboard({ firstName }: { firstName: string }) {
           >
             {/* Messages area */}
             <div
-              className="flex-1 overflow-y-auto rounded-2xl p-5 space-y-5 mb-4"
+              className="flex-1 overflow-y-auto rounded-2xl p-6 space-y-6 mb-4"
               style={{
                 background: "var(--bg-card)",
-                border: "2px solid rgba(0,212,161,0.15)",
-                boxShadow: "inset 0 1px 0 rgba(0,212,161,0.06)",
+                border: "1px solid var(--border-subtle)",
+                boxShadow: "inset 0 1px 0 rgba(0,212,161,0.04)",
               }}
             >
-              {/* Progress */}
-              {messages.length > 0 && (
-                <div className="flex items-center gap-2 pb-2" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                  <div className="flex gap-1.5">
-                    {[1, 2, 3, 4, 5, 6].map((n) => {
-                      const answered = Math.floor(messages.filter(m => m.role === "user").length / 1);
-                      return (
-                        <div
-                          key={n}
-                          className="w-6 h-1.5 rounded-full transition-all duration-500"
-                          style={{
-                            background: n <= answered
-                              ? "linear-gradient(90deg, #00d4a1, #22d3ee)"
-                              : "var(--bg-base)",
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                    {Math.min(messages.filter(m => m.role === "user").length, 6)}/6 questions
-                  </span>
-                </div>
-              )}
 
               {messages.map((msg, i) => {
                 // Don't render the silent greeting sent at start
@@ -1054,7 +1047,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Type your answer... (Enter to send)"
+                placeholder="Message AI Advisor... (Enter to send)"
                 rows={1}
                 disabled={isLoading}
                 className="flex-1 resize-none bg-transparent outline-none text-sm leading-relaxed py-1 disabled:opacity-40"
