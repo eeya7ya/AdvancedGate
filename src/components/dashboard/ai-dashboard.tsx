@@ -736,7 +736,9 @@ export function AIDashboard({ firstName }: { firstName: string }) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ plan: detected }),
-        }).catch(() => null);
+        }).then((r) => {
+          if (!r.ok) r.json().then((d) => console.error("[roadmap save] failed:", d)).catch(() => null);
+        }).catch((err) => console.error("[roadmap save] network error:", err));
       } else if (looksLikePlanAttempt(full)) {
         // AI tried to generate a plan but output was malformed/truncated
         setMessages([

@@ -72,13 +72,21 @@ export async function createTables() {
 
   await sql`
     CREATE TABLE IF NOT EXISTS user_roadmap (
-      user_id    TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      user_id    TEXT PRIMARY KEY,
       plan_json  JSONB NOT NULL,
       email_reminders_enabled BOOLEAN NOT NULL DEFAULT FALSE,
       reminder_email TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+  `;
+
+  // Drop the FK constraint if it exists from a previous schema version.
+  // The constraint caused silent save failures when the session user ID
+  // didn't match the users table (e.g. ID mismatch or fresh DB scenario).
+  await sql`
+    ALTER TABLE user_roadmap
+    DROP CONSTRAINT IF EXISTS user_roadmap_user_id_fkey;
   `;
 }
 
@@ -149,6 +157,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 
 export async function getUserRoadmap(userId: string): Promise<{ planJson: unknown; emailRemindersEnabled: boolean; reminderEmail: string | null } | null> {
   try {
+    await ensureTables();
     const { rows } = await sql`
       SELECT plan_json AS "planJson",
              email_reminders_enabled AS "emailRemindersEnabled",
@@ -158,7 +167,8 @@ export async function getUserRoadmap(userId: string): Promise<{ planJson: unknow
     `;
     if (!rows[0]) return null;
     return rows[0] as { planJson: unknown; emailRemindersEnabled: boolean; reminderEmail: string | null };
-  } catch {
+  } catch (err) {
+    console.error("[db] getUserRoadmap error:", err);
     return null;
   }
 }
@@ -168,6 +178,7 @@ export async function upsertUserRoadmap(
   planJson: unknown,
 ): Promise<boolean> {
   try {
+    await ensureTables();
     await sql`
       INSERT INTO user_roadmap (user_id, plan_json, updated_at)
       VALUES (${userId}, ${JSON.stringify(planJson)}, NOW())
@@ -176,7 +187,8 @@ export async function upsertUserRoadmap(
             updated_at = NOW()
     `;
     return true;
-  } catch {
+  } catch (err) {
+    console.error("[db] upsertUserRoadmap error:", err);
     return false;
   }
 }
