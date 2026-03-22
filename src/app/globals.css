@@ -194,6 +194,13 @@ body {
   animation: gradient-shift 4s ease infinite;
 }
 
+/* ── Improved placeholder visibility ─────────────────────────── */
+textarea::placeholder,
+input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
 /* ── Theme transition ─────────────────────────────────────────── */
 *, *::before, *::after {
   transition: background-color 0.25s ease, border-color 0.25s ease, color 0.15s ease;

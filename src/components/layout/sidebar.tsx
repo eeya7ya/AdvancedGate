@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, BookOpen, User, Brain } from "lucide-react";
+import { LayoutDashboard, BookOpen, User, Brain, Sparkles } from "lucide-react";
 
 const nav = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "AI Dashboard" },
+  { href: "/dashboard", icon: LayoutDashboard, label: "AI Advisor"  },
   { href: "/subjects",  icon: BookOpen,         label: "Subjects"    },
   { href: "/profile",   icon: User,              label: "Profile"     },
 ];
@@ -19,23 +18,29 @@ export function Sidebar() {
     <aside
       className="hidden lg:flex flex-col w-60 min-h-screen flex-shrink-0"
       style={{
-        background: "var(--bg-surface)",
-        borderRight: "1px solid var(--border-subtle)",
+        background: "linear-gradient(180deg, #0a1628 0%, #0d2a1e 100%)",
+        borderRight: "1px solid rgba(0,212,161,0.12)",
       }}
     >
       {/* Logo */}
       <div
         className="flex items-center gap-3 px-5 py-5"
-        style={{ borderBottom: "1px solid var(--border-subtle)" }}
+        style={{ borderBottom: "1px solid rgba(0,212,161,0.1)" }}
       >
-        <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
-          <Image src="/logo.png" alt="eSpark" width={28} height={28} className="object-contain" />
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{
+            background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
+            boxShadow: "0 0 16px rgba(0,212,161,0.35)",
+          }}
+        >
+          <Brain size={18} className="text-white" strokeWidth={2} />
         </div>
         <div>
-          <div className="font-bold text-sm leading-tight" style={{ color: "var(--text-primary)" }}>
+          <div className="font-bold text-sm leading-tight text-white">
             eSpark AI
           </div>
-          <div className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--brand-teal)" }}>
+          <div className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#00d4a1" }}>
             Workspace
           </div>
         </div>
@@ -46,15 +51,15 @@ export function Sidebar() {
         <div
           className="flex items-center gap-2 px-3 py-2 rounded-xl"
           style={{
-            background: "rgba(0,212,161,0.06)",
-            border: "1px solid rgba(0,212,161,0.15)",
+            background: "rgba(0,212,161,0.08)",
+            border: "1px solid rgba(0,212,161,0.2)",
           }}
         >
           <div
             className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
             style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)" }}
           >
-            <Brain size={11} className="text-white" />
+            <Sparkles size={11} className="text-white" />
           </div>
           <span className="text-xs font-semibold" style={{ color: "#00d4a1" }}>
             AI-Powered Advisor
@@ -63,10 +68,10 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-0.5">
+      <nav className="flex-1 p-3 space-y-1 mt-2">
         <p
-          className="text-[9px] font-bold uppercase tracking-[0.12em] px-3 mb-3 mt-3"
-          style={{ color: "var(--text-muted)" }}
+          className="text-[9px] font-bold uppercase tracking-[0.12em] px-3 mb-3"
+          style={{ color: "rgba(255,255,255,0.3)" }}
         >
           Navigation
         </p>
@@ -85,22 +90,27 @@ export function Sidebar() {
               style={
                 active
                   ? {
-                      background: "rgba(0, 212, 161, 0.1)",
-                      color: "#00d4a1",
-                      border: "1px solid rgba(0, 212, 161, 0.15)",
+                      background: "rgba(0,212,161,0.15)",
+                      color: "#ffffff",
+                      border: "1px solid rgba(0,212,161,0.3)",
+                      boxShadow: "0 2px 12px rgba(0,212,161,0.15)",
                     }
                   : {
-                      color: "var(--text-muted)",
+                      color: "rgba(255,255,255,0.55)",
                       border: "1px solid transparent",
                     }
               }
             >
-              <Icon size={16} strokeWidth={active ? 2.2 : 1.8} />
+              <Icon
+                size={16}
+                strokeWidth={active ? 2.2 : 1.8}
+                style={{ color: active ? "#00d4a1" : "rgba(255,255,255,0.45)" }}
+              />
               {item.label}
               {active && (
                 <span
-                  className="ml-auto w-1.5 h-1.5 rounded-full"
-                  style={{ background: "#00d4a1" }}
+                  className="ml-auto w-1.5 h-1.5 rounded-full flex-shrink-0"
+                  style={{ background: "#00d4a1", boxShadow: "0 0 6px #00d4a1" }}
                 />
               )}
             </Link>
@@ -109,10 +119,13 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="p-4" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+      <div className="p-4" style={{ borderTop: "1px solid rgba(0,212,161,0.08)" }}>
         <div className="flex items-center gap-2 px-2 py-1.5">
-          <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#00d4a1" }} />
-          <span className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>
+          <div
+            className="w-1.5 h-1.5 rounded-full animate-pulse"
+            style={{ background: "#00d4a1", boxShadow: "0 0 6px #00d4a1" }}
+          />
+          <span className="text-[10px] font-medium" style={{ color: "rgba(255,255,255,0.3)" }}>
             Platform v2026.1
           </span>
         </div>

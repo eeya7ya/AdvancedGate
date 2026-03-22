@@ -10,13 +10,13 @@ import { useState } from "react";
 import { LogOut, User, LayoutDashboard, BookOpen } from "lucide-react";
 
 const mobileNav = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "AI Dashboard" },
+  { href: "/dashboard", icon: LayoutDashboard, label: "AI Advisor"   },
   { href: "/subjects",  icon: BookOpen,         label: "Subjects"    },
   { href: "/profile",   icon: User,              label: "Profile"     },
 ];
 
 const BREADCRUMB_MAP: Record<string, string> = {
-  dashboard: "AI Dashboard",
+  dashboard: "AI Advisor",
   subjects:  "Subjects",
   learn:     "Course",
   profile:   "Profile",

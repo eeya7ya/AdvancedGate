@@ -1,5 +1,7 @@
-import { sql } from "@vercel/postgres";
+import { neon } from "@neondatabase/serverless";
 import type { UserStats, EnrolledCourse, UserProfile } from "@/types";
+
+const sql = neon(process.env.DATABASE_URL!, { fullResults: true });
 
 export { sql };
 
