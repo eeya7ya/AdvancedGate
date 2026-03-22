@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { Send, Sparkles, Brain, Target, Clock, ArrowRight, ChevronRight, RotateCcw, Zap, Map, AlertTriangle, Globe } from "lucide-react";
+import { Send, Sparkles, Brain, Target, Clock, ArrowRight, ChevronRight, RotateCcw, Zap, Map, AlertTriangle, Globe, ExternalLink, BookOpen, X, Trash2 } from "lucide-react";
 
 /* ── Types ─────────────────────────────────────────────────────── */
 interface Message {
@@ -47,6 +47,7 @@ interface CourseRecommendation {
   level: string;
   focus: string;
   phase: string;
+  url?: string;
 }
 
 interface ScheduleData {
@@ -120,18 +121,114 @@ function AIAvatar() {
   );
 }
 
-function TypingIndicator() {
+function TypingIndicator({ isPlan = false }: { isPlan?: boolean }) {
   return (
     <div className="flex items-end gap-3">
       <AIAvatar />
       <div
-        className="flex items-center gap-1.5 px-4 py-3 rounded-2xl rounded-bl-sm"
+        className="flex flex-col gap-2 px-4 py-3 rounded-2xl rounded-bl-sm"
         style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
       >
-        <span className="typing-dot w-2 h-2 rounded-full" style={{ background: "var(--brand-teal)" }} />
-        <span className="typing-dot w-2 h-2 rounded-full" style={{ background: "var(--brand-teal)" }} />
-        <span className="typing-dot w-2 h-2 rounded-full" style={{ background: "var(--brand-teal)" }} />
+        <div className="flex items-center gap-1.5">
+          <span className="typing-dot w-2 h-2 rounded-full" style={{ background: "var(--brand-teal)" }} />
+          <span className="typing-dot w-2 h-2 rounded-full" style={{ background: "var(--brand-teal)" }} />
+          <span className="typing-dot w-2 h-2 rounded-full" style={{ background: "var(--brand-teal)" }} />
+        </div>
+        {isPlan && (
+          <p className="text-xs font-medium animate-pulse" style={{ color: "var(--text-muted)" }}>
+            Crafting your personalized roadmap...
+          </p>
+        )}
       </div>
+    </div>
+  );
+}
+
+/* ── Confirm Dialog ─────────────────────────────────────────────── */
+function ConfirmDialog({
+  open,
+  title,
+  message,
+  confirmLabel,
+  onConfirm,
+  onCancel,
+  isLoading,
+}: {
+  open: boolean;
+  title: string;
+  message: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isLoading?: boolean;
+}) {
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.2 }}
+        className="w-full max-w-sm rounded-2xl p-6 shadow-2xl"
+        style={{
+          background: "var(--bg-card)",
+          border: "1px solid var(--border-medium)",
+        }}
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: "rgba(239,68,68,0.15)" }}
+            >
+              <Trash2 size={16} style={{ color: "#ef4444" }} />
+            </div>
+            <h3 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
+              {title}
+            </h3>
+          </div>
+          <button
+            onClick={onCancel}
+            className="w-7 h-7 rounded-lg flex items-center justify-center hover:opacity-70 transition-opacity"
+            style={{ color: "var(--text-muted)" }}
+          >
+            <X size={15} />
+          </button>
+        </div>
+        <p className="text-sm leading-relaxed mb-6" style={{ color: "var(--text-secondary)" }}>
+          {message}
+        </p>
+        <div className="flex gap-2.5">
+          <button
+            onClick={onCancel}
+            disabled={isLoading}
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-80 disabled:opacity-40"
+            style={{
+              background: "var(--bg-base)",
+              border: "1px solid var(--border-subtle)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={isLoading}
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 disabled:opacity-60"
+            style={{
+              background: "linear-gradient(135deg, #ef4444, #dc2626)",
+              color: "#fff",
+              boxShadow: "0 0 16px rgba(239,68,68,0.3)",
+            }}
+          >
+            {isLoading ? "Deleting..." : confirmLabel}
+          </button>
+        </div>
+      </motion.div>
     </div>
   );
 }
@@ -730,6 +827,96 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
         <TopicConnections links={plan.topicConnections} />
       </motion.div>
 
+      {/* Course Recommendations */}
+      {plan.courseRecommendations && plan.courseRecommendations.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.45 }}
+          className="rounded-2xl p-6"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+        >
+          <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+            <BookOpen size={15} style={{ color: "#a78bfa" }} />
+            Recommended Courses
+          </h3>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {plan.courseRecommendations.map((course, i) => (
+              <div
+                key={i}
+                className="flex flex-col gap-2 p-4 rounded-xl"
+                style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold leading-snug mb-1" style={{ color: "var(--text-primary)" }}>
+                      {course.title}
+                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className="px-2 py-0.5 rounded-md text-[10px] font-bold"
+                        style={{ background: "rgba(167,139,250,0.12)", color: "#a78bfa" }}
+                      >
+                        {course.platform}
+                      </span>
+                      <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                        {course.estimatedHours}h · {course.level}
+                      </span>
+                    </div>
+                  </div>
+                  {course.url ? (
+                    <a
+                      href={course.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:opacity-80"
+                      style={{
+                        background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
+                        color: "#0a1628",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Open
+                      <ExternalLink size={9} />
+                    </a>
+                  ) : (
+                    <a
+                      href={`https://www.google.com/search?q=${encodeURIComponent(course.title + " " + course.platform)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-all hover:opacity-80"
+                      style={{
+                        background: "var(--bg-card)",
+                        border: "1px solid var(--border-subtle)",
+                        color: "var(--text-muted)",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Search
+                      <ExternalLink size={9} />
+                    </a>
+                  )}
+                </div>
+                <p className="text-[10px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                  {course.focus}
+                </p>
+                <div className="flex items-center justify-between">
+                  <span
+                    className="text-[10px] font-medium px-2 py-0.5 rounded-md"
+                    style={{ background: "rgba(0,212,161,0.08)", color: "#00d4a1" }}
+                  >
+                    {course.phase}
+                  </span>
+                  <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                    by {course.instructor}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
       {/* Next steps */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -783,6 +970,8 @@ export function AIDashboard({ firstName }: { firstName: string }) {
   const [isLoading, setIsLoading] = useState(false);
   const [streamedText, setStreamedText] = useState("");
   const [isInitializing, setIsInitializing] = useState(true);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const streamBufferRef = useRef("");
@@ -917,12 +1106,25 @@ export function AIDashboard({ firstName }: { firstName: string }) {
   }, []);
 
   const handleReset = useCallback(() => {
-    setPhase("welcome");
-    setMessages([]);
-    setPlan(null);
-    setInput("");
-    setStreamedText("");
-    setIsLoading(false);
+    setShowResetConfirm(true);
+  }, []);
+
+  const handleConfirmReset = useCallback(async () => {
+    setIsDeleting(true);
+    try {
+      await fetch("/api/user/roadmap", { method: "DELETE" });
+    } catch {
+      // ignore — reset UI regardless
+    } finally {
+      setIsDeleting(false);
+      setShowResetConfirm(false);
+      setPhase("welcome");
+      setMessages([]);
+      setPlan(null);
+      setInput("");
+      setStreamedText("");
+      setIsLoading(false);
+    }
   }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1014,21 +1216,10 @@ export function AIDashboard({ firstName }: { firstName: string }) {
                 return <ChatBubble key={i} msg={msg} />;
               })}
 
-              {/* Streaming AI response */}
-              {isLoading && streamedText && (
-                <ChatBubble
-                  msg={{
-                    role: "assistant",
-                    content: looksLikePlanAttempt(streamedText)
-                      ? "Generating your action plan\u2026"
-                      : streamedText,
-                  }}
-                  isStreaming
-                />
+              {/* Loading indicator — shown throughout generation (no raw streaming text) */}
+              {isLoading && (
+                <TypingIndicator isPlan={looksLikePlanAttempt(streamedText)} />
               )}
-
-              {/* Typing indicator */}
-              {isLoading && !streamedText && <TypingIndicator />}
 
               <div ref={messagesEndRef} />
             </div>
@@ -1080,6 +1271,20 @@ export function AIDashboard({ firstName }: { firstName: string }) {
           <motion.div key="plan" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <PlanView plan={plan} onReset={handleReset} />
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showResetConfirm && (
+          <ConfirmDialog
+            open={showResetConfirm}
+            title="Start Over?"
+            message="This will permanently delete your saved roadmap and all session data, then restart from scratch. This cannot be undone."
+            confirmLabel="Yes, Delete & Restart"
+            onConfirm={handleConfirmReset}
+            onCancel={() => setShowResetConfirm(false)}
+            isLoading={isDeleting}
+          />
         )}
       </AnimatePresence>
     </div>

@@ -10,7 +10,8 @@ export default auth((req) => {
     nextUrl.pathname.startsWith("/subjects") ||
     nextUrl.pathname.startsWith("/roadmap") ||
     nextUrl.pathname.startsWith("/learn") ||
-    nextUrl.pathname.startsWith("/profile");
+    nextUrl.pathname.startsWith("/profile") ||
+    nextUrl.pathname.startsWith("/console");
 
   if (isProtected && !isLoggedIn) {
     return NextResponse.redirect(new URL("/login", nextUrl));

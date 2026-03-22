@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Map, User, Brain, Sparkles } from "lucide-react";
+import { LayoutDashboard, Map, User, Brain, Sparkles, Terminal } from "lucide-react";
 
 const nav = [
   { href: "/dashboard", icon: LayoutDashboard, label: "AI Advisor"  },
   { href: "/roadmap",   icon: Map,              label: "My Roadmap"  },
   { href: "/profile",   icon: User,             label: "Profile"     },
+  { href: "/console",   icon: Terminal,         label: "Console"     },
 ];
 
 export function Sidebar() {

@@ -88,6 +88,18 @@ export async function createTables() {
     ALTER TABLE user_roadmap
     DROP CONSTRAINT IF EXISTS user_roadmap_user_id_fkey;
   `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS visitor_logs (
+      id          SERIAL PRIMARY KEY,
+      user_id     TEXT,
+      page        TEXT NOT NULL,
+      ip          TEXT,
+      user_agent  TEXT,
+      referrer    TEXT,
+      visited_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
 }
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
@@ -206,6 +218,71 @@ export async function updateRoadmapEmailSettings(
           updated_at = NOW()
       WHERE user_id = ${userId}
     `;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function logVisit(data: {
+  userId?: string;
+  page: string;
+  ip?: string;
+  userAgent?: string;
+  referrer?: string;
+}): Promise<void> {
+  try {
+    await ensureTables();
+    await sql`
+      INSERT INTO visitor_logs (user_id, page, ip, user_agent, referrer)
+      VALUES (
+        ${data.userId ?? null},
+        ${data.page},
+        ${data.ip ?? null},
+        ${data.userAgent ?? null},
+        ${data.referrer ?? null}
+      )
+    `;
+  } catch {
+    // non-fatal — never block the request for a log write
+  }
+}
+
+export async function getConsoleStats(): Promise<{
+  totalVisits: number;
+  uniqueVisitors: number;
+  totalUsers: number;
+  totalPlans: number;
+  recentVisits: Array<{ id: number; userId: string | null; page: string; ip: string | null; userAgent: string | null; visitedAt: string }>;
+  topPages: Array<{ page: string; count: number }>;
+}> {
+  try {
+    await ensureTables();
+    const [{ rows: visits }, { rows: users }, { rows: plans }, { rows: recent }, { rows: topPages }] =
+      await Promise.all([
+        sql`SELECT COUNT(*)::int AS total, COUNT(DISTINCT COALESCE(user_id, ip, user_agent))::int AS unique_visitors FROM visitor_logs`,
+        sql`SELECT COUNT(*)::int AS total FROM users`,
+        sql`SELECT COUNT(*)::int AS total FROM user_roadmap`,
+        sql`SELECT id, user_id AS "userId", page, ip, user_agent AS "userAgent", visited_at AS "visitedAt" FROM visitor_logs ORDER BY visited_at DESC LIMIT 50`,
+        sql`SELECT page, COUNT(*)::int AS count FROM visitor_logs GROUP BY page ORDER BY count DESC LIMIT 10`,
+      ]);
+
+    return {
+      totalVisits: (visits[0] as { total: number })?.total ?? 0,
+      uniqueVisitors: (visits[0] as { unique_visitors: number })?.unique_visitors ?? 0,
+      totalUsers: (users[0] as { total: number })?.total ?? 0,
+      totalPlans: (plans[0] as { total: number })?.total ?? 0,
+      recentVisits: recent as Array<{ id: number; userId: string | null; page: string; ip: string | null; userAgent: string | null; visitedAt: string }>,
+      topPages: topPages as Array<{ page: string; count: number }>,
+    };
+  } catch {
+    return { totalVisits: 0, uniqueVisitors: 0, totalUsers: 0, totalPlans: 0, recentVisits: [], topPages: [] };
+  }
+}
+
+export async function deleteUserRoadmap(userId: string): Promise<boolean> {
+  try {
+    await sql`DELETE FROM user_roadmap WHERE user_id = ${userId}`;
     return true;
   } catch {
     return false;
