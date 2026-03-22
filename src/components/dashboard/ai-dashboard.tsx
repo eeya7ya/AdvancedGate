@@ -82,6 +82,17 @@ interface LearningPlan {
 
 type Phase = "welcome" | "chat" | "plan";
 
+/* ── Language / RTL Helpers ─────────────────────────────────────── */
+const ARABIC_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
+
+function isArabic(text: string): boolean {
+  return ARABIC_REGEX.test(text);
+}
+
+function getTextDir(text: string): "rtl" | "ltr" {
+  return isArabic(text) ? "rtl" : "ltr";
+}
+
 /* ── Helpers ────────────────────────────────────────────────────── */
 function parsePlan(text: string): LearningPlan | null {
   try {
@@ -288,6 +299,7 @@ function formatAIMessage(content: string, isStreaming?: boolean) {
 
 function ChatBubble({ msg, isStreaming }: { msg: Message; isStreaming?: boolean }) {
   const isAI = msg.role === "assistant";
+  const dir = getTextDir(msg.content);
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -306,6 +318,7 @@ function ChatBubble({ msg, isStreaming }: { msg: Message; isStreaming?: boolean 
         </div>
       )}
       <div
+        dir={dir}
         className={`px-4 py-3 rounded-2xl ${isAI ? "max-w-[85%]" : "max-w-[75%]"}`}
         style={
           isAI
@@ -315,6 +328,7 @@ function ChatBubble({ msg, isStreaming }: { msg: Message; isStreaming?: boolean 
                 color: "var(--text-primary)",
                 borderBottomLeftRadius: "6px",
                 lineHeight: "1.65",
+                textAlign: dir === "rtl" ? "right" : "left",
               }
             : {
                 background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
@@ -322,6 +336,7 @@ function ChatBubble({ msg, isStreaming }: { msg: Message; isStreaming?: boolean 
                 borderBottomRightRadius: "6px",
                 lineHeight: "1.6",
                 fontWeight: 500,
+                textAlign: dir === "rtl" ? "right" : "left",
               }
         }
       >
@@ -1236,17 +1251,25 @@ export function AIDashboard({ firstName }: { firstName: string }) {
               <textarea
                 ref={textareaRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  const el = e.target;
+                  el.style.height = "auto";
+                  el.style.height = Math.min(el.scrollHeight, 120) + "px";
+                }}
                 onKeyDown={handleKeyDown}
-                placeholder="Message AI Advisor... (Enter to send)"
+                placeholder="Message AI Advisor... (Enter to send, Shift+Enter for new line)"
                 rows={1}
                 disabled={isLoading}
+                dir={getTextDir(input)}
                 className="flex-1 resize-none bg-transparent outline-none text-sm leading-relaxed py-1 disabled:opacity-40"
                 style={{
                   color: "var(--text-primary)",
                   maxHeight: "120px",
                   overflowY: "auto",
                   caretColor: "#00d4a1",
+                  height: "auto",
+                  textAlign: isArabic(input) ? "right" : "left",
                 }}
               />
               <button
