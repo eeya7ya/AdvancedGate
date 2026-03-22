@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { Send, Sparkles, Brain, Target, Clock, ArrowRight, ChevronRight, RotateCcw, Zap, Map } from "lucide-react";
+import { Send, Sparkles, Brain, Target, Clock, ArrowRight, ChevronRight, RotateCcw, Zap, Map, AlertTriangle, Globe } from "lucide-react";
 
 /* ── Types ─────────────────────────────────────────────────────── */
 interface Message {
@@ -31,12 +31,50 @@ interface TopicLink {
   bridge: string;
 }
 
+interface MarketInsights {
+  localDemand: string;
+  globalDemand: string;
+  salaryRange: string;
+  notice?: string;
+  recommendation: string;
+}
+
+interface CourseRecommendation {
+  title: string;
+  platform: string;
+  instructor: string;
+  estimatedHours: number;
+  level: string;
+  focus: string;
+  phase: string;
+}
+
+interface ScheduleData {
+  daily: { duration: string; structure: string[] };
+  weekly: { pattern: string; weeklyGoal: string };
+  printableTargets: { daily: string; weekly: string; monthly: string };
+}
+
+interface RoadmapPhase {
+  phase: string;
+  duration: string;
+  goal: string;
+  milestones: string[];
+  skills: string[];
+  resources: string[];
+  outcome: string;
+}
+
 interface LearningPlan {
   type: "LEARNING_PLAN";
-  profile: { name: string; summary: string };
+  profile: { name: string; country?: string; targetMarket?: string; workStyle?: string; summary: string };
+  marketInsights?: MarketInsights;
   todaysFocus: { topic: string; reason: string; duration: string; action: string };
   priorities: Priority[];
   timeAllocation: TimeSlice[];
+  courseRecommendations?: CourseRecommendation[];
+  schedule?: ScheduleData;
+  roadmap?: RoadmapPhase[];
   topicConnections: TopicLink[];
   nextSteps: string[];
 }
@@ -496,6 +534,38 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
           <p className="text-sm max-w-2xl leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             {plan.profile.summary}
           </p>
+          {/* Market context chips */}
+          <div className="flex flex-wrap gap-2 mt-3">
+            {plan.profile.country && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+                style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee", border: "1px solid rgba(34,211,238,0.2)" }}>
+                <Globe size={10} />
+                {plan.profile.country}
+              </span>
+            )}
+            {plan.profile.targetMarket && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+                style={{ background: "rgba(0,212,161,0.1)", color: "#00d4a1", border: "1px solid rgba(0,212,161,0.2)" }}>
+                {plan.profile.targetMarket}
+              </span>
+            )}
+            {plan.profile.workStyle && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+                style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>
+                {plan.profile.workStyle}
+              </span>
+            )}
+          </div>
+          {/* Market notice badge — only if AI flagged a concern */}
+          {plan.marketInsights?.notice && (
+            <div className="flex items-start gap-2 mt-3 px-3 py-2.5 rounded-xl"
+              style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)" }}>
+              <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" style={{ color: "#f59e0b" }} />
+              <p className="text-xs leading-relaxed" style={{ color: "#f59e0b" }}>
+                <span className="font-semibold">Market notice: </span>{plan.marketInsights.notice}
+              </p>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <Link
@@ -707,23 +777,14 @@ export function AIDashboard({ firstName }: { firstName: string }) {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       streamBufferRef.current = "";
-      let rafId: number | null = null;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         streamBufferRef.current += decoder.decode(value, { stream: true });
-        if (!rafId) {
-          rafId = requestAnimationFrame(() => {
-            setStreamedText(streamBufferRef.current);
-            rafId = null;
-          });
-        }
+        setStreamedText(streamBufferRef.current);
       }
-      // Flush any remaining buffered text
-      if (rafId) cancelAnimationFrame(rafId);
       const full = streamBufferRef.current;
-      setStreamedText(full);
 
       // Check if it's a learning plan
       const detected = parsePlan(full);
@@ -780,22 +841,14 @@ export function AIDashboard({ firstName }: { firstName: string }) {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       streamBufferRef.current = "";
-      let rafId: number | null = null;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         streamBufferRef.current += decoder.decode(value, { stream: true });
-        if (!rafId) {
-          rafId = requestAnimationFrame(() => {
-            setStreamedText(streamBufferRef.current);
-            rafId = null;
-          });
-        }
+        setStreamedText(streamBufferRef.current);
       }
-      if (rafId) cancelAnimationFrame(rafId);
       const full = streamBufferRef.current;
-      setStreamedText(full);
 
       setMessages([...initMessages, { role: "assistant", content: full }]);
     } catch {
@@ -904,7 +957,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
               {messages.length > 0 && (
                 <div className="flex items-center gap-2 pb-2" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
                   <div className="flex gap-1.5">
-                    {[1, 2, 3, 4, 5].map((n) => {
+                    {[1, 2, 3, 4, 5, 6].map((n) => {
                       const answered = Math.floor(messages.filter(m => m.role === "user").length / 1);
                       return (
                         <div
@@ -920,7 +973,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
                     })}
                   </div>
                   <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                    {Math.min(messages.filter(m => m.role === "user").length, 5)}/5 questions
+                    {Math.min(messages.filter(m => m.role === "user").length, 6)}/6 questions
                   </span>
                 </div>
               )}
