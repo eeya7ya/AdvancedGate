@@ -45,13 +45,13 @@ export function Navbar() {
             <Image src="/logo.png" alt="eSpark" width={24} height={24} className="object-contain" />
           </div>
           <span className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
-            eSpark KIT
+            eSpark AI
           </span>
         </div>
 
         {/* Desktop breadcrumb */}
         <div className="hidden lg:flex items-center gap-2 text-sm">
-          <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>eSpark KIT</span>
+          <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>eSpark AI</span>
           <span style={{ color: "var(--border-medium)" }}>/</span>
           <span className="text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>{crumb}</span>
         </div>
@@ -160,7 +160,7 @@ export function Navbar() {
             <div className="flex items-center gap-3 mb-8">
               <Image src="/logo.png" alt="eSpark" width={28} height={28} className="object-contain" />
               <span className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
-                eSpark KIT
+                eSpark AI
               </span>
             </div>
             <nav className="space-y-1">

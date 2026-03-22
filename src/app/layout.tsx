@@ -13,21 +13,20 @@ const geistSans = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "eSpark-Learning KIT",
+  title: "eSpark AI",
   description:
-    "The professional learning platform for Electrical Power Engineering, Networking, and Software Development.",
+    "Your intelligent AI workspace — automation, insights, and assistance in one powerful platform.",
   keywords: [
-    "electrical engineering",
-    "power systems",
-    "networking",
-    "coding",
-    "e-learning",
-    "AI learning advisor",
+    "AI workspace",
+    "artificial intelligence",
+    "automation",
+    "eSpark AI",
+    "intelligent assistant",
   ],
   authors: [{ name: "eSpark" }],
   openGraph: {
-    title: "eSpark-Learning KIT",
-    description: "AI-powered engineering career advisor",
+    title: "eSpark AI",
+    description: "Think smarter, work faster with eSpark AI",
     type: "website",
   },
 };
