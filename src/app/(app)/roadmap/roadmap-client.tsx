@@ -6,18 +6,58 @@ import Link from "next/link";
 import {
   Target, Clock, ArrowRight, ChevronRight, Zap, Brain,
   Map, Bell, BellOff, Mail, RotateCcw, CheckCircle, Loader2,
-  CalendarDays, TrendingUp,
+  CalendarDays, TrendingUp, Globe, BookOpen, AlertTriangle,
+  Printer, Flag, Layers,
 } from "lucide-react";
 
 /* ── Types ────────────────────────────────────────────────── */
 interface Priority    { topic: string; score: number; description: string; color: string }
 interface TimeSlice   { subject: string; percentage: number; color: string; hours: number }
 interface TopicLink   { from: string; to: string; bridge: string }
+
+interface MarketInsights {
+  localDemand: string;
+  globalDemand: string;
+  salaryRange: string;
+  notice?: string;
+  recommendation: string;
+}
+
+interface CourseRecommendation {
+  title: string;
+  platform: string;
+  instructor: string;
+  estimatedHours: number;
+  level: string;
+  focus: string;
+  phase: string;
+}
+
+interface ScheduleData {
+  daily: { duration: string; structure: string[] };
+  weekly: { pattern: string; weeklyGoal: string };
+  printableTargets: { daily: string; weekly: string; monthly: string };
+}
+
+interface RoadmapPhase {
+  phase: string;
+  duration: string;
+  goal: string;
+  milestones: string[];
+  skills: string[];
+  resources: string[];
+  outcome: string;
+}
+
 interface LearningPlan {
-  profile: { name: string; summary: string };
+  profile: { name: string; country?: string; targetMarket?: string; workStyle?: string; summary: string };
+  marketInsights?: MarketInsights;
   todaysFocus: { topic: string; reason: string; duration: string; action: string };
   priorities: Priority[];
   timeAllocation: TimeSlice[];
+  courseRecommendations?: CourseRecommendation[];
+  schedule?: ScheduleData;
+  roadmap?: RoadmapPhase[];
   topicConnections: TopicLink[];
   nextSteps: string[];
 }
@@ -220,6 +260,237 @@ function TopicConnections({ links }: { links: TopicLink[] }) {
   );
 }
 
+/* ── Market Insights ───────────────────────────────────────── */
+function MarketInsightsSection({ insights }: { insights: MarketInsights }) {
+  return (
+    <SectionCard delay={0.35}>
+      <SectionTitle icon={Globe} label="Market Intelligence" color="#22d3ee" />
+      {insights.notice && (
+        <div className="flex items-start gap-3 mb-5 px-4 py-3 rounded-xl"
+          style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
+          <AlertTriangle size={15} className="flex-shrink-0 mt-0.5" style={{ color: "#f59e0b" }} />
+          <p className="text-sm leading-relaxed" style={{ color: "#fbbf24" }}>{insights.notice}</p>
+        </div>
+      )}
+      <div className="grid sm:grid-cols-2 gap-4 mb-4">
+        <div className="rounded-xl p-4" style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "#00d4a1" }}>Local Demand</p>
+          <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{insights.localDemand}</p>
+        </div>
+        <div className="rounded-xl p-4" style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "#22d3ee" }}>Global Demand</p>
+          <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{insights.globalDemand}</p>
+        </div>
+      </div>
+      <div className="rounded-xl p-4 mb-4" style={{ background: "rgba(0,212,161,0.06)", border: "1px solid rgba(0,212,161,0.18)" }}>
+        <p className="text-xs font-bold mb-1" style={{ color: "#00d4a1" }}>Expected Income Range</p>
+        <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{insights.salaryRange}</p>
+      </div>
+      <div className="rounded-xl p-4" style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}>
+        <p className="text-xs font-bold mb-1.5" style={{ color: "#a78bfa" }}>Strategic Recommendation</p>
+        <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{insights.recommendation}</p>
+      </div>
+    </SectionCard>
+  );
+}
+
+/* ── Course Recommendations ────────────────────────────────── */
+function CourseRecommendationsSection({ courses }: { courses: CourseRecommendation[] }) {
+  const levelColor: Record<string, string> = {
+    Beginner: "#00d4a1",
+    "Beginner to Intermediate": "#22d3ee",
+    Intermediate: "#a78bfa",
+    "Intermediate to Advanced": "#f59e0b",
+    Advanced: "#f87171",
+  };
+
+  return (
+    <SectionCard delay={0.4}>
+      <SectionTitle icon={BookOpen} label="Recommended Courses" color="#a78bfa" />
+      <div className="space-y-4">
+        {courses.map((c, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 + i * 0.08, duration: 0.35 }}
+            className="rounded-xl p-4"
+            style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}
+          >
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <div className="min-w-0">
+                <p className="text-sm font-bold leading-snug" style={{ color: "var(--text-primary)" }}>{c.title}</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                  {c.platform} · {c.instructor}
+                </p>
+              </div>
+              <span
+                className="flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-lg"
+                style={{ background: `${levelColor[c.level] ?? "#00d4a1"}18`, color: levelColor[c.level] ?? "#00d4a1" }}
+              >
+                {c.level}
+              </span>
+            </div>
+            <p className="text-xs leading-relaxed mb-3" style={{ color: "var(--text-secondary)" }}>{c.focus}</p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md"
+                style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee" }}>
+                <Clock size={9} />
+                {c.estimatedHours}h
+              </span>
+              <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md"
+                style={{ background: "rgba(0,212,161,0.1)", color: "#00d4a1" }}>
+                <Flag size={9} />
+                {c.phase}
+              </span>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </SectionCard>
+  );
+}
+
+/* ── Roadmap Phases ────────────────────────────────────────── */
+function RoadmapPhasesSection({ phases }: { phases: RoadmapPhase[] }) {
+  const phaseColors = ["#00d4a1", "#22d3ee", "#a78bfa", "#f59e0b", "#f87171", "#34d399", "#60a5fa", "#e879f9"];
+
+  return (
+    <SectionCard delay={0.45}>
+      <SectionTitle icon={Layers} label="Your Roadmap" color="#00d4a1" />
+      <div className="relative">
+        {/* vertical line */}
+        <div className="absolute left-4 top-0 bottom-0 w-0.5" style={{ background: "var(--border-subtle)" }} />
+        <div className="space-y-6">
+          {phases.map((phase, i) => {
+            const color = phaseColors[i % phaseColors.length];
+            return (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -16 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.45 + i * 0.1, duration: 0.4 }}
+                className="relative pl-12"
+              >
+                {/* dot */}
+                <div
+                  className="absolute left-2 top-1.5 w-4 h-4 rounded-full border-2 border-[var(--bg-base)] z-10"
+                  style={{ background: color, boxShadow: `0 0 8px ${color}88`, transform: "translateX(-50%)" }}
+                />
+                <div className="rounded-xl p-5" style={{ background: "var(--bg-base)", border: `1px solid ${color}33` }}>
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-lg"
+                      style={{ background: `${color}18`, color }}>
+                      {phase.phase}
+                    </span>
+                    <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>{phase.duration}</span>
+                  </div>
+                  <p className="text-sm font-semibold mb-2 leading-snug" style={{ color: "var(--text-primary)" }}>{phase.goal}</p>
+                  <div className="grid sm:grid-cols-2 gap-3 mt-3">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color }}>Milestones</p>
+                      <ul className="space-y-1">
+                        {phase.milestones.map((m, j) => (
+                          <li key={j} className="flex items-start gap-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
+                            <CheckCircle size={10} className="flex-shrink-0 mt-0.5" style={{ color }} />
+                            {m}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: "#a78bfa" }}>Skills</p>
+                      <div className="flex flex-wrap gap-1">
+                        {phase.skills.map((s, j) => (
+                          <span key={j} className="text-[10px] px-2 py-0.5 rounded-md font-medium"
+                            style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa" }}>
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs mt-3 pt-3 leading-relaxed italic"
+                    style={{ color: "var(--text-muted)", borderTop: "1px solid var(--border-subtle)" }}>
+                    {phase.outcome}
+                  </p>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+/* ── Printable Schedule ────────────────────────────────────── */
+function PrintableScheduleSection({ schedule }: { schedule: ScheduleData }) {
+  return (
+    <SectionCard delay={0.5}>
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+          <Printer size={15} style={{ color: "#22d3ee" }} />
+          Your Study Schedule
+        </h3>
+        <button
+          onClick={() => window.print()}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all hover:opacity-80 print:hidden"
+          style={{ background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.2)", color: "#22d3ee" }}
+        >
+          <Printer size={11} />
+          Print
+        </button>
+      </div>
+
+      {/* Daily structure */}
+      <div className="mb-5">
+        <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: "#00d4a1" }}>
+          Daily Routine · {schedule.daily.duration}
+        </p>
+        <div className="space-y-2">
+          {schedule.daily.structure.map((item, i) => (
+            <div key={i} className="flex items-start gap-3 rounded-xl px-4 py-3"
+              style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}>
+              <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold mt-0.5"
+                style={{ background: "rgba(0,212,161,0.15)", color: "#00d4a1" }}>
+                {i + 1}
+              </span>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>{item}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Weekly pattern */}
+      <div className="mb-5 rounded-xl px-4 py-3"
+        style={{ background: "rgba(34,211,238,0.06)", border: "1px solid rgba(34,211,238,0.18)" }}>
+        <p className="text-xs font-bold mb-1" style={{ color: "#22d3ee" }}>Weekly Pattern</p>
+        <p className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>{schedule.weekly.pattern}</p>
+        <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{schedule.weekly.weeklyGoal}</p>
+      </div>
+
+      {/* Printable targets */}
+      <div>
+        <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: "#a78bfa" }}>Printable Targets</p>
+        <div className="grid sm:grid-cols-3 gap-3">
+          {[
+            { label: "Daily", value: schedule.printableTargets.daily, color: "#00d4a1" },
+            { label: "Weekly", value: schedule.printableTargets.weekly, color: "#22d3ee" },
+            { label: "Monthly", value: schedule.printableTargets.monthly, color: "#a78bfa" },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="rounded-xl p-4"
+              style={{ background: "var(--bg-base)", border: `1px solid ${color}33` }}>
+              <p className="text-[10px] font-bold uppercase tracking-wide mb-2" style={{ color }}>{label} Target</p>
+              <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
 function EmailReminders({
   initialEnabled,
   initialEmail,
@@ -392,13 +663,29 @@ export function RoadmapClient({
         </div>
       </motion.div>
 
+      {/* Market Insights */}
+      {plan.marketInsights && <MarketInsightsSection insights={plan.marketInsights} />}
+
       {/* Charts row */}
       <div className="grid md:grid-cols-2 gap-5">
         <PriorityBars priorities={plan.priorities} />
         <DonutChart slices={plan.timeAllocation} />
       </div>
 
-      {/* Weekly Schedule */}
+      {/* Course Recommendations */}
+      {plan.courseRecommendations && plan.courseRecommendations.length > 0 && (
+        <CourseRecommendationsSection courses={plan.courseRecommendations} />
+      )}
+
+      {/* Roadmap Phases */}
+      {plan.roadmap && plan.roadmap.length > 0 && (
+        <RoadmapPhasesSection phases={plan.roadmap} />
+      )}
+
+      {/* Printable Schedule */}
+      {plan.schedule && <PrintableScheduleSection schedule={plan.schedule} />}
+
+      {/* Weekly auto-schedule */}
       <WeeklySchedule slices={plan.timeAllocation} />
 
       {/* Topic connections */}
