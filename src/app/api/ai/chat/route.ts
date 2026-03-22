@@ -43,8 +43,19 @@ AFTER 5-6 USER RESPONSES: SEARCH FIRST
 ═══════════════════════════════════════════
 Before generating the plan, you MUST use web_search to gather real data:
 
-1. Search for: "best [their specific goal] courses [year] site:coursera.org OR site:udemy.com OR site:youtube.com"
-   → Find 4-6 top-rated, currently available courses with real titles and instructors
+1. COURSE SEARCH — always follow this priority order:
+   a. FIRST search for the OFFICIAL vendor/mother company training:
+      - CCNA/networking → search "Cisco U. official CCNA training site:u.cisco.com OR site:cisco.com/c/en/us/training-events"
+      - CompTIA certifications → search "CompTIA official CertMaster training site:comptia.org"
+      - Microsoft/Azure/Office → search "Microsoft Learn official training site:learn.microsoft.com"
+      - AWS → search "AWS Skill Builder official training site:skillbuilder.aws"
+      - Google Cloud → search "Google Cloud Skills Boost official site:cloudskillsboost.google"
+      - VMware → search "VMware Learning official site:mylearn.vmware.com"
+      - Palo Alto → search "Palo Alto Networks Academy official site:paloaltonetworks.com/services/education"
+      - For any vendor-specific certification, ALWAYS start with that vendor's own learning portal
+   b. THEN search paid third-party platforms: "best [goal] courses site:coursera.org OR site:udemy.com OR site:linkedin.com/learning OR site:pluralsight.com"
+   c. LAST search free platforms: "best [goal] courses site:youtube.com OR site:freecodecamp.org OR site:khanacademy.org"
+   → Include at least 1 official vendor course, 1-2 paid platform courses, and 1 free resource across courseRecommendations
 
 2. Search for: "[their goal/career] salary [their target market/region] [year]"
    → Get accurate income ranges for their specific target market, not generic global averages
@@ -158,13 +169,13 @@ All description fields must be full, meaningful sentences — never 2-word label
   "courseRecommendations": [
     {
       "title": "Exact course title as found in your web search — real and currently available",
-      "platform": "YouTube / Coursera / Udemy / edX / freeCodeCamp / LinkedIn Learning / Pluralsight",
-      "instructor": "Exact instructor name or YouTube channel name from your search",
+      "platform": "PRIORITY ORDER: 1st = Official vendor portal (Cisco U., Microsoft Learn, AWS Skill Builder, CompTIA CertMaster, Google Cloud Skills Boost, etc.) / 2nd = Paid platforms (Coursera, Udemy, LinkedIn Learning, Pluralsight) / 3rd = Free platforms (YouTube, freeCodeCamp, edX). Always list the official vendor course first if one exists.",
+      "instructor": "Exact instructor name, organization name, or official platform name from your search",
       "estimatedHours": 20,
       "level": "Beginner",
       "focus": "1-2 sentences: specifically what this course covers and exactly why it is the right match for their current level, goal, and the phase they should take it in",
       "phase": "Month 1-2",
-      "url": "The direct URL to this course page — from your web search results. Must be a real, working link (e.g. https://www.coursera.org/learn/..., https://www.udemy.com/course/..., https://youtu.be/...). Leave as empty string if you cannot confirm the exact URL."
+      "url": "The direct URL to this course page — from your web search results. Must be a real, working link (e.g. https://u.cisco.com/..., https://learn.microsoft.com/..., https://www.coursera.org/learn/..., https://www.udemy.com/course/..., https://youtu.be/...). Leave as empty string if you cannot confirm the exact URL."
     },
     {
       "title": "Second course — real title from search",
@@ -264,6 +275,7 @@ All description fields must be full, meaningful sentences — never 2-word label
 FINAL CRITICAL RULES:
 - Every field reflects their actual answers — personalized to who they are, where they live, and what they said
 - courseRecommendations must contain REAL courses found via your web searches — real titles, real instructors, real platforms
+- courseRecommendations ORDERING: always list the official vendor/mother company course FIRST (e.g., Cisco U. for CCNA, Microsoft Learn for Azure, AWS Skill Builder for AWS, CompTIA CertMaster for CompTIA certs), followed by paid third-party platforms, then free platforms
 - courseRecommendations.url must be the actual direct URL to the course page from your search results — users will click it directly
 - roadmap phase count and total duration MUST match their stated timeline exactly
 - notice in marketInsights appears ONLY for genuine strategic concerns — never invent problems

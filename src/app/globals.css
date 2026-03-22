@@ -210,13 +210,22 @@ button, a { transition: background-color 0.25s ease, border-color 0.25s ease, co
 
 /* ── Print styles for schedule ─────────────────────────────── */
 @media print {
-  body { background: #fff !important; color: #111 !important; }
+  body { background: #fff !important; color: #111 !important; margin: 0; padding: 16px; }
   .print\:hidden { display: none !important; }
   nav, aside, header, footer { display: none !important; }
-  [style*="--bg-card"] { background: #f9fafb !important; border: 1px solid #e5e7eb !important; }
-  [style*="--bg-base"] { background: #f3f4f6 !important; }
-  [style*="--text-primary"] { color: #111827 !important; }
-  [style*="--text-secondary"] { color: #374151 !important; }
-  [style*="--text-muted"] { color: #6b7280 !important; }
-  .rounded-2xl, .rounded-xl { border-radius: 8px !important; }
+
+  /* Card backgrounds */
+  [class*="rounded-2xl"], [class*="rounded-xl"] {
+    border-radius: 8px !important;
+    page-break-inside: avoid;
+  }
+
+  /* Force light colors from CSS vars */
+  * { --bg-card: #f9fafb; --bg-base: #f1f3f5; --text-primary: #111827; --text-secondary: #374151; --text-muted: #6b7280; --border-subtle: #e5e7eb; --border-medium: #d1d5db; }
+
+  /* Ensure colored text prints */
+  [style*="color"] { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* Keep backgrounds in print */
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
