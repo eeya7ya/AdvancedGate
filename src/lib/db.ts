@@ -5,6 +5,18 @@ const sql = neon(process.env.DATABASE_URL!, { fullResults: true });
 
 export { sql };
 
+// Ensure tables exist once per cold start — awaitable, deduplicated
+let tablesPromise: Promise<void> | null = null;
+export function ensureTables(): Promise<void> {
+  if (!tablesPromise) {
+    tablesPromise = createTables().catch((err) => {
+      console.error("[db] ensureTables failed:", err);
+      tablesPromise = null; // allow retry on next request
+    });
+  }
+  return tablesPromise;
+}
+
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
 export async function createTables() {

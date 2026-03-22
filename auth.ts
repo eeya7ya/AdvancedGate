@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
-import { sql } from "@/lib/db";
+import { sql, ensureTables } from "@/lib/db";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -12,6 +12,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async signIn({ user }) {
       if (!user.email) return false;
+      await ensureTables(); // guarantees schema exists before inserting user
       try {
         await sql`
           INSERT INTO users (id, name, email, image)
