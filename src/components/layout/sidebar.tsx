@@ -3,17 +3,22 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Map, User, Brain, Sparkles, Terminal } from "lucide-react";
+import { LayoutDashboard, Map, User, Brain, Sparkles, Terminal, CalendarCheck } from "lucide-react";
 
-const nav = [
+const baseNav = [
   { href: "/dashboard", icon: LayoutDashboard, label: "AI Advisor"  },
   { href: "/roadmap",   icon: Map,              label: "My Roadmap"  },
+  { href: "/schedule",  icon: CalendarCheck,    label: "Schedule"    },
   { href: "/profile",   icon: User,             label: "Profile"     },
+];
+
+const adminNav = [
   { href: "/console",   icon: Terminal,         label: "Console"     },
 ];
 
-export function Sidebar() {
+export function Sidebar({ isAdmin }: { isAdmin?: boolean }) {
   const pathname = usePathname();
+  const nav = isAdmin ? [...baseNav, ...adminNav] : baseNav;
 
   return (
     <aside
