@@ -122,7 +122,7 @@ function looksLikePlanAttempt(text: string): boolean {
 
 /* ── Translations ───────────────────────────────────────────────── */
 const D: Record<string, { en: string; ar: string }> = {
-  badge:          { en: "Real-time AI Advisor · Powered by Claude", ar: "مستشار ذكاء اصطناعي · مدعوم بـ Claude" },
+  badge:          { en: "Real-time AI Advisor · Powered by eSpark", ar: "مستشار ذكاء اصطناعي · مدعوم بـ eSpark" },
   heroTitle:      { en: "Achieve Any Dream With", ar: "حقق أي حلم بمساعدة" },
   heroAI:         { en: "Your AI Advisor", ar: "مستشارك الذكي" },
   heroDesc:       { en: "No matter what your goal is — career, business, creative, academic, or personal — your AI advisor will understand your unique situation and build a real-time roadmap with mind maps, charts, and actionable steps to help you get there.", ar: "مهما كان هدفك — مهني، تجاري، إبداعي، أكاديمي أو شخصي — سيفهم مستشارك الذكي وضعك الفريد ويبني لك خارطة طريق حقيقية بخرائط ذهنية ورسوم بيانية وخطوات عملية توصلك إلى ما تريد." },
@@ -1133,7 +1133,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: initMessages }),
+        body: JSON.stringify({ messages: initMessages, isInit: true }),
       });
 
       if (!res.ok || !res.body) throw new Error("API error");

@@ -11,9 +11,9 @@ import { LogOut, User, LayoutDashboard, Map } from "lucide-react";
 import { useLang } from "@/lib/language";
 
 const mobileNav = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "AI Advisor"  },
-  { href: "/roadmap",   icon: Map,              label: "My Roadmap" },
-  { href: "/profile",   icon: User,             label: "Profile"    },
+  { href: "/dashboard", icon: LayoutDashboard, en: "AI Advisor",  ar: "المستشار الذكي" },
+  { href: "/roadmap",   icon: Map,              en: "My Roadmap",  ar: "خارطة طريقي"   },
+  { href: "/profile",   icon: User,             en: "Profile",     ar: "الملف الشخصي"  },
 ];
 
 const BREADCRUMB_MAP: Record<string, string> = {
@@ -24,6 +24,14 @@ const BREADCRUMB_MAP: Record<string, string> = {
   profile:   "Profile",
 };
 
+const BREADCRUMB_MAP_AR: Record<string, string> = {
+  dashboard: "المستشار الذكي",
+  roadmap:   "خارطة طريقي",
+  subjects:  "المواد",
+  learn:     "الدورة",
+  profile:   "الملف الشخصي",
+};
+
 export function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -31,7 +39,9 @@ export function Navbar() {
   const { lang, toggle: toggleLang } = useLang();
   const user = session?.user;
   const segment = pathname.split("/")[1] || "dashboard";
-  const crumb = BREADCRUMB_MAP[segment] ?? segment;
+  const crumb = lang === "ar"
+    ? (BREADCRUMB_MAP_AR[segment] ?? segment)
+    : (BREADCRUMB_MAP[segment] ?? segment);
 
   return (
     <>
@@ -134,14 +144,14 @@ export function Navbar() {
                     style={{ color: "var(--text-secondary)" }}
                   >
                     <User size={14} />
-                    Profile
+                    {lang === "ar" ? "الملف الشخصي" : "Profile"}
                   </Link>
                   <button
                     onClick={() => signOut({ callbackUrl: "/login" })}
                     className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-red-400 hover:bg-red-500/10 transition-all"
                   >
                     <LogOut size={14} />
-                    Sign out
+                    {lang === "ar" ? "تسجيل خروج" : "Sign out"}
                   </button>
                 </div>
               </div>
@@ -168,6 +178,7 @@ export function Navbar() {
           onClick={() => setMenuOpen(false)}
         >
           <div
+            dir={lang === "ar" ? "rtl" : "ltr"}
             className="absolute right-0 top-0 h-full w-64 p-6"
             style={{
               background: "var(--bg-surface)",
@@ -200,7 +211,7 @@ export function Navbar() {
                     }
                   >
                     <Icon size={16} />
-                    {item.label}
+                    {lang === "ar" ? item.ar : item.en}
                   </Link>
                 );
               })}
