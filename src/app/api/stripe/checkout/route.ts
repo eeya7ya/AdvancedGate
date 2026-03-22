@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { auth } from "~/auth";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-02-24.acacia",
-});
+function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error("STRIPE_SECRET_KEY is not set");
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: "2025-02-24.acacia",
+  });
+}
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -23,6 +28,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "priceId is required" }, { status: 400 });
   }
 
+  const stripe = getStripe();
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: "subscription",
     payment_method_types: ["card"],
