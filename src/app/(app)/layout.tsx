@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Navbar } from "@/components/layout/navbar";
 import { VisitLogger } from "@/components/layout/visit-logger";
+import { auth } from "~/auth";
 
 function SidebarFallback() {
   return (
@@ -21,15 +22,20 @@ function NavbarFallback() {
   );
 }
 
-export default function AppLayout({
+export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth();
+  const isAdmin =
+    !!session?.user?.email &&
+    session.user.email === process.env.ADMIN_EMAIL;
+
   return (
     <div className="flex min-h-screen" style={{ background: "var(--bg-base)" }}>
       <Suspense fallback={<SidebarFallback />}>
-        <Sidebar />
+        <Sidebar isAdmin={isAdmin} />
       </Suspense>
       <div className="flex flex-col flex-1 min-w-0">
         <Suspense fallback={<NavbarFallback />}>

@@ -81,6 +81,16 @@ export async function createTables() {
     );
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS user_schedule (
+      user_id       TEXT PRIMARY KEY,
+      schedule_json JSONB NOT NULL,
+      start_date    DATE NOT NULL DEFAULT CURRENT_DATE,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
   // Drop the FK constraint if it exists from a previous schema version.
   // The constraint caused silent save failures when the session user ID
   // didn't match the users table (e.g. ID mismatch or fresh DB scenario).
@@ -277,6 +287,47 @@ export async function getConsoleStats(): Promise<{
     };
   } catch {
     return { totalVisits: 0, uniqueVisitors: 0, totalUsers: 0, totalPlans: 0, recentVisits: [], topPages: [] };
+  }
+}
+
+export async function getUserSchedule(
+  userId: string,
+): Promise<{ scheduleJson: unknown; startDate: string } | null> {
+  try {
+    await ensureTables();
+    const { rows } = await sql`
+      SELECT schedule_json AS "scheduleJson",
+             start_date::text AS "startDate"
+      FROM user_schedule
+      WHERE user_id = ${userId}
+    `;
+    if (!rows[0]) return null;
+    return rows[0] as { scheduleJson: unknown; startDate: string };
+  } catch (err) {
+    console.error("[db] getUserSchedule error:", err);
+    return null;
+  }
+}
+
+export async function upsertUserSchedule(
+  userId: string,
+  scheduleJson: unknown,
+  startDate: string,
+): Promise<boolean> {
+  try {
+    await ensureTables();
+    await sql`
+      INSERT INTO user_schedule (user_id, schedule_json, start_date, updated_at)
+      VALUES (${userId}, ${JSON.stringify(scheduleJson)}, ${startDate}, NOW())
+      ON CONFLICT (user_id) DO UPDATE
+        SET schedule_json = EXCLUDED.schedule_json,
+            start_date    = EXCLUDED.start_date,
+            updated_at    = NOW()
+    `;
+    return true;
+  } catch (err) {
+    console.error("[db] upsertUserSchedule error:", err);
+    return false;
   }
 }
 
