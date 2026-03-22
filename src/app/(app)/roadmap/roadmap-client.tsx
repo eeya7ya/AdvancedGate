@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, createContext, useContext } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
@@ -9,6 +9,34 @@ import {
   CalendarDays, TrendingUp, Globe, BookOpen, AlertTriangle,
   Printer, Flag, Layers,
 } from "lucide-react";
+
+/* ── Language / RTL Helper ─────────────────────────────────── */
+const ARABIC_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
+function isArabicPlan(plan: { profile: { summary: string } }): boolean {
+  return ARABIC_REGEX.test(plan.profile.summary);
+}
+
+const RTLContext = createContext(false);
+function useRTL() { return useContext(RTLContext); }
+
+const UI_LABELS: Record<string, { en: string; ar: string }> = {
+  priorities:     { en: "Learning Priorities",       ar: "أولويات التعلم" },
+  timeAlloc:      { en: "Weekly Time Allocation",    ar: "توزيع الوقت الأسبوعي" },
+  weeklySchedule: { en: "Suggested Weekly Schedule", ar: "الجدول الأسبوعي المقترح" },
+  topicConn:      { en: "Topic Connections",         ar: "روابط المواضيع" },
+  market:         { en: "Market Intelligence",       ar: "تحليل السوق" },
+  courses:        { en: "Recommended Courses",       ar: "الدورات الموصى بها" },
+  roadmap:        { en: "Your Roadmap",              ar: "خارطة طريقك" },
+  nextSteps:      { en: "Your Next Steps",           ar: "خطواتك القادمة" },
+  scheduleNote:   { en: "Schedule auto-generated from your weekly time allocation. Adjust via your AI Advisor.", ar: "الجدول مُنشأ تلقائياً من توزيع وقتك الأسبوعي. عدّله عبر مستشارك الذكي." },
+  todayFocus:     { en: "Today's Focus",             ar: "تركيز اليوم" },
+  personalPlan:   { en: "Your Personalized Action Plan", ar: "خطتك الشخصية" },
+  rest:           { en: "Rest",                      ar: "راحة" },
+  modifyPlan:     { en: "Modify Plan",               ar: "تعديل الخطة" },
+};
+function t(key: string, isRTL: boolean): string {
+  return isRTL ? (UI_LABELS[key]?.ar ?? key) : (UI_LABELS[key]?.en ?? key);
+}
 
 /* ── Types ────────────────────────────────────────────────── */
 interface Priority    { topic: string; score: number; description: string; color: string }
@@ -109,11 +137,12 @@ function SectionTitle({ icon: Icon, label, color }: { icon: React.ElementType; l
 
 function PriorityBars({ priorities }: { priorities: Priority[] }) {
   const [animated, setAnimated] = useState(false);
+  const isRTL = useRTL();
   useEffect(() => { const t = setTimeout(() => setAnimated(true), 300); return () => clearTimeout(t); }, []);
 
   return (
     <SectionCard delay={0.2}>
-      <SectionTitle icon={Target} label="Learning Priorities" color="var(--brand-teal)" />
+      <SectionTitle icon={Target} label={t("priorities", isRTL)} color="var(--brand-teal)" />
       <div className="space-y-4">
         {priorities.map((p) => (
           <div key={p.topic}>
@@ -141,6 +170,7 @@ function PriorityBars({ priorities }: { priorities: Priority[] }) {
 
 function DonutChart({ slices }: { slices: TimeSlice[] }) {
   const [animated, setAnimated] = useState(false);
+  const isRTL = useRTL();
   useEffect(() => { const t = setTimeout(() => setAnimated(true), 500); return () => clearTimeout(t); }, []);
 
   const r = 70, cx = 100, cy = 100, strokeWidth = 22;
@@ -150,7 +180,7 @@ function DonutChart({ slices }: { slices: TimeSlice[] }) {
 
   return (
     <SectionCard delay={0.3}>
-      <SectionTitle icon={Clock} label="Weekly Time Allocation" color="#22d3ee" />
+      <SectionTitle icon={Clock} label={t("timeAlloc", isRTL)} color="#22d3ee" />
       <div className="flex items-center gap-6">
         <div className="relative flex-shrink-0">
           <svg width="200" height="200" viewBox="0 0 200 200">
@@ -190,10 +220,11 @@ function DonutChart({ slices }: { slices: TimeSlice[] }) {
 
 function WeeklySchedule({ slices }: { slices: TimeSlice[] }) {
   const schedule = buildSchedule(slices);
+  const isRTL = useRTL();
 
   return (
     <SectionCard delay={0.4}>
-      <SectionTitle icon={CalendarDays} label="Suggested Weekly Schedule" color="#a78bfa" />
+      <SectionTitle icon={CalendarDays} label={t("weeklySchedule", isRTL)} color="#a78bfa" />
       <div className="grid grid-cols-7 gap-2">
         {schedule.map(({ day, blocks }) => {
           const isWeekend = day === "Sat" || day === "Sun";
@@ -211,27 +242,27 @@ function WeeklySchedule({ slices }: { slices: TimeSlice[] }) {
               </div>
               {/* Blocks */}
               {blocks.length === 0 ? (
-                <div className="h-20 rounded-xl flex items-center justify-center" style={{ background: "var(--bg-base)", border: "1px dashed var(--border-subtle)" }}>
-                  <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>Rest</p>
+                <div className="rounded-xl flex items-center justify-center" style={{ background: "var(--bg-base)", border: "1px dashed var(--border-subtle)", minHeight: "80px" }}>
+                  <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{t("rest", isRTL)}</p>
                 </div>
               ) : (
                 blocks.map((b, i) => (
                   <div
                     key={i}
-                    className="rounded-xl flex flex-col items-center justify-center px-1.5 py-3 text-center gap-1"
+                    className="rounded-xl flex flex-col items-center justify-center px-2 py-4 text-center gap-1.5"
                     style={{
                       background: `${b.color}15`,
                       border: `1px solid ${b.color}40`,
-                      minHeight: `${Math.max(64, b.minutes / 1.2)}px`,
+                      minHeight: `${Math.max(80, b.minutes * 0.9)}px`,
                     }}
                   >
                     <p
-                      className="text-[11px] font-bold leading-snug w-full text-center"
-                      style={{ color: b.color, wordBreak: "break-word" }}
+                      className="text-[11px] font-bold leading-snug w-full text-center break-words hyphens-auto"
+                      style={{ color: b.color }}
                     >
-                      {b.subject.split(" ").slice(0, 3).join(" ")}
+                      {b.subject.split(" ").slice(0, 4).join(" ")}
                     </p>
-                    <p className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+                    <p className="text-[11px] font-semibold" style={{ color: "var(--text-secondary)" }}>
                       {b.minutes >= 60
                         ? `${(b.minutes / 60).toFixed(1).replace(/\.0$/, "")}h`
                         : `${b.minutes}m`}
@@ -244,16 +275,17 @@ function WeeklySchedule({ slices }: { slices: TimeSlice[] }) {
         })}
       </div>
       <p className="text-xs mt-4" style={{ color: "var(--text-muted)" }}>
-        Schedule auto-generated from your weekly time allocation. Adjust via your AI Advisor.
+        {t("scheduleNote", isRTL)}
       </p>
     </SectionCard>
   );
 }
 
 function TopicConnections({ links }: { links: TopicLink[] }) {
+  const isRTL = useRTL();
   return (
     <SectionCard delay={0.5}>
-      <SectionTitle icon={Zap} label="Topic Connections" color="#a78bfa" />
+      <SectionTitle icon={Zap} label={t("topicConn", isRTL)} color="#a78bfa" />
       <div className="space-y-3">
         {links.map((link, i) => (
           <motion.div
@@ -283,35 +315,38 @@ function TopicConnections({ links }: { links: TopicLink[] }) {
 
 /* ── Market Insights ───────────────────────────────────────── */
 function MarketInsightsSection({ insights }: { insights: MarketInsights }) {
+  const isRTL = useRTL();
   return (
     <SectionCard delay={0.35}>
-      <SectionTitle icon={Globe} label="Market Intelligence" color="#22d3ee" />
+      <SectionTitle icon={Globe} label={t("market", isRTL)} color="#22d3ee" />
       {insights.notice && (
         <div className="mb-5 px-4 py-3 rounded-xl"
           style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)" }}>
           <div className="flex items-center gap-2 mb-1.5">
             <AlertTriangle size={13} style={{ color: "#f59e0b" }} />
-            <span className="text-xs font-bold tracking-wide" style={{ color: "#f59e0b" }}>Market Notice</span>
+            <span className="text-xs font-bold tracking-wide" style={{ color: "#f59e0b" }}>
+              {isRTL ? "تنبيه السوق" : "Market Notice"}
+            </span>
           </div>
           <p className="text-sm leading-relaxed" style={{ color: "#fbbf24" }}>{insights.notice}</p>
         </div>
       )}
       <div className="grid sm:grid-cols-2 gap-4 mb-4">
         <div className="rounded-xl p-4" style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}>
-          <p className="text-xs font-bold mb-1.5" style={{ color: "#00d4a1" }}>Local Demand</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "#00d4a1" }}>{isRTL ? "الطلب المحلي" : "Local Demand"}</p>
           <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{insights.localDemand}</p>
         </div>
         <div className="rounded-xl p-4" style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}>
-          <p className="text-xs font-bold mb-1.5" style={{ color: "#22d3ee" }}>Global Demand</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "#22d3ee" }}>{isRTL ? "الطلب العالمي" : "Global Demand"}</p>
           <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{insights.globalDemand}</p>
         </div>
       </div>
       <div className="rounded-xl p-4 mb-4" style={{ background: "rgba(0,212,161,0.06)", border: "1px solid rgba(0,212,161,0.18)" }}>
-        <p className="text-xs font-bold mb-1" style={{ color: "#00d4a1" }}>Expected Income Range</p>
+        <p className="text-xs font-bold mb-1" style={{ color: "#00d4a1" }}>{isRTL ? "نطاق الدخل المتوقع" : "Expected Income Range"}</p>
         <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{insights.salaryRange}</p>
       </div>
       <div className="rounded-xl p-4" style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}>
-        <p className="text-xs font-bold mb-1.5" style={{ color: "#a78bfa" }}>Strategic Recommendation</p>
+        <p className="text-xs font-bold mb-1.5" style={{ color: "#a78bfa" }}>{isRTL ? "التوصية الاستراتيجية" : "Strategic Recommendation"}</p>
         <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{insights.recommendation}</p>
       </div>
     </SectionCard>
@@ -320,6 +355,7 @@ function MarketInsightsSection({ insights }: { insights: MarketInsights }) {
 
 /* ── Course Recommendations ────────────────────────────────── */
 function CourseRecommendationsSection({ courses }: { courses: CourseRecommendation[] }) {
+  const isRTL = useRTL();
   const levelColor: Record<string, string> = {
     Beginner: "#00d4a1",
     "Beginner to Intermediate": "#22d3ee",
@@ -330,7 +366,7 @@ function CourseRecommendationsSection({ courses }: { courses: CourseRecommendati
 
   return (
     <SectionCard delay={0.4}>
-      <SectionTitle icon={BookOpen} label="Recommended Courses" color="#a78bfa" />
+      <SectionTitle icon={BookOpen} label={t("courses", isRTL)} color="#a78bfa" />
       <div className="space-y-4">
         {courses.map((c, i) => (
           <motion.div
@@ -377,11 +413,12 @@ function CourseRecommendationsSection({ courses }: { courses: CourseRecommendati
 
 /* ── Roadmap Phases ────────────────────────────────────────── */
 function RoadmapPhasesSection({ phases }: { phases: RoadmapPhase[] }) {
+  const isRTL = useRTL();
   const phaseColors = ["#00d4a1", "#22d3ee", "#a78bfa", "#f59e0b", "#f87171", "#34d399", "#60a5fa", "#e879f9"];
 
   return (
     <SectionCard delay={0.45}>
-      <SectionTitle icon={Layers} label="Your Roadmap" color="#00d4a1" />
+      <SectionTitle icon={Layers} label={t("roadmap", isRTL)} color="#00d4a1" />
       <div className="relative">
         {/* vertical line */}
         <div className="absolute left-4 top-0 bottom-0 w-0.5" style={{ background: "var(--border-subtle)" }} />
@@ -412,7 +449,7 @@ function RoadmapPhasesSection({ phases }: { phases: RoadmapPhase[] }) {
                   <p className="text-sm font-semibold mb-2 leading-snug" style={{ color: "var(--text-primary)" }}>{phase.goal}</p>
                   <div className="grid sm:grid-cols-2 gap-3 mt-3">
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color }}>Milestones</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color }}>{isRTL ? "المعالم" : "Milestones"}</p>
                       <ul className="space-y-1">
                         {phase.milestones.map((m, j) => (
                           <li key={j} className="flex items-start gap-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
@@ -423,7 +460,7 @@ function RoadmapPhasesSection({ phases }: { phases: RoadmapPhase[] }) {
                       </ul>
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: "#a78bfa" }}>Skills</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: "#a78bfa" }}>{isRTL ? "المهارات" : "Skills"}</p>
                       <div className="flex flex-wrap gap-1">
                         {phase.skills.map((s, j) => (
                           <span key={j} className="text-[10px] px-2 py-0.5 rounded-md font-medium"
@@ -600,17 +637,19 @@ export function RoadmapClient({
   initialEmailEnabled: boolean;
   initialReminderEmail: string;
 }) {
+  const isRTL = isArabicPlan(plan);
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <RTLContext.Provider value={isRTL}>
+    <div className="max-w-4xl mx-auto space-y-6" dir={isRTL ? "rtl" : "ltr"}>
       {/* Page header */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>
             <Map size={10} className="inline mr-1" />
-            My Roadmap
+            {isRTL ? "خارطة طريقي" : "My Roadmap"}
           </p>
           <h1 className="text-2xl lg:text-3xl font-bold" style={{ color: "var(--text-primary)" }}>
-            {plan.profile.name}&apos;s Action Plan
+            {isRTL ? `خطة عمل ${plan.profile.name}` : `${plan.profile.name}'s Action Plan`}
           </h1>
         </div>
         <Link
@@ -619,7 +658,7 @@ export function RoadmapClient({
           style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}
         >
           <RotateCcw size={12} />
-          Modify Plan
+          {t("modifyPlan", isRTL)}
         </Link>
       </motion.div>
 
@@ -640,7 +679,7 @@ export function RoadmapClient({
           <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-semibold mb-3"
             style={{ background: "rgba(0,212,161,0.12)", color: "#00d4a1" }}>
             <Brain size={11} />
-            Your Personalized Action Plan
+            {t("personalPlan", isRTL)}
           </div>
           <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             {plan.profile.summary}
@@ -660,7 +699,7 @@ export function RoadmapClient({
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold"
             style={{ background: "rgba(0,212,161,0.12)", color: "#00d4a1" }}>
             <Target size={11} />
-            Today&apos;s Focus
+            {t("todayFocus", isRTL)}
           </div>
         </div>
         <h2 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
@@ -731,7 +770,7 @@ export function RoadmapClient({
 
       {/* Next Steps */}
       <SectionCard delay={0.6}>
-        <SectionTitle icon={TrendingUp} label="Your Next Steps" color="var(--brand-teal)" />
+        <SectionTitle icon={TrendingUp} label={t("nextSteps", isRTL)} color="var(--brand-teal)" />
         <ol className="space-y-3">
           {plan.nextSteps.map((step: string, i: number) => (
             <li key={i} className="flex items-start gap-3">
@@ -762,17 +801,18 @@ export function RoadmapClient({
         transition={{ delay: 0.7 }}
         className="flex items-center justify-center gap-4 py-4"
       >
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Your situation changed?</p>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>{isRTL ? "هل تغير وضعك؟" : "Your situation changed?"}</p>
         <Link
           href="/dashboard"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)", boxShadow: "0 0 20px rgba(0,212,161,0.3)" }}
         >
           <RotateCcw size={14} />
-          Update My Roadmap
+          {isRTL ? "تحديث خارطة طريقي" : "Update My Roadmap"}
           <ArrowRight size={14} />
         </Link>
       </motion.div>
     </div>
+    </RTLContext.Provider>
   );
 }
