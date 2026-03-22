@@ -194,36 +194,56 @@ function WeeklySchedule({ slices }: { slices: TimeSlice[] }) {
   return (
     <SectionCard delay={0.4}>
       <SectionTitle icon={CalendarDays} label="Suggested Weekly Schedule" color="#a78bfa" />
-      <div className="grid grid-cols-7 gap-1.5">
-        {schedule.map(({ day, blocks }) => (
-          <div key={day} className="flex flex-col gap-1">
-            <p className="text-[10px] font-bold text-center mb-1" style={{ color: "var(--text-muted)" }}>{day}</p>
-            {blocks.length === 0 ? (
-              <div className="h-16 rounded-xl" style={{ background: "var(--bg-base)", border: "1px dashed var(--border-subtle)" }} />
-            ) : (
-              blocks.map((b, i) => (
-                <div
-                  key={i}
-                  className="rounded-xl flex flex-col items-center justify-center px-1 py-2 text-center"
-                  style={{
-                    background: `${b.color}18`,
-                    border: `1px solid ${b.color}33`,
-                    minHeight: `${Math.max(40, b.minutes / 1.5)}px`,
-                  }}
-                >
-                  <p className="text-[9px] font-bold leading-tight truncate w-full text-center" style={{ color: b.color }}>
-                    {b.subject.split(" ").slice(0, 2).join(" ")}
-                  </p>
-                  <p className="text-[9px] mt-0.5" style={{ color: "var(--text-muted)" }}>
-                    {b.minutes >= 60 ? `${Math.round(b.minutes / 60 * 10) / 10}h` : `${b.minutes}m`}
-                  </p>
+      <div className="grid grid-cols-7 gap-2">
+        {schedule.map(({ day, blocks }) => {
+          const isWeekend = day === "Sat" || day === "Sun";
+          return (
+            <div key={day} className="flex flex-col gap-2">
+              {/* Day header */}
+              <div
+                className="rounded-lg py-1.5 text-center"
+                style={{
+                  background: isWeekend ? "rgba(167,139,250,0.1)" : "rgba(34,211,238,0.08)",
+                  border: `1px solid ${isWeekend ? "rgba(167,139,250,0.25)" : "rgba(34,211,238,0.2)"}`,
+                }}
+              >
+                <p className="text-xs font-bold" style={{ color: isWeekend ? "#a78bfa" : "#22d3ee" }}>{day}</p>
+              </div>
+              {/* Blocks */}
+              {blocks.length === 0 ? (
+                <div className="h-20 rounded-xl flex items-center justify-center" style={{ background: "var(--bg-base)", border: "1px dashed var(--border-subtle)" }}>
+                  <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>Rest</p>
                 </div>
-              ))
-            )}
-          </div>
-        ))}
+              ) : (
+                blocks.map((b, i) => (
+                  <div
+                    key={i}
+                    className="rounded-xl flex flex-col items-center justify-center px-1.5 py-3 text-center gap-1"
+                    style={{
+                      background: `${b.color}15`,
+                      border: `1px solid ${b.color}40`,
+                      minHeight: `${Math.max(64, b.minutes / 1.2)}px`,
+                    }}
+                  >
+                    <p
+                      className="text-[11px] font-bold leading-snug w-full text-center"
+                      style={{ color: b.color, wordBreak: "break-word" }}
+                    >
+                      {b.subject.split(" ").slice(0, 3).join(" ")}
+                    </p>
+                    <p className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+                      {b.minutes >= 60
+                        ? `${(b.minutes / 60).toFixed(1).replace(/\.0$/, "")}h`
+                        : `${b.minutes}m`}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          );
+        })}
       </div>
-      <p className="text-[11px] mt-4" style={{ color: "var(--text-muted)" }}>
+      <p className="text-xs mt-4" style={{ color: "var(--text-muted)" }}>
         Schedule auto-generated from your weekly time allocation. Adjust via your AI Advisor.
       </p>
     </SectionCard>
@@ -437,14 +457,6 @@ function PrintableScheduleSection({ schedule }: { schedule: ScheduleData }) {
           <Printer size={15} style={{ color: "#22d3ee" }} />
           Your Study Schedule
         </h3>
-        <button
-          onClick={() => window.print()}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all hover:opacity-80 print:hidden"
-          style={{ background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.2)", color: "#22d3ee" }}
-        >
-          <Printer size={11} />
-          Print
-        </button>
       </div>
 
       {/* Daily structure */}
@@ -686,11 +698,33 @@ export function RoadmapClient({
         <RoadmapPhasesSection phases={plan.roadmap} />
       )}
 
-      {/* Printable Schedule */}
-      {plan.schedule && <PrintableScheduleSection schedule={plan.schedule} />}
-
-      {/* Weekly auto-schedule */}
-      <WeeklySchedule slices={plan.timeAllocation} />
+      {/* Printable Schedule + Weekly Schedule — wrapped for print */}
+      <div id="schedule-print-area" className="space-y-6">
+        <div className="flex items-center justify-between print:hidden">
+          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+            <Printer size={10} className="inline mr-1" />
+            Schedule &amp; Planner
+          </p>
+          <button
+            onClick={() => {
+              const el = document.getElementById("schedule-print-area");
+              if (!el) return;
+              const original = document.body.innerHTML;
+              document.body.innerHTML = el.innerHTML;
+              window.print();
+              document.body.innerHTML = original;
+              window.location.reload();
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
+            style={{ background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.2)", color: "#22d3ee" }}
+          >
+            <Printer size={11} />
+            Print
+          </button>
+        </div>
+        {plan.schedule && <PrintableScheduleSection schedule={plan.schedule} />}
+        <WeeklySchedule slices={plan.timeAllocation} />
+      </div>
 
       {/* Topic connections */}
       <TopicConnections links={plan.topicConnections} />
