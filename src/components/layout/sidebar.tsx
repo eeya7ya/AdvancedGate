@@ -33,10 +33,10 @@ export function Sidebar() {
         </div>
         <div>
           <div className="font-bold text-sm leading-tight" style={{ color: "var(--text-primary)" }}>
-            eSpark-Learning
+            eSpark AI
           </div>
           <div className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--brand-teal)" }}>
-            KIT
+            Workspace
           </div>
         </div>
       </div>
