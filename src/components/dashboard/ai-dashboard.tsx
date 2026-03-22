@@ -46,9 +46,14 @@ type Phase = "welcome" | "chat" | "plan";
 /* ── Helpers ────────────────────────────────────────────────────── */
 function parsePlan(text: string): LearningPlan | null {
   try {
-    const start = text.indexOf("{");
+    let cleaned = text.trim();
+    // Strip markdown code fences (AI sometimes wraps JSON in ```json...```)
+    if (cleaned.startsWith("```")) {
+      cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+    }
+    const start = cleaned.indexOf("{");
     if (start === -1) return null;
-    const json = text.slice(start);
+    const json = cleaned.slice(start);
     const end = json.lastIndexOf("}");
     if (end === -1) return null;
     const parsed = JSON.parse(json.slice(0, end + 1));
@@ -57,6 +62,11 @@ function parsePlan(text: string): LearningPlan | null {
   } catch {
     return null;
   }
+}
+
+function looksLikePlanAttempt(text: string): boolean {
+  const t = text.trim();
+  return t.startsWith("{") || t.startsWith("```") || t.includes('"type": "LEARNING_PLAN"');
 }
 
 /* ── Sub-components ─────────────────────────────────────────────── */
@@ -648,8 +658,10 @@ export function AIDashboard({ firstName }: { firstName: string }) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [streamedText, setStreamedText] = useState("");
+  const [isInitializing, setIsInitializing] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const streamBufferRef = useRef("");
 
   // Restore saved plan from DB on mount
   useEffect(() => {
@@ -661,7 +673,8 @@ export function AIDashboard({ firstName }: { firstName: string }) {
           setPhase("plan");
         }
       })
-      .catch(() => null);
+      .catch(() => null)
+      .finally(() => setIsInitializing(false));
   }, []);
 
   useEffect(() => {
@@ -693,14 +706,24 @@ export function AIDashboard({ firstName }: { firstName: string }) {
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let full = "";
+      streamBufferRef.current = "";
+      let rafId: number | null = null;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        full += decoder.decode(value, { stream: true });
-        setStreamedText(full);
+        streamBufferRef.current += decoder.decode(value, { stream: true });
+        if (!rafId) {
+          rafId = requestAnimationFrame(() => {
+            setStreamedText(streamBufferRef.current);
+            rafId = null;
+          });
+        }
       }
+      // Flush any remaining buffered text
+      if (rafId) cancelAnimationFrame(rafId);
+      const full = streamBufferRef.current;
+      setStreamedText(full);
 
       // Check if it's a learning plan
       const detected = parsePlan(full);
@@ -714,6 +737,12 @@ export function AIDashboard({ firstName }: { firstName: string }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ plan: detected }),
         }).catch(() => null);
+      } else if (looksLikePlanAttempt(full)) {
+        // AI tried to generate a plan but output was malformed/truncated
+        setMessages([
+          ...newMessages,
+          { role: "assistant", content: "I had trouble generating your plan — the response was incomplete. Please send your last message again and I'll try once more." },
+        ]);
       } else {
         setMessages([...newMessages, { role: "assistant", content: full }]);
       }
@@ -748,14 +777,23 @@ export function AIDashboard({ firstName }: { firstName: string }) {
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let full = "";
+      streamBufferRef.current = "";
+      let rafId: number | null = null;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        full += decoder.decode(value, { stream: true });
-        setStreamedText(full);
+        streamBufferRef.current += decoder.decode(value, { stream: true });
+        if (!rafId) {
+          rafId = requestAnimationFrame(() => {
+            setStreamedText(streamBufferRef.current);
+            rafId = null;
+          });
+        }
       }
+      if (rafId) cancelAnimationFrame(rafId);
+      const full = streamBufferRef.current;
+      setStreamedText(full);
 
       setMessages([...initMessages, { role: "assistant", content: full }]);
     } catch {
@@ -784,6 +822,28 @@ export function AIDashboard({ firstName }: { firstName: string }) {
       sendMessage(input);
     }
   };
+
+  if (isInitializing) {
+    return (
+      <div className="max-w-4xl mx-auto flex items-center justify-center" style={{ minHeight: "60vh" }}>
+        <div className="flex flex-col items-center gap-4">
+          <div
+            className="w-14 h-14 rounded-2xl animate-pulse"
+            style={{ background: "linear-gradient(135deg, rgba(0,212,161,0.3), rgba(34,211,238,0.3))" }}
+          />
+          <div className="flex gap-1.5">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="w-2 h-2 rounded-full animate-bounce"
+                style={{ background: "#00d4a1", animationDelay: `${i * 0.15}s`, opacity: 0.7 }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -872,7 +932,12 @@ export function AIDashboard({ firstName }: { firstName: string }) {
               {/* Streaming AI response */}
               {isLoading && streamedText && (
                 <ChatBubble
-                  msg={{ role: "assistant", content: streamedText }}
+                  msg={{
+                    role: "assistant",
+                    content: looksLikePlanAttempt(streamedText)
+                      ? "Generating your action plan\u2026"
+                      : streamedText,
+                  }}
                   isStreaming
                 />
               )}
