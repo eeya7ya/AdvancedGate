@@ -3,15 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Map, User, Brain, Sparkles, Terminal, CalendarDays } from "lucide-react";
+import { LayoutDashboard, Map, User, Brain, Sparkles, Terminal, CalendarDays, MessageSquare } from "lucide-react";
 import { useLang } from "@/lib/language";
 
 const nav = [
-  { href: "/dashboard", icon: LayoutDashboard, en: "AI Advisor",  ar: "المستشار الذكي" },
-  { href: "/roadmap",   icon: Map,              en: "My Roadmap",  ar: "خارطة طريقي"   },
-  { href: "/schedule",  icon: CalendarDays,     en: "Schedule",    ar: "جدولي"          },
-  { href: "/profile",   icon: User,             en: "Profile",     ar: "الملف الشخصي"  },
-  { href: "/console",   icon: Terminal,         en: "Console",     ar: "وحدة التحكم"   },
+  { href: "/dashboard", icon: LayoutDashboard, en: "AI Advisor",   ar: "المستشار الذكي"  },
+  { href: "/roadmap",   icon: Map,              en: "My Roadmap",   ar: "خارطة طريقي"    },
+  { href: "/schedule",  icon: CalendarDays,     en: "Schedule",     ar: "جدولي"           },
+  { href: "/ai-chat",   icon: MessageSquare,    en: "AI Chat",      ar: "المحادثة الذكية" },
+  { href: "/profile",   icon: User,             en: "Profile",      ar: "الملف الشخصي"   },
+  { href: "/console",   icon: Terminal,         en: "Console",      ar: "وحدة التحكم"    },
 ];
 
 export function Sidebar() {

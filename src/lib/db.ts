@@ -89,6 +89,41 @@ export async function createTables() {
     DROP CONSTRAINT IF EXISTS user_roadmap_user_id_fkey;
   `;
 
+  // User notes / memory for AI chat context
+  await sql`
+    CREATE TABLE IF NOT EXISTS user_notes (
+      id         SERIAL PRIMARY KEY,
+      user_id    TEXT NOT NULL,
+      note       TEXT NOT NULL,
+      category   TEXT NOT NULL DEFAULT 'general',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
+  // Schedule task tracking — stores daily completion status
+  await sql`
+    CREATE TABLE IF NOT EXISTS schedule_tracking (
+      id           SERIAL PRIMARY KEY,
+      user_id      TEXT NOT NULL,
+      task_date    DATE NOT NULL,
+      task_key     TEXT NOT NULL,
+      completed    BOOLEAN NOT NULL DEFAULT FALSE,
+      completed_at TIMESTAMPTZ,
+      UNIQUE (user_id, task_date, task_key)
+    );
+  `;
+
+  // Email reminder logs
+  await sql`
+    CREATE TABLE IF NOT EXISTS email_reminder_logs (
+      id         SERIAL PRIMARY KEY,
+      user_id    TEXT NOT NULL,
+      email_type TEXT NOT NULL,
+      sent_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
   await sql`
     CREATE TABLE IF NOT EXISTS visitor_logs (
       id          SERIAL PRIMARY KEY,
@@ -277,6 +312,135 @@ export async function getConsoleStats(): Promise<{
     };
   } catch {
     return { totalVisits: 0, uniqueVisitors: 0, totalUsers: 0, totalPlans: 0, recentVisits: [], topPages: [] };
+  }
+}
+
+// ─── User Notes (AI Memory) ─────────────────────────────────────────────────
+
+export async function getUserNotes(userId: string): Promise<Array<{ id: number; note: string; category: string; createdAt: string; updatedAt: string }>> {
+  try {
+    await ensureTables();
+    const { rows } = await sql`
+      SELECT id, note, category, created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM user_notes
+      WHERE user_id = ${userId}
+      ORDER BY updated_at DESC
+    `;
+    return rows as Array<{ id: number; note: string; category: string; createdAt: string; updatedAt: string }>;
+  } catch {
+    return [];
+  }
+}
+
+export async function addUserNote(userId: string, note: string, category: string = "general"): Promise<number | null> {
+  try {
+    await ensureTables();
+    const { rows } = await sql`
+      INSERT INTO user_notes (user_id, note, category)
+      VALUES (${userId}, ${note}, ${category})
+      RETURNING id
+    `;
+    return (rows[0] as { id: number })?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function updateUserNote(userId: string, noteId: number, note: string): Promise<boolean> {
+  try {
+    await sql`
+      UPDATE user_notes SET note = ${note}, updated_at = NOW()
+      WHERE id = ${noteId} AND user_id = ${userId}
+    `;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteUserNote(userId: string, noteId: number): Promise<boolean> {
+  try {
+    await sql`DELETE FROM user_notes WHERE id = ${noteId} AND user_id = ${userId}`;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ─── Schedule Tracking ──────────────────────────────────────────────────────
+
+export async function getScheduleTracking(
+  userId: string,
+  startDate: string,
+  endDate: string,
+): Promise<Array<{ taskDate: string; taskKey: string; completed: boolean; completedAt: string | null }>> {
+  try {
+    await ensureTables();
+    const { rows } = await sql`
+      SELECT
+        task_date::text AS "taskDate",
+        task_key AS "taskKey",
+        completed,
+        completed_at AS "completedAt"
+      FROM schedule_tracking
+      WHERE user_id = ${userId}
+        AND task_date >= ${startDate}::date
+        AND task_date <= ${endDate}::date
+      ORDER BY task_date ASC
+    `;
+    return rows as Array<{ taskDate: string; taskKey: string; completed: boolean; completedAt: string | null }>;
+  } catch {
+    return [];
+  }
+}
+
+export async function upsertScheduleTask(
+  userId: string,
+  taskDate: string,
+  taskKey: string,
+  completed: boolean,
+): Promise<boolean> {
+  try {
+    await ensureTables();
+    await sql`
+      INSERT INTO schedule_tracking (user_id, task_date, task_key, completed, completed_at)
+      VALUES (${userId}, ${taskDate}::date, ${taskKey}, ${completed}, ${completed ? "NOW()" : null})
+      ON CONFLICT (user_id, task_date, task_key) DO UPDATE
+        SET completed = EXCLUDED.completed,
+            completed_at = CASE WHEN EXCLUDED.completed THEN NOW() ELSE NULL END
+    `;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ─── Email Reminder Logs ────────────────────────────────────────────────────
+
+export async function logEmailReminder(userId: string, emailType: string): Promise<boolean> {
+  try {
+    await ensureTables();
+    await sql`
+      INSERT INTO email_reminder_logs (user_id, email_type)
+      VALUES (${userId}, ${emailType})
+    `;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function getLastReminderSent(userId: string, emailType: string): Promise<string | null> {
+  try {
+    const { rows } = await sql`
+      SELECT sent_at AS "sentAt"
+      FROM email_reminder_logs
+      WHERE user_id = ${userId} AND email_type = ${emailType}
+      ORDER BY sent_at DESC LIMIT 1
+    `;
+    return (rows[0] as { sentAt: string })?.sentAt ?? null;
+  } catch {
+    return null;
   }
 }
 
