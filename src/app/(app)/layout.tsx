@@ -3,12 +3,13 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Navbar } from "@/components/layout/navbar";
 import { VisitLogger } from "@/components/layout/visit-logger";
 import { LangProvider } from "@/lib/language";
+import { AppLayoutClient } from "@/components/layout/app-layout-client";
 
 function SidebarFallback() {
   return (
     <aside
       className="hidden lg:flex flex-col w-60 h-screen sticky top-0 flex-shrink-0"
-      style={{ background: "var(--bg-surface)", borderRight: "1px solid var(--border-subtle)" }}
+      style={{ background: "var(--bg-surface)", borderInlineEnd: "1px solid var(--border-subtle)" }}
     />
   );
 }
@@ -29,7 +30,7 @@ export default function AppLayout({
 }) {
   return (
     <LangProvider>
-      <div className="flex min-h-screen" style={{ background: "var(--bg-base)" }}>
+      <AppLayoutClient>
         <Suspense fallback={<SidebarFallback />}>
           <Sidebar />
         </Suspense>
@@ -40,7 +41,7 @@ export default function AppLayout({
           <VisitLogger />
           <main className="flex-1 p-4 lg:p-8 overflow-auto">{children}</main>
         </div>
-      </div>
+      </AppLayoutClient>
     </LangProvider>
   );
 }

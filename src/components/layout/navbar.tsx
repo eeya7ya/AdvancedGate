@@ -179,10 +179,11 @@ export function Navbar() {
         >
           <div
             dir={lang === "ar" ? "rtl" : "ltr"}
-            className="absolute right-0 top-0 h-full w-64 p-6"
+            className={`absolute top-0 h-full w-64 p-6 ${lang === "ar" ? "left-0" : "right-0"}`}
             style={{
               background: "var(--bg-surface)",
-              borderLeft: "1px solid var(--border-subtle)",
+              borderInlineEnd: lang === "ar" ? "1px solid var(--border-subtle)" : "none",
+              borderInlineStart: lang === "ar" ? "none" : "1px solid var(--border-subtle)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
