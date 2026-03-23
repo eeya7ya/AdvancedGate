@@ -1,5 +1,5 @@
 import { auth } from "~/auth";
-import { getUserRoadmap } from "@/lib/db";
+import { getUserRoadmap, getScheduleTracking } from "@/lib/db";
 import { ScheduleClient } from "./schedule-client";
 import Link from "next/link";
 import { Brain, ArrowRight } from "lucide-react";
@@ -40,5 +40,16 @@ export default async function SchedulePage() {
     );
   }
 
-  return <ScheduleClient plan={plan} />;
+  // Fetch tracking data for the current month range
+  const now = new Date();
+  const startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+  const endDate = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString().split("T")[0];
+  const tracking = userId ? await getScheduleTracking(userId, startDate, endDate) : [];
+
+  const emailSettings = {
+    emailRemindersEnabled: roadmapData?.emailRemindersEnabled ?? false,
+    reminderEmail: roadmapData?.reminderEmail ?? "",
+  };
+
+  return <ScheduleClient plan={plan} initialTracking={tracking} emailSettings={emailSettings} />;
 }

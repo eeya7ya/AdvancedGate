@@ -19,6 +19,8 @@ const mobileNav = [
 const BREADCRUMB_MAP: Record<string, string> = {
   dashboard: "AI Advisor",
   roadmap:   "My Roadmap",
+  schedule:  "Schedule",
+  "ai-chat": "AI Chat",
   subjects:  "Subjects",
   learn:     "Course",
   profile:   "Profile",
@@ -27,6 +29,8 @@ const BREADCRUMB_MAP: Record<string, string> = {
 const BREADCRUMB_MAP_AR: Record<string, string> = {
   dashboard: "المستشار الذكي",
   roadmap:   "خارطة طريقي",
+  schedule:  "جدولي",
+  "ai-chat": "المحادثة الذكية",
   subjects:  "المواد",
   learn:     "الدورة",
   profile:   "الملف الشخصي",
