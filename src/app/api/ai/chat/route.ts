@@ -367,7 +367,7 @@ async function generatePlan(messages: Message[]): Promise<string> {
 
   while (searchCount < maxSearches) {
     const response = await client.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "moonshotai/kimi-k2-instruct",
       max_tokens: 8000,
       messages: history,
       tools: [WEB_SEARCH_TOOL],
@@ -397,7 +397,7 @@ async function generatePlan(messages: Message[]): Promise<string> {
 
   // Final call after reaching search limit
   const finalResponse = await client.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
+    model: "moonshotai/kimi-k2-instruct",
     max_tokens: 8000,
     messages: history,
   });
@@ -432,7 +432,7 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         try {
           const stream = await client.chat.completions.create({
-            model: "llama-3.3-70b-versatile",
+            model: "moonshotai/kimi-k2-instruct",
             max_tokens: 2048,
             messages: [
               { role: "system", content: SYSTEM_PROMPT },
