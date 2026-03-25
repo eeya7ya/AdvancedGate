@@ -1,10 +1,10 @@
-import Anthropic from "@anthropic-ai/sdk";
+import Groq from "groq-sdk";
 import { NextRequest } from "next/server";
 import { auth } from "~/auth";
 import { getUserRoadmap, getUserNotes } from "@/lib/db";
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+const client = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
 });
 
 function buildSystemPrompt(
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  let messages: Anthropic.MessageParam[];
+  let messages: Array<{ role: "user" | "assistant"; content: string }>;
   try {
     const body = await req.json();
     messages = body.messages;
@@ -78,7 +78,6 @@ export async function POST(req: NextRequest) {
     return new Response("Messages required", { status: 400 });
   }
 
-  // Load user context
   const [roadmapData, notes] = await Promise.all([
     getUserRoadmap(session.user.id),
     getUserNotes(session.user.id),
@@ -93,18 +92,20 @@ export async function POST(req: NextRequest) {
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        const stream = client.messages.stream({
-          model: "claude-haiku-4-5-20251001",
+        const stream = await client.chat.completions.create({
+          model: "llama-3.1-8b-instant",
           max_tokens: 4096,
-          system: systemPrompt,
-          messages,
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...messages,
+          ],
+          stream: true,
         });
 
-        stream.on("text", (text) => {
-          controller.enqueue(encoder.encode(text));
-        });
-
-        await stream.finalMessage();
+        for await (const chunk of stream) {
+          const text = chunk.choices[0]?.delta?.content ?? "";
+          if (text) controller.enqueue(encoder.encode(text));
+        }
         controller.close();
       } catch (err) {
         controller.error(err);
