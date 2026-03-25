@@ -1109,7 +1109,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages: newMessages, isInit: true }),
       });
 
       if (!res.ok || !res.body) {
