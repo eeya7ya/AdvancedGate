@@ -341,7 +341,7 @@ async function webSearch(query: string): Promise<string> {
   }
 }
 
-const WEB_SEARCH_TOOL: Groq.Chat.CompletionCreateParams.Tool = {
+const WEB_SEARCH_TOOL: Groq.Chat.Completions.ChatCompletionTool = {
   type: "function",
   function: {
     name: "web_search",
@@ -361,7 +361,7 @@ const WEB_SEARCH_TOOL: Groq.Chat.CompletionCreateParams.Tool = {
 };
 
 async function generatePlan(messages: Message[]): Promise<string> {
-  type GroqMessage = Groq.Chat.CompletionMessageParam;
+  type GroqMessage = Groq.Chat.Completions.ChatCompletionMessageParam;
 
   const history: GroqMessage[] = [
     { role: "system", content: SYSTEM_PROMPT },
