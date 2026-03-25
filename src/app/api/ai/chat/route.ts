@@ -1,9 +1,9 @@
-import Anthropic from "@anthropic-ai/sdk";
+import Groq from "groq-sdk";
 import { NextRequest } from "next/server";
 import { auth } from "~/auth";
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+const client = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
 });
 
 const SYSTEM_PROMPT = `You are eSpark — a world-class AI life advisor and career roadmap architect. You help people from all walks of life achieve any goal: career transitions, business ventures, creative pursuits, academic advancement, or personal growth. You have access to web search — use it to find real, current courses and accurate market data.
@@ -309,13 +309,113 @@ FINAL CRITICAL RULES:
 - timeAllocation[].subject MUST be 1–3 words maximum, clean and readable, with NO trailing symbols (+, &, ,, -). These names display in a weekly schedule grid. BAD: "KNX + CCNA + Networking Fundamentals". GOOD: "KNX & CCNA", "Hands-On Labs", "Portfolio Work"
 - This roadmap is real and will be used by real people to change their lives — every number, course, salary, and recommendation must be accurate and specific`;
 
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
+
+async function webSearch(query: string): Promise<string> {
+  try {
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: process.env.TAVILY_API_KEY,
+        query,
+        search_depth: "basic",
+        max_results: 5,
+        include_answer: false,
+      }),
+    });
+    if (!res.ok) return `Search failed with status ${res.status}`;
+    const data = await res.json() as {
+      results?: Array<{ title: string; url: string; content: string }>;
+    };
+    return (
+      data.results
+        ?.map((r) => `Title: ${r.title}\nURL: ${r.url}\nContent: ${r.content}`)
+        .join("\n\n---\n\n") ?? "No results found."
+    );
+  } catch {
+    return "Search unavailable.";
+  }
+}
+
+const WEB_SEARCH_TOOL: Groq.Chat.CompletionCreateParams.Tool = {
+  type: "function",
+  function: {
+    name: "web_search",
+    description:
+      "Search the web for current information about courses, salaries, job market data, and career resources.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "The search query to execute.",
+        },
+      },
+      required: ["query"],
+    },
+  },
+};
+
+async function generatePlan(messages: Message[]): Promise<string> {
+  type GroqMessage = Groq.Chat.CompletionMessageParam;
+
+  const history: GroqMessage[] = [
+    { role: "system", content: SYSTEM_PROMPT },
+    ...messages,
+  ];
+
+  let searchCount = 0;
+  const maxSearches = 5;
+
+  while (searchCount < maxSearches) {
+    const response = await client.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      max_tokens: 8000,
+      messages: history,
+      tools: [WEB_SEARCH_TOOL],
+      tool_choice: "auto",
+    });
+
+    const choice = response.choices[0];
+
+    if (!choice.message.tool_calls?.length) {
+      return choice.message.content ?? "";
+    }
+
+    history.push(choice.message as GroqMessage);
+
+    for (const toolCall of choice.message.tool_calls) {
+      const args = JSON.parse(toolCall.function.arguments) as { query: string };
+      const result = await webSearch(args.query);
+      history.push({
+        role: "tool",
+        tool_call_id: toolCall.id,
+        content: result,
+      });
+      searchCount++;
+    }
+  }
+
+  // Final call after reaching search limit
+  const finalResponse = await client.chat.completions.create({
+    model: "llama-3.3-70b-versatile",
+    max_tokens: 8000,
+    messages: history,
+  });
+  return finalResponse.choices[0].message.content ?? "";
+}
+
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  let messages: Anthropic.MessageParam[];
+  let messages: Message[];
   let isInit = false;
   try {
     const body = await req.json();
@@ -329,29 +429,48 @@ export async function POST(req: NextRequest) {
     return new Response("Messages required", { status: 400 });
   }
 
-  const model = isInit ? "claude-haiku-4-5-20251001" : "claude-sonnet-4-6";
-
   const encoder = new TextEncoder();
 
+  if (isInit) {
+    // Conversational phase — stream directly, no tools needed
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          const stream = await client.chat.completions.create({
+            model: "llama-3.1-8b-instant",
+            max_tokens: 2048,
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              ...messages,
+            ],
+            stream: true,
+          });
+
+          for await (const chunk of stream) {
+            const text = chunk.choices[0]?.delta?.content ?? "";
+            if (text) controller.enqueue(encoder.encode(text));
+          }
+          controller.close();
+        } catch (err) {
+          controller.error(err);
+        }
+      },
+    });
+
+    return new Response(readable, {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache",
+      },
+    });
+  }
+
+  // Plan generation phase — run web searches then emit full result
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        const streamParams = {
-          model,
-          max_tokens: isInit ? 2048 : 8000,
-          system: SYSTEM_PROMPT,
-          messages,
-          ...(isInit ? {} : {
-            tools: [{ type: "web_search_20250305" as const, name: "web_search" as const, max_uses: 5 }],
-          }),
-        };
-        const stream = client.messages.stream(streamParams);
-
-        stream.on("text", (text) => {
-          controller.enqueue(encoder.encode(text));
-        });
-
-        await stream.finalMessage();
+        const content = await generatePlan(messages);
+        controller.enqueue(encoder.encode(content));
         controller.close();
       } catch (err) {
         controller.error(err);
