@@ -371,8 +371,7 @@ async function generatePlan(messages: Message[]): Promise<string> {
       max_tokens: 8000,
       messages: history,
       tools: [WEB_SEARCH_TOOL],
-      // Force at least one search on the first call; let the model decide after that
-      tool_choice: searchCount === 0 ? "required" : "auto",
+      tool_choice: "auto",
     });
 
     const choice = response.choices[0];
