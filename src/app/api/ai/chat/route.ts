@@ -426,13 +426,13 @@ export async function POST(req: NextRequest) {
   const encoder = new TextEncoder();
 
   if (isInit) {
-    // Conversational phase — stream directly, no tools needed
+    // Conversational phase + plan generation — stream directly
     const readable = new ReadableStream({
       async start(controller) {
         try {
           const stream = await client.chat.completions.create({
             model: "moonshotai/kimi-k2-instruct",
-            max_tokens: 2048,
+            max_tokens: 8192,
             messages: [
               { role: "system", content: SYSTEM_PROMPT },
               ...messages,
