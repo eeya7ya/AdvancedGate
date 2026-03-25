@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       try {
         const stream = await client.chat.completions.create({
-          model: "moonshotai/kimi-k2-instruct",
+          model: "moonshotai/kimi-k2-instruct-0905",
           max_tokens: 4096,
           messages: [
             { role: "system", content: systemPrompt },
