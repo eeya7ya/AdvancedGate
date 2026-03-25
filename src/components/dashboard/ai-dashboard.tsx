@@ -1106,10 +1106,13 @@ export function AIDashboard({ firstName }: { firstName: string }) {
     setStreamedText("");
 
     try {
+      // Use conversational streaming mode during Q&A (< 11 msgs).
+      // Switch to plan generation mode once all 5 questions are answered.
+      const isPlanGeneration = newMessages.length >= 11;
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages: newMessages, isInit: !isPlanGeneration }),
       });
 
       if (!res.ok || !res.body) {

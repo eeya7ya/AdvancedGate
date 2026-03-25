@@ -318,9 +318,11 @@ async function webSearch(query: string): Promise<string> {
   try {
     const res = await fetch("https://api.tavily.com/search", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.TAVILY_API_KEY}`,
+      },
       body: JSON.stringify({
-        api_key: process.env.TAVILY_API_KEY,
         query,
         search_depth: "basic",
         max_results: 5,
@@ -377,7 +379,8 @@ async function generatePlan(messages: Message[]): Promise<string> {
       max_tokens: 8000,
       messages: history,
       tools: [WEB_SEARCH_TOOL],
-      tool_choice: "auto",
+      // Force at least one search on the first call; let the model decide after that
+      tool_choice: searchCount === 0 ? "required" : "auto",
     });
 
     const choice = response.choices[0];
