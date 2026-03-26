@@ -6,7 +6,7 @@ const client = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-const SYSTEM_PROMPT = `You are eSpark — a world-class AI life advisor and career roadmap architect. You help people from all walks of life achieve any goal: career transitions, business ventures, creative pursuits, academic advancement, or personal growth. You have access to web search — use it to find real, current courses and accurate market data.
+const SYSTEM_PROMPT_BODY = `You are eSpark — a world-class AI life advisor and career roadmap architect. You help people from all walks of life achieve any goal: career transitions, business ventures, creative pursuits, academic advancement, or personal growth. You have access to web search — use it to find real, current courses and accurate market data.
 
 Your mission: Collect key information through a clear, friendly question list, then search for the best resources, and generate a comprehensive, actionable life roadmap they can actually follow and rely on.
 
@@ -301,6 +301,13 @@ FINAL CRITICAL RULES:
 - timeAllocation[].subject MUST be 1–3 words maximum, clean and readable, with NO trailing symbols (+, &, ,, -). These names display in a weekly schedule grid. BAD: "KNX + CCNA + Networking Fundamentals". GOOD: "KNX & CCNA", "Hands-On Labs", "Portfolio Work"
 - This roadmap is real and will be used by real people to change their lives — every number, course, salary, and recommendation must be accurate and specific`;
 
+function getSystemPrompt(): string {
+  const today = new Date().toLocaleDateString("en-US", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+  return `Today's date: ${today}\n\n${SYSTEM_PROMPT_BODY}`;
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -358,7 +365,7 @@ async function generatePlan(messages: Message[]): Promise<string> {
   type GroqMessage = Groq.Chat.Completions.ChatCompletionMessageParam;
 
   const history: GroqMessage[] = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: getSystemPrompt() },
     ...messages,
   ];
 
@@ -367,7 +374,7 @@ async function generatePlan(messages: Message[]): Promise<string> {
 
   while (searchCount < maxSearches) {
     const response = await client.chat.completions.create({
-      model: "moonshotai/kimi-k2-instruct",
+      model: "llama-3.3-70b-versatile",
       max_tokens: 8000,
       messages: history,
       tools: [WEB_SEARCH_TOOL],
@@ -396,7 +403,7 @@ async function generatePlan(messages: Message[]): Promise<string> {
 
   // Final call after reaching search limit
   const finalResponse = await client.chat.completions.create({
-    model: "moonshotai/kimi-k2-instruct",
+    model: "llama-3.3-70b-versatile",
     max_tokens: 8000,
     messages: history,
   });
@@ -431,10 +438,10 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         try {
           const stream = await client.chat.completions.create({
-            model: "moonshotai/kimi-k2-instruct",
+            model: "llama-3.3-70b-versatile",
             max_tokens: 8192,
             messages: [
-              { role: "system", content: SYSTEM_PROMPT },
+              { role: "system", content: getSystemPrompt() },
               ...messages,
             ],
             stream: true,

@@ -37,7 +37,13 @@ ${notes.map((n) => `- [${n.category}] ${n.note}`).join("\n")}
 `
       : "USER HAS NO SAVED NOTES YET.";
 
-  return `You are eSpark AI Chat — a focused, context-aware learning assistant. You have full access to the user's learning plan, saved notes, and preferences. Your job is to help them with questions about:
+  const today = new Date().toLocaleDateString("en-US", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+
+  return `Today's date: ${today}
+
+You are eSpark AI Chat — a focused, context-aware learning assistant. You have full access to the user's learning plan, saved notes, and preferences. Your job is to help them with questions about:
 
 1. Their specific courses, schedule, and learning path
 2. Technical questions related to their field of study
@@ -93,7 +99,7 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       try {
         const stream = await client.chat.completions.create({
-          model: "moonshotai/kimi-k2-instruct",
+          model: "llama-3.3-70b-versatile",
           max_tokens: 4096,
           messages: [
             { role: "system", content: systemPrompt },
