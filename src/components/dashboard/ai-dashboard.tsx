@@ -497,7 +497,7 @@ function DonutChart({ slices }: { slices: TimeSlice[] }) {
   const cy = 100;
   const strokeWidth = 22;
   const circumference = 2 * Math.PI * r;
-  const totalHours = slices.reduce((s, x) => s + x.hours, 0);
+  const totalHours = slices.reduce((s, x) => s + (Number(x.hours) || 0), 0);
 
   // Pre-compute cumulative start % for each segment
   const cumulatives = slices.map((_, i) =>
@@ -574,7 +574,7 @@ function DonutChart({ slices }: { slices: TimeSlice[] }) {
                   {s.subject}
                 </p>
                 <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  {s.hours}h/wk · {s.percentage}%
+                  {Number(s.hours) || 0}h/wk · {s.percentage}%
                 </p>
               </div>
             </div>
