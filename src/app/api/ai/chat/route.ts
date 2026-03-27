@@ -355,7 +355,12 @@ interface Message {
   content: string;
 }
 
-async function webSearch(query: string): Promise<string> {
+interface SearchResult {
+  text: string;
+  urls: string[];
+}
+
+async function webSearch(query: string): Promise<SearchResult> {
   try {
     const res = await fetch("https://api.tavily.com/search", {
       method: "POST",
@@ -371,17 +376,69 @@ async function webSearch(query: string): Promise<string> {
         include_raw_content: false,
       }),
     });
-    if (!res.ok) return `Search failed with status ${res.status}`;
+    if (!res.ok) return { text: `Search failed with status ${res.status}`, urls: [] };
     const data = await res.json() as {
       results?: Array<{ title: string; url: string; content: string }>;
     };
-    return (
-      data.results
-        ?.map((r) => `Title: ${r.title}\nURL: ${r.url}\nContent: ${r.content}`)
-        .join("\n\n---\n\n") ?? "No results found."
-    );
+    const results = data.results ?? [];
+    return {
+      text:
+        results
+          .map((r) => `Title: ${r.title}\nURL: ${r.url}\nContent: ${r.content}`)
+          .join("\n\n---\n\n") || "No results found.",
+      urls: results.map((r) => r.url),
+    };
   } catch {
-    return "Search unavailable.";
+    return { text: "Search unavailable.", urls: [] };
+  }
+}
+
+/**
+ * Normalise a URL for comparison: lowercase the origin, strip trailing slash.
+ */
+function normaliseUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    return (u.origin + u.pathname).toLowerCase().replace(/\/$/, "");
+  } catch {
+    return url.toLowerCase().replace(/\/$/, "");
+  }
+}
+
+/**
+ * Parse the AI-generated plan JSON, then zero-out any courseRecommendations
+ * URL that was NOT returned verbatim by Tavily.  This prevents hallucinated
+ * URLs (the model knows the platform but invents the path) from reaching users.
+ */
+function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
+  // Strip markdown code fences the model sometimes adds
+  let json = raw.trim();
+  if (json.startsWith("```")) {
+    json = json.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/i, "").trim();
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const plan = JSON.parse(json) as Record<string, any>;
+
+    if (Array.isArray(plan.courseRecommendations)) {
+      const normValid = new Set([...validUrls].map(normaliseUrl));
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      plan.courseRecommendations = plan.courseRecommendations.map((course: any) => {
+        if (typeof course.url === "string" && course.url.length > 0) {
+          if (!normValid.has(normaliseUrl(course.url))) {
+            return { ...course, url: "" };
+          }
+        }
+        return course;
+      });
+    }
+
+    return JSON.stringify(plan);
+  } catch {
+    // JSON parse failed — return original so the frontend can handle it
+    return raw;
   }
 }
 
@@ -414,6 +471,8 @@ async function generatePlan(messages: Message[], timezone?: string): Promise<str
 
   let searchCount = 0;
   const maxSearches = 5;
+  // Accumulate every URL Tavily actually returned so we can validate the plan
+  const allSearchUrls = new Set<string>();
 
   while (searchCount < maxSearches) {
     const response = await client.chat.completions.create({
@@ -421,36 +480,39 @@ async function generatePlan(messages: Message[], timezone?: string): Promise<str
       max_tokens: 8000,
       messages: history,
       tools: [WEB_SEARCH_TOOL],
-      tool_choice: "auto",
+      // Force at least one real search before the model can produce the plan
+      tool_choice: searchCount === 0 ? "required" : "auto",
     });
 
     const choice = response.choices[0];
 
     if (!choice.message.tool_calls?.length) {
-      return choice.message.content ?? "";
+      // Model decided to produce the plan — sanitize URLs before returning
+      return sanitizePlanUrls(choice.message.content ?? "", allSearchUrls);
     }
 
     history.push(choice.message as GroqMessage);
 
     for (const toolCall of choice.message.tool_calls) {
       const args = JSON.parse(toolCall.function.arguments) as { query: string };
-      const result = await webSearch(args.query);
+      const { text, urls } = await webSearch(args.query);
+      urls.forEach((u) => allSearchUrls.add(u));
       history.push({
         role: "tool",
         tool_call_id: toolCall.id,
-        content: result,
+        content: text,
       });
       searchCount++;
     }
   }
 
-  // Final call after reaching search limit
+  // Final call after reaching search limit — sanitize here too
   const finalResponse = await client.chat.completions.create({
     model: "llama-3.3-70b-versatile",
     max_tokens: 8000,
     messages: history,
   });
-  return finalResponse.choices[0].message.content ?? "";
+  return sanitizePlanUrls(finalResponse.choices[0].message.content ?? "", allSearchUrls);
 }
 
 export async function POST(req: NextRequest) {
