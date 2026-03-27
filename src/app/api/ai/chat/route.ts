@@ -393,22 +393,21 @@ async function webSearch(query: string): Promise<SearchResult> {
   }
 }
 
-/**
- * Normalise a URL for comparison: lowercase the origin, strip trailing slash.
- */
-function normaliseUrl(url: string): string {
+function extractHostname(url: string): string {
   try {
-    const u = new URL(url);
-    return (u.origin + u.pathname).toLowerCase().replace(/\/$/, "");
+    return new URL(url).hostname.toLowerCase();
   } catch {
-    return url.toLowerCase().replace(/\/$/, "");
+    return "";
   }
 }
 
 /**
  * Parse the AI-generated plan JSON, then zero-out any courseRecommendations
- * URL that was NOT returned verbatim by Tavily.  This prevents hallucinated
- * URLs (the model knows the platform but invents the path) from reaching users.
+ * URL whose domain was not seen in any Tavily search result.
+ * Domain-level matching is used (rather than exact path) because the AI copies
+ * the right domain from search results but may use a slightly different path
+ * (e.g. locale prefix, query string stripped). Completely hallucinated domains
+ * (not present in any search result) are still rejected.
  */
 function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
   // Strip markdown code fences the model sometimes adds
@@ -422,12 +421,14 @@ function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
     const plan = JSON.parse(json) as Record<string, any>;
 
     if (Array.isArray(plan.courseRecommendations)) {
-      const normValid = new Set([...validUrls].map(normaliseUrl));
+      // Build a set of every hostname Tavily actually returned
+      const validDomains = new Set([...validUrls].map(extractHostname).filter(Boolean));
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       plan.courseRecommendations = plan.courseRecommendations.map((course: any) => {
         if (typeof course.url === "string" && course.url.length > 0) {
-          if (!normValid.has(normaliseUrl(course.url))) {
+          const domain = extractHostname(course.url);
+          if (!domain || !validDomains.has(domain)) {
             return { ...course, url: "" };
           }
         }
