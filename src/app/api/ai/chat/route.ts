@@ -192,7 +192,7 @@ All description fields must be full, meaningful sentences — never 2-word label
       "level": "Beginner",
       "focus": "1-2 sentences: specifically what this course covers and exactly why it is the right match for their current level, goal, and the phase they should take it in",
       "phase": "Month 1-2",
-      "url": "The direct URL to this course page — from your web search results. Must be a real, working link (e.g. https://u.cisco.com/..., https://learn.microsoft.com/..., https://www.coursera.org/learn/..., https://www.udemy.com/course/..., https://youtu.be/...). Leave as empty string if you cannot confirm the exact URL."
+      "url": "STRICT RULE: Only put a URL here if it appears VERBATIM in your web_search results above. Copy the exact URL from the search result — do NOT construct, guess, or modify any URL. If you did not receive an exact URL for this course from search results, you MUST use an empty string \"\". A broken link is far worse than no link."
     },
     {
       "title": "Second course — real title from search",
@@ -202,7 +202,7 @@ All description fields must be full, meaningful sentences — never 2-word label
       "level": "Beginner to Intermediate",
       "focus": "1-2 sentences on what it covers and why it fits their path at this stage",
       "phase": "Month 2-3",
-      "url": "Direct URL to this course from your search results, or empty string"
+      "url": "Exact URL from search results only — empty string if not found in search"
     },
     {
       "title": "Third course — real title from search",
@@ -212,7 +212,7 @@ All description fields must be full, meaningful sentences — never 2-word label
       "level": "Intermediate",
       "focus": "1-2 sentences on what it covers and why it comes after the previous courses",
       "phase": "Month 3-4",
-      "url": "Direct URL to this course from your search results, or empty string"
+      "url": "Exact URL from search results only — empty string if not found in search"
     },
     {
       "title": "Fourth course — real title from search",
@@ -222,7 +222,7 @@ All description fields must be full, meaningful sentences — never 2-word label
       "level": "Intermediate to Advanced",
       "focus": "1-2 sentences on what it unlocks for their career at this stage",
       "phase": "Month 4-6",
-      "url": "Direct URL to this course from your search results, or empty string"
+      "url": "Exact URL from search results only — empty string if not found in search"
     }
   ],
   "schedule": {
@@ -293,7 +293,7 @@ FINAL CRITICAL RULES:
 - Every field reflects their actual answers — personalized to who they are, where they live, and what they said
 - courseRecommendations must contain REAL courses found via your web searches — real titles, real instructors, real platforms
 - courseRecommendations ORDERING: always list the official vendor/mother company course FIRST (e.g., Cisco U. for CCNA, Microsoft Learn for Azure, AWS Skill Builder for AWS, CompTIA CertMaster for CompTIA certs), followed by paid third-party platforms, then free platforms
-- courseRecommendations.url must be the actual direct URL to the course page from your search results — users will click it directly
+- courseRecommendations.url CRITICAL: ONLY use a URL that appears word-for-word in your web_search tool results. NEVER construct, guess, or hallucinate a URL. If the exact course URL was not returned by search, set url to "" (empty string). The "Search" fallback button will handle finding it. A fabricated URL that leads to a 404 destroys user trust — empty string is always better.
 - roadmap phase count and total duration MUST match their stated timeline exactly
 - notice in marketInsights appears ONLY for genuine strategic concerns — never invent problems
 - salaryRange must be specific to their stated target market (Gulf, Europe, local, etc.) — not just generic USD
@@ -323,9 +323,10 @@ async function webSearch(query: string): Promise<string> {
       },
       body: JSON.stringify({
         query,
-        search_depth: "basic",
-        max_results: 5,
-        include_answer: false,
+        search_depth: "advanced",
+        max_results: 8,
+        include_answer: true,
+        include_raw_content: false,
       }),
     });
     if (!res.ok) return `Search failed with status ${res.status}`;
