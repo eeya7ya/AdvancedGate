@@ -680,6 +680,49 @@ export function RoadmapClient({
 }) {
   const { lang } = useLang();
   const isRTL = lang === "ar";
+
+  // Course selection state — tracks which courses the user has enrolled in
+  const [selectedCourses, setSelectedCourses] = useState<Set<number>>(() => {
+    const initial = new Set<number>();
+    (plan.courseRecommendations ?? []).forEach((c: CourseRecommendation & { selected?: boolean }, i: number) => {
+      if (c.selected) initial.add(i);
+    });
+    return initial;
+  });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const toggleCourse = (index: number) => {
+    setSelectedCourses((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+    setSaved(false);
+  };
+
+  const saveSelections = async () => {
+    setSaving(true);
+    try {
+      const updatedPlan = { ...plan };
+      if (updatedPlan.courseRecommendations) {
+        updatedPlan.courseRecommendations = updatedPlan.courseRecommendations.map(
+          (c: CourseRecommendation, i: number) => ({ ...c, selected: selectedCourses.has(i) })
+        );
+      }
+      await fetch("/api/user/roadmap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: updatedPlan }),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <RTLContext.Provider value={isRTL}>
     <div className="max-w-4xl mx-auto space-y-6" dir={isRTL ? "rtl" : "ltr"}>
@@ -729,89 +772,129 @@ export function RoadmapClient({
         </div>
       </motion.div>
 
-      {/* Today's Focus */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="rounded-2xl p-6"
-        style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
-      >
-        <div className="flex items-center gap-2 mb-3">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold"
-            style={{ background: "rgba(0,212,161,0.12)", color: "#00d4a1" }}>
-            <Target size={11} />
-            {t("todayFocus", isRTL)}
-          </div>
-        </div>
-        <h2 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-          {plan.todaysFocus.topic}
-        </h2>
-        <p className="text-sm mb-3 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-          {plan.todaysFocus.reason}
-        </p>
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold"
-            style={{ background: "rgba(0,212,161,0.1)", border: "1px solid rgba(0,212,161,0.2)", color: "#00d4a1" }}>
-            <Clock size={11} />
-            {plan.todaysFocus.duration}
-          </div>
-          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{plan.todaysFocus.action}</p>
-        </div>
-      </motion.div>
-
-      {/* Market Insights */}
-      {plan.marketInsights && <MarketInsightsSection insights={plan.marketInsights} />}
-
-      {/* Charts row */}
-      <div className="grid md:grid-cols-2 gap-5">
-        <PriorityBars priorities={plan.priorities} />
-        <DonutChart slices={plan.timeAllocation} />
-      </div>
-
-      {/* Course Recommendations */}
-      {plan.courseRecommendations && plan.courseRecommendations.length > 0 && (
-        <CourseRecommendationsSection courses={plan.courseRecommendations} />
-      )}
-
       {/* Roadmap Phases */}
       {plan.roadmap && plan.roadmap.length > 0 && (
         <RoadmapPhasesSection phases={plan.roadmap} />
       )}
 
-      {/* Printable Schedule + Weekly Schedule — wrapped for print */}
-      <div id="schedule-print-area" className="space-y-6">
-        <div className="flex items-center justify-between print:hidden">
-          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
-            <Printer size={10} className="inline mr-1" />
-            Schedule &amp; Planner
+      {/* Course Selection */}
+      {plan.courseRecommendations && plan.courseRecommendations.length > 0 && (
+        <SectionCard delay={0.4}>
+          <div className="flex items-center justify-between mb-5">
+            <SectionTitle icon={BookOpen} label={isRTL ? "اختر دوراتك" : "Select Your Courses"} color="#a78bfa" />
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+                {selectedCourses.size}/{plan.courseRecommendations.length} {isRTL ? "مختارة" : "selected"}
+              </span>
+            </div>
+          </div>
+          <p className="text-xs mb-4 leading-relaxed" style={{ color: "var(--text-muted)" }}>
+            {isRTL
+              ? "اختر الدورات التي تريد التسجيل بها حسب ميزانيتك وتفضيلاتك. الدورات المجانية والمدفوعة متاحة لكل مسار."
+              : "Select courses you want to enroll in based on your budget and preferences. Free and paid options are available for each path."}
           </p>
-          <button
-            onClick={() => {
-              const el = document.getElementById("schedule-print-area");
-              if (!el) return;
-              const original = document.body.innerHTML;
-              document.body.innerHTML = el.innerHTML;
-              window.print();
-              document.body.innerHTML = original;
-              window.location.reload();
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
-            style={{ background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.2)", color: "#22d3ee" }}
-          >
-            <Printer size={11} />
-            Print
-          </button>
-        </div>
-        {plan.schedule && <PrintableScheduleSection schedule={plan.schedule} />}
-        <WeeklySchedule slices={plan.timeAllocation} />
-      </div>
+          <div className="space-y-3">
+            {plan.courseRecommendations.map((c: CourseRecommendation, i: number) => {
+              const isSelected = selectedCourses.has(i);
+              const isFree = /youtube|freecodecamp|khan|edx/i.test(c.platform);
+              const levelColor: Record<string, string> = {
+                Beginner: "#00d4a1",
+                "Beginner to Intermediate": "#22d3ee",
+                Intermediate: "#a78bfa",
+                "Intermediate to Advanced": "#f59e0b",
+                Advanced: "#f87171",
+              };
 
-      {/* Topic connections */}
-      <TopicConnections links={plan.topicConnections} />
+              return (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 + i * 0.06, duration: 0.35 }}
+                  className="rounded-xl p-4 cursor-pointer transition-all"
+                  style={{
+                    background: isSelected ? "rgba(0,212,161,0.06)" : "var(--bg-base)",
+                    border: isSelected ? "2px solid rgba(0,212,161,0.5)" : "1px solid var(--border-subtle)",
+                    boxShadow: isSelected ? "0 0 16px rgba(0,212,161,0.15)" : "none",
+                  }}
+                  onClick={() => toggleCourse(i)}
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Checkbox */}
+                    <div
+                      className="flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center mt-0.5 transition-all"
+                      style={{
+                        background: isSelected ? "linear-gradient(135deg, #00d4a1, #22d3ee)" : "var(--bg-card)",
+                        border: isSelected ? "none" : "2px solid var(--border-medium)",
+                      }}
+                    >
+                      {isSelected && <CheckCircle size={12} className="text-white" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <p className="text-sm font-bold leading-snug" style={{ color: "var(--text-primary)" }}>{c.title}</p>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <span
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-lg"
+                            style={{ background: isFree ? "rgba(0,212,161,0.12)" : "rgba(167,139,250,0.12)", color: isFree ? "#00d4a1" : "#a78bfa" }}
+                          >
+                            {isFree ? (isRTL ? "مجاني" : "Free") : (isRTL ? "مدفوع" : "Paid")}
+                          </span>
+                          <span
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-lg"
+                            style={{ background: `${levelColor[c.level] ?? "#00d4a1"}18`, color: levelColor[c.level] ?? "#00d4a1" }}
+                          >
+                            {c.level}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
+                        {c.platform} · {c.instructor}
+                      </p>
+                      <p className="text-xs leading-relaxed mb-2" style={{ color: "var(--text-secondary)" }}>{c.focus}</p>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md"
+                          style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee" }}>
+                          <Clock size={9} /> {c.estimatedHours}h
+                        </span>
+                        <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md"
+                          style={{ background: "rgba(0,212,161,0.1)", color: "#00d4a1" }}>
+                          <Flag size={9} /> {c.phase}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {/* Save button */}
+          <div className="flex items-center justify-between mt-5 pt-4" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              {isRTL
+                ? "حفظ اختياراتك لإنشاء الجدول الزمني تلقائياً"
+                : "Save selections to auto-generate your schedule"}
+            </p>
+            <button
+              onClick={saveSelections}
+              disabled={saving || selectedCourses.size === 0}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)", boxShadow: "0 0 16px rgba(0,212,161,0.3)" }}
+            >
+              {saving ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : saved ? (
+                <CheckCircle size={14} />
+              ) : null}
+              {saved ? (isRTL ? "تم الحفظ!" : "Saved!") : (isRTL ? "حفظ الاختيارات" : "Save My Selections")}
+            </button>
+          </div>
+        </SectionCard>
+      )}
 
       {/* Next Steps */}
-      <SectionCard delay={0.6}>
+      <SectionCard delay={0.5}>
         <SectionTitle icon={TrendingUp} label={t("nextSteps", isRTL)} color="var(--brand-teal)" />
         <ol className="space-y-3">
           {plan.nextSteps.map((step: string, i: number) => (
@@ -836,22 +919,21 @@ export function RoadmapClient({
       {/* Email reminders */}
       <EmailReminders initialEnabled={initialEmailEnabled} initialEmail={initialReminderEmail} />
 
-      {/* Modify plan CTA */}
+      {/* Continue to Schedule button */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.7 }}
+        transition={{ delay: 0.6 }}
         className="flex items-center justify-center gap-4 py-4"
       >
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>{isRTL ? "هل تغير وضعك؟" : "Your situation changed?"}</p>
         <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
-          style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)", boxShadow: "0 0 20px rgba(0,212,161,0.3)" }}
+          href="/schedule"
+          className="inline-flex items-center gap-2 px-7 py-3.5 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90"
+          style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)", boxShadow: "0 0 32px rgba(0,212,161,0.35)" }}
         >
-          <RotateCcw size={14} />
-          {isRTL ? "تحديث خارطة طريقي" : "Update My Roadmap"}
-          <ArrowRight size={14} />
+          <CalendarDays size={16} />
+          {isRTL ? "المتابعة إلى الجدول" : "Continue to Schedule"}
+          <ArrowRight size={16} />
         </Link>
       </motion.div>
     </div>

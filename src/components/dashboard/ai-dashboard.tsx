@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { Send, Sparkles, Brain, Target, Clock, ArrowRight, ChevronRight, RotateCcw, Zap, Map, AlertTriangle, Globe, ExternalLink, BookOpen, X, Trash2 } from "lucide-react";
+import { Send, Sparkles, Brain, Target, Clock, ArrowRight, RotateCcw, Map, Globe, X, Trash2, TrendingUp, MessageCircle } from "lucide-react";
 import { useLang } from "@/lib/language";
 
 /* ── Types ─────────────────────────────────────────────────────── */
@@ -134,6 +134,7 @@ const D: Record<string, { en: string; ar: string }> = {
   yourPlan:       { en: "Your Personalized Action Plan", ar: "خطتك الشخصية" },
   marketNotice:   { en: "Market Notice", ar: "تنبيه السوق" },
   viewRoadmap:    { en: "View Roadmap", ar: "عرض خارطة الطريق" },
+  viewAnalysis:   { en: "View Analysis", ar: "عرض التحليل" },
   restart:        { en: "Restart", ar: "ابدأ من جديد" },
   todayFocus:     { en: "Today's Focus", ar: "تركيز اليوم" },
   recCourses:     { en: "Recommended Courses", ar: "الدورات الموصى بها" },
@@ -145,10 +146,12 @@ const D: Record<string, { en: string; ar: string }> = {
   chatHeading:    { en: "let's map your path", ar: "لنرسم طريقك" },
   startOver:      { en: "Start over", ar: "ابدأ من جديد" },
   placeholder:    { en: "Message AI Advisor... (Enter to send, Shift+Enter for new line)", ar: "اكتب رسالتك... (Enter للإرسال، Shift+Enter لسطر جديد)" },
+  chatPlaceholder:{ en: "Ask your AI guide anything... (Enter to send)", ar: "اسأل مرشدك الذكي أي شيء... (Enter للإرسال)" },
   crafting:       { en: "Crafting your personalized roadmap...", ar: "جارٍ إنشاء خارطة طريقك الشخصية..." },
   startOverTitle: { en: "Start Over?", ar: "البدء من جديد؟" },
   startOverMsg:   { en: "This will permanently delete your saved roadmap and all session data, then restart from scratch. This cannot be undone.", ar: "سيؤدي هذا إلى حذف خارطة طريقك المحفوظة وجميع بيانات الجلسة نهائياً، ثم البدء من الصفر. لا يمكن التراجع عن هذا." },
   startOverConfirm: { en: "Yes, Delete & Restart", ar: "نعم، احذف وابدأ من جديد" },
+  aiGuide:        { en: "Your AI Guide", ar: "مرشدك الذكي" },
 };
 function td(key: string, ar: boolean): string {
   return ar ? (D[key]?.ar ?? key) : (D[key]?.en ?? key);
@@ -427,221 +430,6 @@ function ChatBubble({ msg, isStreaming }: { msg: Message; isStreaming?: boolean 
   );
 }
 
-/* ── Priority Bar Chart ─────────────────────────────────────────── */
-function PriorityBarChart({ priorities }: { priorities: Priority[] }) {
-  const [animated, setAnimated] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setAnimated(true), 300);
-    return () => clearTimeout(t);
-  }, []);
-
-  return (
-    <div
-      className="rounded-2xl p-6"
-      style={{
-        background: "var(--bg-card)",
-        border: "1px solid var(--border-subtle)",
-      }}
-    >
-      <h3
-        className="text-sm font-bold mb-5 flex items-center gap-2"
-        style={{ color: "var(--text-primary)" }}
-      >
-        <Target size={15} style={{ color: "var(--brand-teal)" }} />
-        Learning Priorities
-      </h3>
-      <div className="space-y-4">
-        {priorities.map((p) => (
-          <div key={p.topic}>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
-                {p.topic}
-              </span>
-              <span className="text-xs font-bold" style={{ color: p.color }}>
-                {p.score}%
-              </span>
-            </div>
-            <div
-              className="relative h-2.5 rounded-full overflow-hidden"
-              style={{ background: "var(--bg-base)" }}
-            >
-              <div
-                className="absolute inset-y-0 left-0 rounded-full transition-all duration-1000 ease-out"
-                style={{
-                  width: animated ? `${p.score}%` : "0%",
-                  background: `linear-gradient(90deg, ${p.color}cc, ${p.color})`,
-                  boxShadow: `0 0 8px ${p.color}66`,
-                }}
-              />
-            </div>
-            <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>
-              {p.description}
-            </p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ── Donut Chart ────────────────────────────────────────────────── */
-function DonutChart({ slices }: { slices: TimeSlice[] }) {
-  const [animated, setAnimated] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setAnimated(true), 500);
-    return () => clearTimeout(t);
-  }, []);
-
-  const r = 70;
-  const cx = 100;
-  const cy = 100;
-  const strokeWidth = 22;
-  const circumference = 2 * Math.PI * r;
-  const totalHours = slices.reduce((s, x) => s + (Number(x.hours) || 0), 0);
-
-  // Pre-compute cumulative start % for each segment
-  const cumulatives = slices.map((_, i) =>
-    slices.slice(0, i).reduce((sum, x) => sum + x.percentage, 0)
-  );
-
-  return (
-    <div
-      className="rounded-2xl p-6"
-      style={{
-        background: "var(--bg-card)",
-        border: "1px solid var(--border-subtle)",
-      }}
-    >
-      <h3
-        className="text-sm font-bold mb-5 flex items-center gap-2"
-        style={{ color: "var(--text-primary)" }}
-      >
-        <Clock size={15} style={{ color: "var(--brand-cyan)" }} />
-        Weekly Time Allocation
-      </h3>
-
-      <div className="flex items-center gap-6">
-        {/* SVG Donut */}
-        <div className="relative flex-shrink-0">
-          <svg width="200" height="200" viewBox="0 0 200 200">
-            {/* Track */}
-            <circle
-              cx={cx} cy={cy} r={r}
-              fill="none"
-              stroke="var(--bg-base)"
-              strokeWidth={strokeWidth}
-            />
-            {/* Segments */}
-            {slices.map((s, i) => {
-              const startPercent = cumulatives[i];
-              const segLen = (s.percentage / 100) * circumference;
-              const rotation = -90 + (startPercent / 100) * 360;
-              return (
-                <circle
-                  key={i}
-                  cx={cx} cy={cy} r={r}
-                  fill="none"
-                  stroke={s.color}
-                  strokeWidth={strokeWidth}
-                  strokeDasharray={`${animated ? segLen : 0} ${circumference - (animated ? segLen : 0)}`}
-                  strokeDashoffset={0}
-                  transform={`rotate(${rotation} ${cx} ${cy})`}
-                  strokeLinecap="butt"
-                  style={{ transition: "stroke-dasharray 1.2s cubic-bezier(0.4,0,0.2,1)" }}
-                />
-              );
-            })}
-            {/* Center text */}
-            <text x={cx} y={cy - 8} textAnchor="middle" className="text-2xl font-bold" fill="var(--text-primary)" fontSize="22" fontWeight="700">
-              {totalHours}h
-            </text>
-            <text x={cx} y={cy + 12} textAnchor="middle" fill="var(--text-muted)" fontSize="11">
-              per week
-            </text>
-          </svg>
-        </div>
-
-        {/* Legend */}
-        <div className="flex-1 space-y-3 min-w-0">
-          {slices.map((s) => (
-            <div key={s.subject} className="flex items-center gap-2.5">
-              <div
-                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                style={{ background: s.color, boxShadow: `0 0 6px ${s.color}88` }}
-              />
-              <div className="min-w-0">
-                <p className="text-xs font-semibold truncate" style={{ color: "var(--text-primary)" }}>
-                  {s.subject}
-                </p>
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  {Number(s.hours) || 0}h/wk · {s.percentage}%
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── Topic Connections ──────────────────────────────────────────── */
-function TopicConnections({ links }: { links: TopicLink[] }) {
-  return (
-    <div
-      className="rounded-2xl p-6"
-      style={{
-        background: "var(--bg-card)",
-        border: "1px solid var(--border-subtle)",
-      }}
-    >
-      <h3
-        className="text-sm font-bold mb-5 flex items-center gap-2"
-        style={{ color: "var(--text-primary)" }}
-      >
-        <Zap size={15} style={{ color: "#a78bfa" }} />
-        Topic Connections
-      </h3>
-      <div className="space-y-3">
-        {links.map((link, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.12, duration: 0.4 }}
-            className="flex items-start gap-3 p-4 rounded-xl"
-            style={{
-              background: "var(--bg-base)",
-              border: "1px solid var(--border-subtle)",
-            }}
-          >
-            <div className="flex flex-col gap-2 min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span
-                  className="px-2.5 py-1 rounded-lg text-xs font-semibold"
-                  style={{ background: "rgba(0,212,161,0.12)", color: "#00d4a1" }}
-                >
-                  {link.from}
-                </span>
-                <ChevronRight size={13} style={{ color: "var(--text-muted)" }} />
-                <span
-                  className="px-2.5 py-1 rounded-lg text-xs font-semibold"
-                  style={{ background: "rgba(34,211,238,0.12)", color: "#22d3ee" }}
-                >
-                  {link.to}
-                </span>
-              </div>
-              <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                {link.bridge}
-              </p>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 /* ── Welcome Screen ─────────────────────────────────────────────── */
 function WelcomeScreen({ onStart }: { onStart: () => void }) {
   const { lang } = useLang();
@@ -752,18 +540,73 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
   );
 }
 
-/* ── Plan View ──────────────────────────────────────────────────── */
+/* ── Plan View — AI Guide with Embedded Chat ───────────────────── */
 function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }) {
   const { lang } = useLang();
   const ar = lang === "ar";
+
+  // Embedded chat state
+  const [chatMessages, setChatMessages] = useState<Message[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatStreamedText, setChatStreamedText] = useState("");
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const chatStreamRef = useRef("");
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, chatStreamedText, chatLoading]);
+
+  const sendChatMessage = useCallback(async (text: string) => {
+    if (!text.trim() || chatLoading) return;
+    const updated: Message[] = [...chatMessages, { role: "user", content: text.trim() }];
+    setChatMessages(updated);
+    setChatInput("");
+    setChatLoading(true);
+    setChatStreamedText("");
+    chatStreamRef.current = "";
+
+    try {
+      const res = await fetch("/api/ai/advisor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: updated }),
+      });
+      if (!res.ok || !res.body) throw new Error("API error");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chatStreamRef.current += decoder.decode(value, { stream: true });
+        setChatStreamedText(chatStreamRef.current);
+      }
+      setChatMessages([...updated, { role: "assistant", content: chatStreamRef.current }]);
+    } catch {
+      setChatMessages([...updated, { role: "assistant", content: ar ? "عذراً، حدث خطأ. حاول مرة أخرى." : "Sorry, something went wrong. Please try again." }]);
+    } finally {
+      setChatLoading(false);
+      setChatStreamedText("");
+    }
+  }, [chatMessages, chatLoading, ar]);
+
+  const handleChatKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendChatMessage(chatInput);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="space-y-6"
+      className="space-y-5"
       dir={ar ? "rtl" : "ltr"}
     >
-      {/* Header */}
+      {/* Header with nav links */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <div
@@ -780,7 +623,6 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
           <p className="text-sm max-w-2xl leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             {plan.profile.summary}
           </p>
-          {/* Market context chips */}
           <div className="flex flex-wrap gap-2 mt-3">
             {plan.profile.country && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
@@ -802,21 +644,20 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
               </span>
             )}
           </div>
-          {/* Market notice badge — only if AI flagged a concern */}
-          {plan.marketInsights?.notice && (
-            <div className="mt-3 px-3 py-3 rounded-xl"
-              style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)" }}>
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <AlertTriangle size={12} style={{ color: "#f59e0b" }} />
-                <span className="text-xs font-bold tracking-wide" style={{ color: "#f59e0b" }}>{td("marketNotice", ar)}</span>
-              </div>
-              <p className="text-xs leading-relaxed" style={{ color: "#fbbf24" }}>
-                {plan.marketInsights.notice}
-              </p>
-            </div>
-          )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          <Link
+            href="/analysis"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-90"
+            style={{
+              background: "rgba(167,139,250,0.15)",
+              border: "1px solid rgba(167,139,250,0.3)",
+              color: "#a78bfa",
+            }}
+          >
+            <TrendingUp size={12} />
+            {td("viewAnalysis", ar)}
+          </Link>
           <Link
             href="/roadmap"
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-90"
@@ -843,217 +684,158 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
         </div>
       </div>
 
-      {/* Today's Focus */}
+      {/* Compact Today's Focus */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="relative overflow-hidden rounded-2xl p-6"
+        className="relative overflow-hidden rounded-2xl p-5"
         style={{
           background: "linear-gradient(135deg, rgba(0,212,161,0.08) 0%, rgba(34,211,238,0.06) 100%)",
           border: "1px solid rgba(0,212,161,0.2)",
         }}
       >
-        <div
-          className="absolute -top-12 -right-12 w-40 h-40 rounded-full blur-3xl opacity-20 pointer-events-none"
-          style={{ background: "radial-gradient(circle, #00d4a1, #22d3ee)" }}
-        />
-        <div className="relative z-10">
-          <div
-            className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-semibold mb-4"
-            style={{ background: "rgba(0,212,161,0.12)", color: "#00d4a1" }}
-          >
-            <Target size={11} />
-            {td("todayFocus", ar)}
-          </div>
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-            <div className="flex-1">
-              <h2
-                className="text-2xl font-bold mb-2"
-                style={{ color: "var(--text-primary)" }}
-              >
-                {plan.todaysFocus.topic}
-              </h2>
-              <p className="text-sm mb-3 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                {plan.todaysFocus.reason}
-              </p>
-              <div className="flex items-center gap-3 flex-wrap">
-                <div
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold"
-                  style={{
-                    background: "rgba(0,212,161,0.1)",
-                    border: "1px solid rgba(0,212,161,0.2)",
-                    color: "#00d4a1",
-                  }}
-                >
-                  <Clock size={11} />
-                  {plan.todaysFocus.duration}
-                </div>
-                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                  {plan.todaysFocus.action}
-                </p>
-              </div>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div
+              className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-semibold mb-2"
+              style={{ background: "rgba(0,212,161,0.12)", color: "#00d4a1" }}
+            >
+              <Target size={11} />
+              {td("todayFocus", ar)}
             </div>
+            <h2 className="text-lg font-bold mb-1" style={{ color: "var(--text-primary)" }}>
+              {plan.todaysFocus.topic}
+            </h2>
+            <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              {plan.todaysFocus.reason}
+            </p>
+          </div>
+          <div
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold flex-shrink-0"
+            style={{
+              background: "rgba(0,212,161,0.1)",
+              border: "1px solid rgba(0,212,161,0.2)",
+              color: "#00d4a1",
+            }}
+          >
+            <Clock size={11} />
+            {plan.todaysFocus.duration}
           </div>
         </div>
       </motion.div>
 
-      {/* Charts row */}
-      <div className="grid md:grid-cols-2 gap-5">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <PriorityBarChart priorities={plan.priorities} />
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <DonutChart slices={plan.timeAllocation} />
-        </motion.div>
-      </div>
-
-      {/* Topic connections */}
+      {/* Embedded AI Chat */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-      >
-        <TopicConnections links={plan.topicConnections} />
-      </motion.div>
-
-      {/* Course Recommendations */}
-      {plan.courseRecommendations && plan.courseRecommendations.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.45 }}
-          className="rounded-2xl p-6"
-          style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
-        >
-          <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-            <BookOpen size={15} style={{ color: "#a78bfa" }} />
-            {td("recCourses", ar)}
-          </h3>
-          <div className="grid sm:grid-cols-2 gap-3">
-            {plan.courseRecommendations.map((course, i) => (
-              <div
-                key={i}
-                className="flex flex-col gap-2 p-4 rounded-xl"
-                style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold leading-snug mb-1" style={{ color: "var(--text-primary)" }}>
-                      {course.title}
-                    </p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span
-                        className="px-2 py-0.5 rounded-md text-[10px] font-bold"
-                        style={{ background: "rgba(167,139,250,0.12)", color: "#a78bfa" }}
-                      >
-                        {course.platform}
-                      </span>
-                      <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                        {course.estimatedHours}h · {course.level}
-                      </span>
-                    </div>
-                  </div>
-                  {course.url ? (
-                    <a
-                      href={course.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:opacity-80"
-                      style={{
-                        background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
-                        color: "#0a1628",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {td("open", ar)}
-                      <ExternalLink size={9} />
-                    </a>
-                  ) : (
-                    <a
-                      href={`https://www.google.com/search?q=${encodeURIComponent(course.title + " " + course.platform)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-all hover:opacity-80"
-                      style={{
-                        background: "var(--bg-card)",
-                        border: "1px solid var(--border-subtle)",
-                        color: "var(--text-muted)",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {td("search", ar)}
-                      <ExternalLink size={9} />
-                    </a>
-                  )}
-                </div>
-                <p className="text-[10px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
-                  {course.focus}
-                </p>
-                <div className="flex items-center justify-between">
-                  <span
-                    className="text-[10px] font-medium px-2 py-0.5 rounded-md"
-                    style={{ background: "rgba(0,212,161,0.08)", color: "#00d4a1" }}
-                  >
-                    {course.phase}
-                  </span>
-                  <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                    {td("by", ar)} {course.instructor}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      )}
-
-      {/* Next steps */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="rounded-2xl p-6"
+        transition={{ delay: 0.2 }}
+        className="flex flex-col rounded-2xl overflow-hidden"
         style={{
           background: "var(--bg-card)",
           border: "1px solid var(--border-subtle)",
+          height: "calc(100vh - 420px)",
+          minHeight: "400px",
         }}
       >
-        <h3
-          className="text-sm font-bold mb-4 flex items-center gap-2"
-          style={{ color: "var(--text-primary)" }}
+        {/* Chat header */}
+        <div
+          className="flex items-center gap-2.5 px-5 py-3 border-b"
+          style={{ borderColor: "var(--border-subtle)" }}
         >
-          <ArrowRight size={15} style={{ color: "var(--brand-teal)" }} />
-          {td("nextSteps", ar)}
-        </h3>
-        <ol className="space-y-3">
-          {plan.nextSteps.map((step, i) => (
-            <li key={i} className="flex items-start gap-3">
-              <span
-                className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+          <div
+            className="w-7 h-7 rounded-lg flex items-center justify-center"
+            style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)" }}
+          >
+            <MessageCircle size={13} className="text-white" />
+          </div>
+          <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+            {td("aiGuide", ar)}
+          </span>
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+            — {ar ? "اسألني أي شيء عن خطتك" : "Ask me anything about your plan"}
+          </span>
+        </div>
+
+        {/* Messages area */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {chatMessages.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full text-center gap-3 opacity-60">
+              <Brain size={28} style={{ color: "var(--brand-teal)" }} />
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                {ar
+                  ? "أنا مرشدك الذكي — اسأل عن جدولك أو دوراتك أو أي شيء يتعلق بخطتك"
+                  : "I'm your AI guide — ask about your schedule, courses, or anything related to your plan"}
+              </p>
+            </div>
+          )}
+          {chatMessages.map((msg, i) => (
+            <ChatBubble key={i} msg={msg} />
+          ))}
+          {chatLoading && chatStreamedText && (
+            <div className="flex items-end gap-3">
+              <AIAvatar />
+              <div
+                className="max-w-[80%] px-4 py-3 rounded-2xl rounded-bl-sm text-sm leading-relaxed whitespace-pre-wrap"
+                dir={getTextDir(chatStreamedText)}
                 style={{
-                  background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
-                  color: "#0a1628",
-                  border: "2px solid rgba(255,255,255,0.3)",
-                  boxShadow: "0 0 10px rgba(0,212,161,0.4)",
-                  minWidth: "28px",
+                  background: "var(--bg-base)",
+                  border: "1px solid var(--border-subtle)",
+                  color: "var(--text-primary)",
                 }}
               >
-                {i + 1}
-              </span>
-              <p className="text-sm pt-0.5 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                {step}
-              </p>
-            </li>
-          ))}
-        </ol>
+                {chatStreamedText}
+              </div>
+            </div>
+          )}
+          {chatLoading && !chatStreamedText && <TypingIndicator />}
+          <div ref={chatEndRef} />
+        </div>
+
+        {/* Chat input */}
+        <div
+          className="flex items-end gap-3 p-3 border-t"
+          style={{ borderColor: "var(--border-subtle)" }}
+        >
+          <textarea
+            ref={chatTextareaRef}
+            value={chatInput}
+            onChange={(e) => {
+              setChatInput(e.target.value);
+              const el = e.target;
+              el.style.height = "auto";
+              el.style.height = Math.min(el.scrollHeight, 120) + "px";
+            }}
+            onKeyDown={handleChatKeyDown}
+            placeholder={td("chatPlaceholder", ar)}
+            rows={1}
+            disabled={chatLoading}
+            dir={getTextDir(chatInput)}
+            className="flex-1 resize-none bg-transparent outline-none text-sm leading-relaxed py-1.5 disabled:opacity-40"
+            style={{
+              color: "var(--text-primary)",
+              maxHeight: "120px",
+              overflowY: "auto",
+              caretColor: "#00d4a1",
+              height: "auto",
+              textAlign: isArabic(chatInput) ? "right" : "left",
+            }}
+          />
+          <button
+            onClick={() => sendChatMessage(chatInput)}
+            disabled={!chatInput.trim() || chatLoading}
+            className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
+            style={{
+              background: chatInput.trim() && !chatLoading
+                ? "linear-gradient(135deg, #00d4a1, #22d3ee)"
+                : "var(--bg-base)",
+              boxShadow: chatInput.trim() && !chatLoading ? "0 0 16px rgba(0,212,161,0.4)" : "none",
+              border: "1px solid rgba(0,212,161,0.2)",
+            }}
+          >
+            <Send size={15} className="text-white" />
+          </button>
+        </div>
       </motion.div>
     </motion.div>
   );

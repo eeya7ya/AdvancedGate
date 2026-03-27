@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { sql, ensureTables } from "@/lib/db";
+import { isAdmin } from "@/lib/admin";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -34,6 +35,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (session.user && token.sub) {
         session.user.id = token.sub;
+      }
+      if (session.user?.email) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (session.user as any).isAdmin = isAdmin(session.user.email);
       }
       return session;
     },

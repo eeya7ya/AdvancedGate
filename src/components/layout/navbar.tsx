@@ -7,33 +7,37 @@ import { signOut, useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useState } from "react";
-import { LogOut, User, LayoutDashboard, Map } from "lucide-react";
+import { LogOut, User, LayoutDashboard, Map, TrendingUp, CalendarDays } from "lucide-react";
 import { useLang } from "@/lib/language";
 
 const mobileNav = [
-  { href: "/dashboard", icon: LayoutDashboard, en: "AI Advisor",  ar: "المستشار الذكي" },
-  { href: "/roadmap",   icon: Map,              en: "My Roadmap",  ar: "خارطة طريقي"   },
-  { href: "/profile",   icon: User,             en: "Profile",     ar: "الملف الشخصي"  },
+  { href: "/dashboard", icon: LayoutDashboard, en: "Dashboard",        ar: "لوحة التحكم"   },
+  { href: "/analysis",  icon: TrendingUp,      en: "Advice Analysis",  ar: "تحليل النصائح" },
+  { href: "/roadmap",   icon: Map,              en: "My Roadmap",       ar: "خارطة طريقي"  },
+  { href: "/schedule",  icon: CalendarDays,     en: "Schedule",         ar: "جدولي"         },
+  { href: "/profile",   icon: User,             en: "Profile",          ar: "الملف الشخصي" },
 ];
 
 const BREADCRUMB_MAP: Record<string, string> = {
-  dashboard: "AI Advisor",
+  dashboard: "Dashboard",
+  analysis:  "Advice Analysis",
   roadmap:   "My Roadmap",
   schedule:  "Schedule",
-  "ai-chat": "AI Chat",
   subjects:  "Subjects",
   learn:     "Course",
   profile:   "Profile",
+  console:   "Console",
 };
 
 const BREADCRUMB_MAP_AR: Record<string, string> = {
-  dashboard: "المستشار الذكي",
+  dashboard: "لوحة التحكم",
+  analysis:  "تحليل النصائح",
   roadmap:   "خارطة طريقي",
   schedule:  "جدولي",
-  "ai-chat": "المحادثة الذكية",
   subjects:  "المواد",
   learn:     "الدورة",
   profile:   "الملف الشخصي",
+  console:   "وحدة التحكم",
 };
 
 export function Navbar() {

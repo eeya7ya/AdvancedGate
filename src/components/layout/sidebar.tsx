@@ -3,21 +3,33 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Map, User, Brain, Sparkles, Terminal, CalendarDays, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Map, User, Brain, Sparkles, Terminal, CalendarDays, TrendingUp } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { useLang } from "@/lib/language";
 
-const nav = [
-  { href: "/dashboard", icon: LayoutDashboard, en: "AI Advisor",   ar: "المستشار الذكي"  },
-  { href: "/roadmap",   icon: Map,              en: "My Roadmap",   ar: "خارطة طريقي"    },
-  { href: "/schedule",  icon: CalendarDays,     en: "Schedule",     ar: "جدولي"           },
-  { href: "/ai-chat",   icon: MessageSquare,    en: "AI Chat",      ar: "المحادثة الذكية" },
-  { href: "/profile",   icon: User,             en: "Profile",      ar: "الملف الشخصي"   },
-  { href: "/console",   icon: Terminal,         en: "Console",      ar: "وحدة التحكم"    },
+interface NavItem {
+  href: string;
+  icon: React.ElementType;
+  en: string;
+  ar: string;
+  adminOnly?: boolean;
+}
+
+const nav: NavItem[] = [
+  { href: "/dashboard", icon: LayoutDashboard, en: "Dashboard",        ar: "لوحة التحكم"   },
+  { href: "/analysis",  icon: TrendingUp,      en: "Advice Analysis",  ar: "تحليل النصائح" },
+  { href: "/roadmap",   icon: Map,              en: "My Roadmap",       ar: "خارطة طريقي"  },
+  { href: "/schedule",  icon: CalendarDays,     en: "Schedule",         ar: "جدولي"         },
+  { href: "/profile",   icon: User,             en: "Profile",          ar: "الملف الشخصي" },
+  { href: "/console",   icon: Terminal,         en: "Console",          ar: "وحدة التحكم",  adminOnly: true },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const { lang, toggle: toggleLang } = useLang();
+  const { data: session } = useSession();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isUserAdmin = (session?.user as any)?.isAdmin === true;
 
   return (
     <aside
@@ -81,7 +93,7 @@ export function Sidebar() {
         >
           {lang === "ar" ? "التنقل" : "Navigation"}
         </p>
-        {nav.map((item) => {
+        {nav.filter((item) => !item.adminOnly || isUserAdmin).map((item) => {
           const active =
             pathname === item.href ||
             (item.href !== "/dashboard" && pathname.startsWith(item.href));
