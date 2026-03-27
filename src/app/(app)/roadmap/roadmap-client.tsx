@@ -8,7 +8,7 @@ import {
   Target, Clock, ArrowRight, ChevronRight, Zap, Brain,
   Map, Bell, BellOff, Mail, RotateCcw, CheckCircle, Loader2,
   CalendarDays, TrendingUp, Globe, BookOpen, AlertTriangle,
-  Printer, Flag, Layers,
+  Printer, Flag, Layers, ExternalLink, Search,
 } from "lucide-react";
 
 /* ── Language / RTL Helper ─────────────────────────────────── */
@@ -67,6 +67,7 @@ interface CourseRecommendation {
   level: string;
   focus: string;
   phase: string;
+  url?: string;
 }
 
 interface ScheduleData {
@@ -444,6 +445,31 @@ function CourseRecommendationsSection({ courses }: { courses: CourseRecommendati
                 <Flag size={9} />
                 {c.phase}
               </span>
+              {c.url ? (
+                <a
+                  href={c.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md transition-opacity hover:opacity-80"
+                  style={{ background: "rgba(79,158,255,0.12)", color: "#4f9eff" }}
+                >
+                  <ExternalLink size={9} />
+                  {isRTL ? "افتح الدورة" : "Go to Course"}
+                </a>
+              ) : (
+                <a
+                  href={`https://www.google.com/search?q=${encodeURIComponent(c.title + " " + c.platform + " course")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md transition-opacity hover:opacity-80"
+                  style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa" }}
+                >
+                  <Search size={9} />
+                  {isRTL ? "بحث" : "Search"}
+                </a>
+              )}
             </div>
           </motion.div>
         ))}
@@ -861,6 +887,31 @@ export function RoadmapClient({
                           style={{ background: "rgba(0,212,161,0.1)", color: "#00d4a1" }}>
                           <Flag size={9} /> {c.phase}
                         </span>
+                        {c.url ? (
+                          <a
+                            href={c.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md transition-opacity hover:opacity-80"
+                            style={{ background: "rgba(79,158,255,0.12)", color: "#4f9eff" }}
+                          >
+                            <ExternalLink size={9} />
+                            {isRTL ? "افتح الدورة" : "Go to Course"}
+                          </a>
+                        ) : (
+                          <a
+                            href={`https://www.google.com/search?q=${encodeURIComponent(c.title + " " + c.platform + " course")}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md transition-opacity hover:opacity-80"
+                            style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa" }}
+                          >
+                            <Search size={9} />
+                            {isRTL ? "بحث" : "Search"}
+                          </a>
+                        )}
                       </div>
                     </div>
                   </div>
