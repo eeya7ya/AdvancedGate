@@ -1,6 +1,8 @@
 import Groq from "groq-sdk";
 import { NextRequest } from "next/server";
 import { auth } from "~/auth";
+import { getUserRoadmap } from "@/lib/db";
+import { getTimezoneForCountry, getLocalizedDateTime } from "@/lib/timezone";
 
 const client = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -72,7 +74,7 @@ Before generating the plan, you MUST use web_search to gather real data:
       - For any vendor-specific certification, ALWAYS start with that vendor's own learning portal
    b. THEN search paid third-party platforms: "best [goal] courses site:coursera.org OR site:udemy.com OR site:linkedin.com/learning OR site:pluralsight.com"
    c. LAST search free platforms: "best [goal] courses site:youtube.com OR site:freecodecamp.org OR site:khanacademy.org"
-   → Include at least 1 official vendor course, 1-2 paid platform courses, and 1 free resource across courseRecommendations
+   → Include at least 1-2 official vendor courses, 2-3 paid platform courses, and 2-3 free resources (YouTube, freeCodeCamp, edX) across courseRecommendations. Aim for 6-8 total courses minimum
 
 2. Search for: "[their goal/career] salary [their target market/region] [year]"
    → Get accurate income ranges for their specific target market, not generic global averages
@@ -183,10 +185,11 @@ All description fields must be full, meaningful sentences — never 2-word label
       "hours": 4
     }
   ],
+  "courseRecommendations": "IMPORTANT: Include 6-8 courses minimum covering ALL categories: official vendor training, paid platforms (Udemy, Coursera, LinkedIn Learning), AND free resources (YouTube, freeCodeCamp, edX). Users have different budgets — give them options across all price ranges.",
   "courseRecommendations": [
     {
       "title": "Exact course title as found in your web search — real and currently available",
-      "platform": "PRIORITY ORDER: 1st = Official vendor portal (Cisco U., Microsoft Learn, AWS Skill Builder, CompTIA CertMaster, Google Cloud Skills Boost, etc.) / 2nd = Paid platforms (Coursera, Udemy, LinkedIn Learning, Pluralsight) / 3rd = Free platforms (YouTube, freeCodeCamp, edX). Always list the official vendor course first if one exists.",
+      "platform": "Official vendor portal (Cisco U., Microsoft Learn, AWS Skill Builder, CompTIA CertMaster, etc.) — ALWAYS list official vendor course FIRST",
       "instructor": "Exact instructor name, organization name, or official platform name from your search",
       "estimatedHours": 20,
       "level": "Beginner",
@@ -195,30 +198,70 @@ All description fields must be full, meaningful sentences — never 2-word label
       "url": "STRICT RULE: Only put a URL here if it appears VERBATIM in your web_search results above. Copy the exact URL from the search result — do NOT construct, guess, or modify any URL. If you did not receive an exact URL for this course from search results, you MUST use an empty string \"\". A broken link is far worse than no link."
     },
     {
-      "title": "Second course — real title from search",
-      "platform": "Platform name",
+      "title": "Second official vendor or advanced vendor course — real title from search",
+      "platform": "Official vendor portal",
       "instructor": "Instructor name",
       "estimatedHours": 15,
       "level": "Beginner to Intermediate",
       "focus": "1-2 sentences on what it covers and why it fits their path at this stage",
+      "phase": "Month 1-2",
+      "url": "Exact URL from search results only — empty string if not found in search"
+    },
+    {
+      "title": "Coursera course — real title from search",
+      "platform": "Coursera",
+      "instructor": "Instructor name",
+      "estimatedHours": 25,
+      "level": "Beginner to Intermediate",
+      "focus": "1-2 sentences on what it covers and why it complements the official vendor courses",
       "phase": "Month 2-3",
       "url": "Exact URL from search results only — empty string if not found in search"
     },
     {
-      "title": "Third course — real title from search",
-      "platform": "Platform name",
+      "title": "Udemy course — real title from search",
+      "platform": "Udemy",
       "instructor": "Instructor name",
-      "estimatedHours": 25,
+      "estimatedHours": 20,
       "level": "Intermediate",
       "focus": "1-2 sentences on what it covers and why it comes after the previous courses",
+      "phase": "Month 2-4",
+      "url": "Exact URL from search results only — empty string if not found in search"
+    },
+    {
+      "title": "LinkedIn Learning or Pluralsight course — real title from search",
+      "platform": "LinkedIn Learning or Pluralsight",
+      "instructor": "Instructor name",
+      "estimatedHours": 15,
+      "level": "Intermediate",
+      "focus": "1-2 sentences on what makes this a valuable complementary resource",
       "phase": "Month 3-4",
       "url": "Exact URL from search results only — empty string if not found in search"
     },
     {
-      "title": "Fourth course — real title from search",
-      "platform": "Platform name",
-      "instructor": "Instructor name",
-      "estimatedHours": 30,
+      "title": "YouTube free course — real title from search",
+      "platform": "YouTube",
+      "instructor": "Channel/instructor name",
+      "estimatedHours": 10,
+      "level": "Beginner to Intermediate",
+      "focus": "1-2 sentences on what it covers — great free alternative for budget-conscious learners",
+      "phase": "Month 1-3",
+      "url": "Exact URL from search results only — empty string if not found in search"
+    },
+    {
+      "title": "Second YouTube or free course — real title from search",
+      "platform": "YouTube or freeCodeCamp",
+      "instructor": "Channel/instructor name",
+      "estimatedHours": 12,
+      "level": "Intermediate",
+      "focus": "1-2 sentences on what it covers and how it helps reinforce practical skills",
+      "phase": "Month 3-5",
+      "url": "Exact URL from search results only — empty string if not found in search"
+    },
+    {
+      "title": "Free resource (edX, Khan Academy, or freeCodeCamp) — real title from search",
+      "platform": "edX / Khan Academy / freeCodeCamp",
+      "instructor": "Organization or instructor name",
+      "estimatedHours": 20,
       "level": "Intermediate to Advanced",
       "focus": "1-2 sentences on what it unlocks for their career at this stage",
       "phase": "Month 4-6",
@@ -291,8 +334,8 @@ All description fields must be full, meaningful sentences — never 2-word label
 
 FINAL CRITICAL RULES:
 - Every field reflects their actual answers — personalized to who they are, where they live, and what they said
-- courseRecommendations must contain REAL courses found via your web searches — real titles, real instructors, real platforms
-- courseRecommendations ORDERING: always list the official vendor/mother company course FIRST (e.g., Cisco U. for CCNA, Microsoft Learn for Azure, AWS Skill Builder for AWS, CompTIA CertMaster for CompTIA certs), followed by paid third-party platforms, then free platforms
+- courseRecommendations MUST contain 6-8 REAL courses found via your web searches — real titles, real instructors, real platforms. Do NOT limit to 4. Users need options across all price ranges and platforms
+- courseRecommendations ORDERING: always list the official vendor/mother company course FIRST (e.g., Cisco U. for CCNA, Microsoft Learn for Azure, AWS Skill Builder for AWS, CompTIA CertMaster for CompTIA certs), followed by paid third-party platforms (Udemy, Coursera, LinkedIn Learning), then free platforms (YouTube, freeCodeCamp, edX)
 - courseRecommendations.url CRITICAL: ONLY use a URL that appears word-for-word in your web_search tool results. NEVER construct, guess, or hallucinate a URL. If the exact course URL was not returned by search, set url to "" (empty string). The "Search" fallback button will handle finding it. A fabricated URL that leads to a 404 destroys user trust — empty string is always better.
 - roadmap phase count and total duration MUST match their stated timeline exactly
 - notice in marketInsights appears ONLY for genuine strategic concerns — never invent problems
@@ -301,11 +344,10 @@ FINAL CRITICAL RULES:
 - timeAllocation[].subject MUST be 1–3 words maximum, clean and readable, with NO trailing symbols (+, &, ,, -). These names display in a weekly schedule grid. BAD: "KNX + CCNA + Networking Fundamentals". GOOD: "KNX & CCNA", "Hands-On Labs", "Portfolio Work"
 - This roadmap is real and will be used by real people to change their lives — every number, course, salary, and recommendation must be accurate and specific`;
 
-function getSystemPrompt(): string {
-  const today = new Date().toLocaleDateString("en-US", {
-    weekday: "long", year: "numeric", month: "long", day: "numeric",
-  });
-  return `Today's date: ${today}\n\n${SYSTEM_PROMPT_BODY}`;
+function getSystemPrompt(timezone?: string): string {
+  const tz = timezone || "UTC";
+  const now = getLocalizedDateTime(tz);
+  return `Today's date & time (${tz}): ${now}\n\n${SYSTEM_PROMPT_BODY}`;
 }
 
 interface Message {
@@ -362,11 +404,11 @@ const WEB_SEARCH_TOOL: Groq.Chat.Completions.ChatCompletionTool = {
   },
 };
 
-async function generatePlan(messages: Message[]): Promise<string> {
+async function generatePlan(messages: Message[], timezone?: string): Promise<string> {
   type GroqMessage = Groq.Chat.Completions.ChatCompletionMessageParam;
 
   const history: GroqMessage[] = [
-    { role: "system", content: getSystemPrompt() },
+    { role: "system", content: getSystemPrompt(timezone) },
     ...messages,
   ];
 
@@ -431,6 +473,17 @@ export async function POST(req: NextRequest) {
     return new Response("Messages required", { status: 400 });
   }
 
+  // Fetch user's existing roadmap to extract country for timezone
+  let timezone: string | undefined;
+  try {
+    const roadmap = await getUserRoadmap(session.user.id!);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const country = (roadmap?.planJson as any)?.profile?.country;
+    if (country) timezone = getTimezoneForCountry(country);
+  } catch {
+    // ignore — timezone will default to UTC
+  }
+
   const encoder = new TextEncoder();
 
   if (isInit) {
@@ -442,7 +495,7 @@ export async function POST(req: NextRequest) {
             model: "llama-3.3-70b-versatile",
             max_tokens: 8192,
             messages: [
-              { role: "system", content: getSystemPrompt() },
+              { role: "system", content: getSystemPrompt(timezone) },
               ...messages,
             ],
             stream: true,
@@ -471,7 +524,7 @@ export async function POST(req: NextRequest) {
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        const content = await generatePlan(messages);
+        const content = await generatePlan(messages, timezone);
         controller.enqueue(encoder.encode(content));
         controller.close();
       } catch (err) {

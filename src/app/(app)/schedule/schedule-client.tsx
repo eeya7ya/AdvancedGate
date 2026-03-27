@@ -25,6 +25,7 @@ interface CourseRec {
   focus: string;
   phase: string;
   url?: string;
+  selected?: boolean;
 }
 
 interface RoadmapPhase {
@@ -85,6 +86,13 @@ function getPhaseForDay(roadmap: RoadmapPhase[], dayIndex: number): RoadmapPhase
   }
   // fallback: last phase
   return roadmap[roadmap.length - 1] ?? null;
+}
+
+function getSelectedCourses(courses: CourseRec[]): CourseRec[] {
+  if (!courses || courses.length === 0) return [];
+  const selected = courses.filter((c) => c.selected);
+  // If no courses have been explicitly selected, fall back to all courses
+  return selected.length > 0 ? selected : courses;
 }
 
 function getCourseForDay(courses: CourseRec[], dayIndex: number): CourseRec | null {
@@ -229,7 +237,7 @@ function MonthlyCalendar({ year, month, planStartDate, tracking, plan, onToggle,
       ? getDailyObjective(
           selectedDayIndex,
           getPhaseForDay(plan.roadmap ?? [], selectedDayIndex),
-          getCourseForDay(plan.courseRecommendations ?? [], selectedDayIndex),
+          getCourseForDay(getSelectedCourses(plan.courseRecommendations ?? []), selectedDayIndex),
           plan.timeAllocation ?? [],
           isRTL,
         )
@@ -432,7 +440,7 @@ function CurrentPhaseCard({ plan, planStartDate, isRTL }: { plan: Plan; planStar
   const today = new Date();
   const dayIndex = Math.floor((today.getTime() - planStartDate.getTime()) / 86400000);
   const phase = getPhaseForDay(plan.roadmap ?? [], Math.max(0, dayIndex));
-  const course = getCourseForDay(plan.courseRecommendations ?? [], Math.max(0, dayIndex));
+  const course = getCourseForDay(getSelectedCourses(plan.courseRecommendations ?? []), Math.max(0, dayIndex));
 
   if (!phase) return null;
 
