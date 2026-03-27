@@ -386,7 +386,7 @@ function StatsRow({ plan, tracking, planStartDate, isRTL }: {
 
   // Current phase
   const currentPhase = getPhaseForDay(plan.roadmap ?? [], totalDaysSinceStart);
-  const totalHours = (plan.timeAllocation ?? []).reduce((s: number, x: TimeSlice) => s + x.hours, 0);
+  const totalHours = Math.round((plan.timeAllocation ?? []).reduce((s: number, x: TimeSlice) => s + x.hours, 0) * 10) / 10;
 
   const stats = [
     {

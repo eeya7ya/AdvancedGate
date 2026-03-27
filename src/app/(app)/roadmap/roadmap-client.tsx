@@ -8,8 +8,9 @@ import {
   Target, Clock, ArrowRight, ChevronRight, Zap, Brain,
   Map, Bell, BellOff, Mail, RotateCcw, CheckCircle, Loader2,
   CalendarDays, TrendingUp, Globe, BookOpen, AlertTriangle,
-  Printer, Flag, Layers, ExternalLink, Search,
+  Printer, Flag, Layers, ExternalLink, Search, PlayCircle,
 } from "lucide-react";
+import { subjects } from "@/lib/data";
 
 /* ── Language / RTL Helper ─────────────────────────────────── */
 const RTLContext = createContext(false);
@@ -182,8 +183,8 @@ function DonutChart({ slices }: { slices: TimeSlice[] }) {
 
   const r = 70, cx = 100, cy = 100, strokeWidth = 22;
   const circumference = 2 * Math.PI * r;
-  const totalHours = slices.reduce((s, x) => s + Number(x.hours), 0);
-  const cumulatives = slices.map((_, i) => slices.slice(0, i).reduce((sum, x) => sum + x.percentage, 0));
+  const totalHours = Math.round(slices.reduce((s, x) => s + Number(x.hours), 0) * 10) / 10;
+  const cumulatives = slices.map((_, i) => Math.round(slices.slice(0, i).reduce((sum, x) => sum + x.percentage, 0) * 100) / 100);
 
   return (
     <SectionCard delay={0.3}>
@@ -395,6 +396,33 @@ function MarketInsightsSection({ insights }: { insights: MarketInsights }) {
   );
 }
 
+/* ── Course Matching ───────────────────────────────────────── */
+const allInternalCourses = subjects.flatMap((s) =>
+  s.courses.map((c) => ({ ...c, subjectTitle: s.title }))
+);
+
+function findInternalCourse(title: string): { id: string; subjectId: string } | null {
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").trim();
+  const target = normalize(title);
+  const targetWords = target.split(" ");
+
+  let bestMatch: (typeof allInternalCourses)[number] | null = null;
+  let bestScore = 0;
+
+  for (const course of allInternalCourses) {
+    const courseName = normalize(course.title);
+    const courseWords = courseName.split(" ");
+    // Count matching words
+    const matches = targetWords.filter((w) => courseWords.some((cw) => cw.includes(w) || w.includes(cw))).length;
+    const score = matches / Math.max(targetWords.length, courseWords.length);
+    if (score > bestScore && score >= 0.4) {
+      bestScore = score;
+      bestMatch = course;
+    }
+  }
+  return bestMatch ? { id: bestMatch.id, subjectId: bestMatch.subjectId } : null;
+}
+
 /* ── Course Recommendations ────────────────────────────────── */
 function CourseRecommendationsSection({ courses }: { courses: CourseRecommendation[] }) {
   const isRTL = useRTL();
@@ -410,69 +438,84 @@ function CourseRecommendationsSection({ courses }: { courses: CourseRecommendati
     <SectionCard delay={0.4}>
       <SectionTitle icon={BookOpen} label={t("courses", isRTL)} color="#a78bfa" />
       <div className="space-y-4">
-        {courses.map((c, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 + i * 0.08, duration: 0.35 }}
-            className="rounded-xl p-4"
-            style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}
-          >
-            <div className="flex items-start justify-between gap-3 mb-2">
-              <div className="min-w-0">
-                <p className="text-sm font-bold leading-snug" style={{ color: "var(--text-primary)" }}>{c.title}</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                  {c.platform} · {c.instructor}
-                </p>
+        {courses.map((c, i) => {
+          const internalMatch = findInternalCourse(c.title);
+          const courseLink = internalMatch ? `/learn/${internalMatch.id}` : null;
+
+          return (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 + i * 0.08, duration: 0.35 }}
+              className="rounded-xl p-4 group relative"
+              style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}
+            >
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold leading-snug" style={{ color: "var(--text-primary)" }}>{c.title}</p>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                    {c.platform} · {c.instructor}
+                  </p>
+                </div>
+                <span
+                  className="flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-lg"
+                  style={{ background: `${levelColor[c.level] ?? "#00d4a1"}18`, color: levelColor[c.level] ?? "#00d4a1" }}
+                >
+                  {c.level}
+                </span>
               </div>
-              <span
-                className="flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-lg"
-                style={{ background: `${levelColor[c.level] ?? "#00d4a1"}18`, color: levelColor[c.level] ?? "#00d4a1" }}
-              >
-                {c.level}
-              </span>
-            </div>
-            <p className="text-xs leading-relaxed mb-3" style={{ color: "var(--text-secondary)" }}>{c.focus}</p>
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md"
-                style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee" }}>
-                <Clock size={9} />
-                {c.estimatedHours}h
-              </span>
-              <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md"
-                style={{ background: "rgba(0,212,161,0.1)", color: "#00d4a1" }}>
-                <Flag size={9} />
-                {c.phase}
-              </span>
-              {c.url ? (
-                <a
-                  href={c.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md transition-opacity hover:opacity-80"
-                  style={{ background: "rgba(79,158,255,0.12)", color: "#4f9eff" }}
-                >
-                  <ExternalLink size={9} />
-                  {isRTL ? "افتح الدورة" : "Go to Course"}
-                </a>
-              ) : (
-                <a
-                  href={`https://www.google.com/search?q=${encodeURIComponent(c.title + " " + c.platform + " course")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md transition-opacity hover:opacity-80"
-                  style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa" }}
-                >
-                  <Search size={9} />
-                  {isRTL ? "بحث" : "Search"}
-                </a>
-              )}
-            </div>
-          </motion.div>
-        ))}
+              <p className="text-xs leading-relaxed mb-3" style={{ color: "var(--text-secondary)" }}>{c.focus}</p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md"
+                  style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee" }}>
+                  <Clock size={9} />
+                  {c.estimatedHours}h
+                </span>
+                <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md"
+                  style={{ background: "rgba(0,212,161,0.1)", color: "#00d4a1" }}>
+                  <Flag size={9} />
+                  {c.phase}
+                </span>
+                {courseLink ? (
+                  <Link
+                    href={courseLink}
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-md transition-all hover:scale-105"
+                    style={{ background: "linear-gradient(135deg, rgba(0,212,161,0.15), rgba(34,211,238,0.15))", color: "#00d4a1", border: "1px solid rgba(0,212,161,0.25)" }}
+                  >
+                    <PlayCircle size={10} />
+                    {isRTL ? "ابدأ الدورة" : "Start Course"}
+                  </Link>
+                ) : c.url ? (
+                  <a
+                    href={c.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md transition-opacity hover:opacity-80"
+                    style={{ background: "rgba(79,158,255,0.12)", color: "#4f9eff" }}
+                  >
+                    <ExternalLink size={9} />
+                    {isRTL ? "افتح الدورة" : "Go to Course"}
+                  </a>
+                ) : (
+                  <a
+                    href={`https://www.google.com/search?q=${encodeURIComponent(c.title + " " + c.platform + " course")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md transition-opacity hover:opacity-80"
+                    style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa" }}
+                  >
+                    <Search size={9} />
+                    {isRTL ? "بحث" : "Search"}
+                  </a>
+                )}
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
     </SectionCard>
   );

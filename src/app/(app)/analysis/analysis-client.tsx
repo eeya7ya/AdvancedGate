@@ -164,8 +164,8 @@ function DonutChart({ slices }: { slices: TimeSlice[] }) {
 
   const r = 70, cx = 100, cy = 100, strokeWidth = 22;
   const circumference = 2 * Math.PI * r;
-  const totalHours = slices.reduce((s, x) => s + x.hours, 0);
-  const cumulatives = slices.map((_, i) => slices.slice(0, i).reduce((sum, x) => sum + x.percentage, 0));
+  const totalHours = Math.round(slices.reduce((s, x) => s + x.hours, 0) * 10) / 10;
+  const cumulatives = slices.map((_, i) => Math.round(slices.slice(0, i).reduce((sum, x) => sum + x.percentage, 0) * 100) / 100);
 
   return (
     <SectionCard delay={0.3}>
