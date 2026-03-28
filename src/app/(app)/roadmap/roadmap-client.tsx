@@ -461,17 +461,16 @@ function CourseRecommendationsSection({ courses }: { courses: CourseRecommendati
   };
 
   // Group courses by phase
-  const phaseMap = useMemo(() => {
-    const map = new Map<string, CourseRecommendation[]>();
+  const phases = useMemo(() => {
+    const order: string[] = [];
+    const map: Record<string, CourseRecommendation[]> = {};
     for (const c of courses) {
       const key = c.phase || (isRTL ? "عام" : "General");
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(c);
+      if (!map[key]) { map[key] = []; order.push(key); }
+      map[key].push(c);
     }
-    return map;
+    return order.map((key) => [key, map[key]] as [string, CourseRecommendation[]]);
   }, [courses, isRTL]);
-
-  const phases = Array.from(phaseMap.entries());
 
   return (
     <SectionCard delay={0.4}>
