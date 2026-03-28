@@ -457,10 +457,11 @@ function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
 }
 
 /**
- * Detect country and role keywords from the conversation, then pre-run two
- * targeted Tavily searches (salary + job market) before the model takes over.
- * This guarantees the plan has real, country-specific salary data — not global
- * averages hallucinated by the model.
+ * Detect country and role keywords from the conversation, then fire multiple
+ * Tavily searches IN PARALLEL (salary from different angles + job market) before
+ * the model takes over. Parallel queries across different query formulations and
+ * sources give the model a richer, more accurate picture — no single bad source
+ * can dominate the salary figure.
  */
 async function preSeedSearches(
   messages: Message[]
@@ -496,34 +497,113 @@ async function preSeedSearches(
     [/\bnigeria\b/i, "Nigeria"],
   ];
 
+  // Per-country local currency codes — one currency per country, no mixing
+  const currencyMap: Record<string, string> = {
+    Jordan: "JOD",
+    Egypt: "EGP",
+    Morocco: "MAD",
+    Tunisia: "TND",
+    Algeria: "DZD",
+    Iraq: "IQD",
+    Lebanon: "LBP",
+    Palestine: "ILS",
+    "Saudi Arabia": "SAR",
+    UAE: "AED",
+    Kuwait: "KWD",
+    Qatar: "QAR",
+    Bahrain: "BHD",
+    Oman: "OMR",
+    Turkey: "TRY",
+    Germany: "EUR",
+    France: "EUR",
+    UK: "GBP",
+    Canada: "CAD",
+    USA: "USD",
+    Australia: "AUD",
+    India: "INR",
+    Pakistan: "PKR",
+    Malaysia: "MYR",
+    Nigeria: "NGN",
+  };
+
+  // Detect role/field keywords from the conversation
+  const rolePatterns: [RegExp, string][] = [
+    [/electrical engineer|power engineer/i, "electrical engineer"],
+    [/network engineer|networking|ccna|cisco/i, "network engineer"],
+    [/software engineer|software developer|programmer|coding/i, "software engineer"],
+    [/web developer|frontend|backend|full.?stack/i, "web developer"],
+    [/data scientist|machine learning|AI engineer/i, "data scientist"],
+    [/cybersecurity|security engineer|penetration/i, "cybersecurity engineer"],
+    [/cloud engineer|devops|aws|azure|gcp/i, "cloud engineer"],
+    [/mechanical engineer/i, "mechanical engineer"],
+    [/civil engineer/i, "civil engineer"],
+    [/graphic design/i, "graphic designer"],
+    [/project manager|PMP/i, "project manager"],
+  ];
+
   let country = "";
   for (const [pattern, name] of countryPatterns) {
     if (pattern.test(fullText)) { country = name; break; }
+  }
+
+  let role = "engineer";
+  for (const [pattern, name] of rolePatterns) {
+    if (pattern.test(fullText)) { role = name; break; }
   }
 
   const allUrls = new Set<string>();
   const parts: string[] = [];
 
   if (country) {
-    // Salary search — target authoritative sites with local currency context
-    const currency = ["Jordan", "Egypt", "Morocco", "Tunisia", "Algeria", "Iraq", "Lebanon", "Palestine"].includes(country)
-      ? "JD OR EGP OR MAD OR TND OR DZD OR IQD OR LBP"
-      : ["UAE", "Kuwait", "Qatar", "Bahrain", "Oman"].includes(country)
-      ? "AED OR KWD OR QAR OR BHD OR OMR"
-      : ["Saudi Arabia"].includes(country)
-      ? "SAR"
-      : "USD OR EUR OR GBP";
+    const currency = currencyMap[country] ?? "USD";
 
-    const salaryQ = `"${country}" average monthly salary 2024 2025 ${currency} site:payscale.com OR site:glassdoor.com OR site:salary.com OR site:numbeo.com`;
-    const { text: salaryText, urls: salaryUrls } = await webSearch(salaryQ);
-    salaryUrls.forEach((u) => allUrls.add(u));
-    parts.push(`=== PRE-SEARCHED SALARY DATA FOR ${country.toUpperCase()} ===\nQuery: ${salaryQ}\n\n${salaryText}`);
+    // Fire 5 salary queries + 2 market queries ALL IN PARALLEL
+    // Different query angles ensure no single bad source dominates the result
+    const salaryQueries = [
+      // 1. Entry-level / junior — most relevant for career starters
+      `"${country}" "${role}" entry level junior salary 2024 2025 ${currency}`,
+      // 2. City-level data (Numbeo has cost-of-living grounded salary data)
+      `${country} ${role} salary monthly 2024 site:numbeo.com`,
+      // 3. PayScale with local currency explicitly in query
+      `${country} ${role} average salary ${currency} per month site:payscale.com`,
+      // 4. Glassdoor country-specific
+      `"${country}" ${role} salary 2024 2025 site:glassdoor.com`,
+      // 5. Remote / freelance angle so model can contrast local vs remote pay
+      `${country} ${role} remote freelance salary USD 2025`,
+    ];
 
-    // Job market demand search
-    const marketQ = `"${country}" job market demand 2025 technology engineering career opportunities`;
-    const { text: marketText, urls: marketUrls } = await webSearch(marketQ);
-    marketUrls.forEach((u) => allUrls.add(u));
-    parts.push(`=== PRE-SEARCHED JOB MARKET DATA FOR ${country.toUpperCase()} ===\nQuery: ${marketQ}\n\n${marketText}`);
+    const marketQueries = [
+      `"${country}" ${role} job demand hiring 2025 employment opportunities`,
+      `"${country}" technology engineering job market 2025 career prospects`,
+    ];
+
+    const allQueries = [...salaryQueries, ...marketQueries];
+
+    // Run all queries concurrently
+    const results = await Promise.all(allQueries.map((q) => webSearch(q)));
+
+    results.forEach((r) => r.urls.forEach((u) => allUrls.add(u)));
+
+    const salaryResults = results.slice(0, salaryQueries.length);
+    const marketResults = results.slice(salaryQueries.length);
+
+    const salaryBlock = salaryQueries
+      .map((q, i) => `Query [${i + 1}]: ${q}\n\n${salaryResults[i].text}`)
+      .join("\n\n---\n\n");
+
+    parts.push(
+      `=== PRE-SEARCHED SALARY DATA FOR ${country.toUpperCase()} (${role}) ===\n` +
+      `IMPORTANT: Use local currency (${currency}) for local salary figures. ` +
+      `Cross-reference all ${salaryQueries.length} queries below — pick the figures that appear most consistently across sources, ` +
+      `not the highest or the most optimistic ones. Entry-level/junior figures are the most relevant for career starters.\n\n` +
+      salaryBlock
+    );
+
+    const marketBlock = marketQueries
+      .map((q, i) => `Query [${i + 1}]: ${q}\n\n${marketResults[i].text}`)
+      .join("\n\n---\n\n");
+
+    parts.push(`=== PRE-SEARCHED JOB MARKET DATA FOR ${country.toUpperCase()} ===\n\n${marketBlock}`);
   }
 
   return { contextBlock: parts.join("\n\n---\n\n"), urls: allUrls };
@@ -582,7 +662,7 @@ async function generatePlan(messages: Message[], timezone?: string): Promise<str
 
   while (searchCount < maxSearches) {
     const response = await client.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "moonshotai/kimi-k2-instruct",
       max_tokens: 10000,
       messages: history,
       tools: [WEB_SEARCH_TOOL],
@@ -613,7 +693,7 @@ async function generatePlan(messages: Message[], timezone?: string): Promise<str
   }
 
   const finalResponse = await client.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
+    model: "moonshotai/kimi-k2-instruct",
     max_tokens: 10000,
     messages: history,
   });
@@ -659,7 +739,7 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         try {
           const stream = await client.chat.completions.create({
-            model: "llama-3.3-70b-versatile",
+            model: "moonshotai/kimi-k2-instruct",
             max_tokens: 8192,
             messages: [
               { role: "system", content: getSystemPrompt(timezone) },
