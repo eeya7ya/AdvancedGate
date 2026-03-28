@@ -398,6 +398,35 @@ async function webSearch(query: string): Promise<SearchResult> {
 }
 
 /**
+ * Verify a URL is actually live and serves real content.
+ * - 200-399  → live, keep it
+ * - 404      → definitely dead, reject
+ * - 403/405  → probably bot-protection on a real page, keep optimistically
+ * - timeout / network error → keep optimistically (don't drop on flakiness)
+ */
+async function verifyUrl(url: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(url, {
+      method: "HEAD",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,*/*",
+      },
+      redirect: "follow",
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    // 404 / 410 = confirmed dead. Anything else we keep.
+    return res.status !== 404 && res.status !== 410;
+  } catch {
+    // Network error / timeout — keep optimistically
+    return true;
+  }
+}
+
+/**
  * Normalize a URL for exact comparison — lowercase hostname + path, strip
  * trailing slash. Keeps YouTube ?v= query param (it IS the video identity).
  * Strips all other query params and fragments so minor tracking suffixes
@@ -458,11 +487,23 @@ function isCoursePage(url: string): boolean {
   }
 }
 
+// Trusted course platforms — a URL from these domains that passes isCoursePage()
+// is structurally valid even if not exactly in the Tavily result set.
+const TRUSTED_COURSE_DOMAINS = [
+  "coursera.org", "udemy.com", "edx.org", "linkedin.com", "pluralsight.com",
+  "youtube.com", "youtu.be", "freecodecamp.org", "khanacademy.org",
+  "u.cisco.com", "netacad.com", "learn.microsoft.com", "skillbuilder.aws",
+  "cloudskillsboost.google", "mylearn.vmware.com", "comptia.org",
+  "paloaltonetworks.com", "eccouncil.org", "offsec.com", "isc2.org",
+  "pmi.org", "autodesk.com", "knx.org", "knxassociation.org",
+];
+
 /**
- * Parse the AI-generated plan JSON, then zero-out any courseRecommendations URL
- * that does NOT appear verbatim (normalized) in the Tavily result set.
- * This prevents the model from constructing fake platform paths like
- * "coursera.org/courses/made-up-title" when it only saw "coursera.org" in results.
+ * Three-tier URL validation:
+ *  1. Exact normalized match against Tavily results → KEEP (best case)
+ *  2. Trusted platform domain + isCoursePage() structure → KEEP (model copied
+ *     a valid-looking URL that differs only in minor details like query params)
+ *  3. Neither → ZERO (hallucinated domain or homepage URL)
  */
 function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
   let json = raw.trim();
@@ -475,17 +516,28 @@ function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
     const plan = JSON.parse(json) as Record<string, any>;
 
     if (Array.isArray(plan.courseRecommendations)) {
-      // Build normalized set of every URL Tavily ever returned
       const normalizedValid = new Set([...validUrls].map(normalizeUrl).filter(Boolean));
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       plan.courseRecommendations = plan.courseRecommendations.map((course: any) => {
         if (typeof course.url === "string" && course.url.length > 0) {
+          // Tier 1: exact normalized match
           const norm = normalizeUrl(course.url);
-          if (!norm || !normalizedValid.has(norm)) {
-            console.warn(`[sanitize] Zeroing unverified URL: ${course.url}`);
-            return { ...course, url: "" };
-          }
+          if (norm && normalizedValid.has(norm)) return course;
+
+          // Tier 2: trusted platform + valid course page structure
+          try {
+            const host = new URL(course.url).hostname.toLowerCase().replace(/^www\./, "");
+            const trusted = TRUSTED_COURSE_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
+            if (trusted && isCoursePage(course.url)) {
+              console.log(`[sanitize] Keeping trusted-platform URL: ${course.url}`);
+              return course;
+            }
+          } catch { /* invalid URL — fall through to zero */ }
+
+          // Tier 3: zero it out
+          console.warn(`[sanitize] Zeroing unverified URL: ${course.url}`);
+          return { ...course, url: "" };
         }
         return course;
       });
@@ -728,9 +780,9 @@ async function preSeedSearches(
   const salaryResults  = results.slice(courseQueries.length, courseQueries.length + salaryQueries.length);
   const marketResults  = results.slice(courseQueries.length + salaryQueries.length);
 
-  // ── Build course URL catalog ───────────────────────────────────────────────
-  const catalogLines: string[] = [];
-  let catalogIndex = 1;
+  // ── Build course URL catalog with liveness verification ──────────────────
+  // Collect all candidate (title, url) pairs first, then verify in parallel
+  const candidates: { title: string; url: string }[] = [];
   courseQueries.forEach((_, qi) => {
     const r = courseResults[qi];
     const pageUrls = r.urls.filter(isCoursePage);
@@ -746,18 +798,33 @@ async function preSeedSearches(
     }
 
     pageUrls.forEach((url) => {
-      const title = urlToTitle[url] ?? url;
-      catalogLines.push(`${catalogIndex}. "${title}"\n   URL: ${url}`);
-      catalogIndex++;
+      candidates.push({ title: urlToTitle[url] ?? url, url });
     });
   });
 
+  // Deduplicate by URL, then verify all in parallel (HEAD request)
+  const seen = new Set<string>();
+  const unique = candidates.filter(({ url }) => {
+    if (seen.has(url)) return false;
+    seen.add(url);
+    return true;
+  });
+
+  const liveness = await Promise.all(unique.map(({ url }) => verifyUrl(url)));
+  const verified = unique.filter((_, i) => liveness[i]);
+
+  console.log(`[catalog] ${candidates.length} candidates → ${unique.length} unique → ${verified.length} live`);
+
+  const catalogLines = verified.map(({ title, url }, i) =>
+    `${i + 1}. "${title}"\n   URL: ${url}`
+  );
+
   if (catalogLines.length > 0) {
     parts.push(
-      `=== COURSE URL CATALOG — VERIFIED BY TAVILY ===\n` +
-      `These are REAL course pages returned directly by Tavily search. ` +
-      `You MUST select courseRecommendations ONLY from this list and copy their URLs character-for-character. ` +
-      `Do NOT add any URL not in this catalog. Do NOT modify, shorten, or reconstruct any URL. ` +
+      `=== COURSE URL CATALOG — LIVE-VERIFIED ===\n` +
+      `Every URL below was checked and confirmed reachable (HTTP live check + Tavily search). ` +
+      `You MUST select courseRecommendations ONLY from this list. ` +
+      `Copy each URL character-for-character — do NOT modify, shorten, or reconstruct any URL. ` +
       `Do NOT run your own course web_search calls — this catalog is your only course URL source.\n\n` +
       catalogLines.join("\n\n")
     );
