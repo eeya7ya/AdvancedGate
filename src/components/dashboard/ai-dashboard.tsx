@@ -916,7 +916,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
         setPlan(detected);
         setPhase("plan");
         setMessages([...newMessages, { role: "assistant", content: full }]);
-        // Persist to database
+        // Persist initial plan immediately
         fetch("/api/user/roadmap", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -924,6 +924,37 @@ export function AIDashboard({ firstName }: { firstName: string }) {
         }).then((r) => {
           if (!r.ok) r.json().then((d) => console.error("[roadmap save] failed:", d)).catch(() => null);
         }).catch((err) => console.error("[roadmap save] network error:", err));
+
+        // Re-generate the plan with Tavily web search to get real course URLs and data.
+        // The initial plan (above) appears instantly; this background call enriches it.
+        setIsLoading(true);
+        fetch("/api/ai/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: newMessages }), // isInit omitted → false → Tavily path
+        })
+          .then(async (r) => {
+            if (!r.ok || !r.body) return;
+            const tavilyReader = r.body.getReader();
+            const tavilyDecoder = new TextDecoder();
+            let tavilyText = "";
+            while (true) {
+              const { done, value } = await tavilyReader.read();
+              if (done) break;
+              tavilyText += tavilyDecoder.decode(value, { stream: true });
+            }
+            const enrichedPlan = parsePlan(tavilyText);
+            if (enrichedPlan) {
+              setPlan(enrichedPlan);
+              fetch("/api/user/roadmap", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ plan: enrichedPlan }),
+              }).catch(() => null);
+            }
+          })
+          .catch(() => null)
+          .finally(() => setIsLoading(false));
       } else if (looksLikePlanAttempt(full)) {
         // AI tried to generate a plan but output was malformed/truncated
         setMessages([

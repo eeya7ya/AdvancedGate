@@ -398,7 +398,9 @@ function MarketInsightsSection({ insights }: { insights: MarketInsights }) {
 
 /* ── Platform-specific search URL fallback ─────────────────── */
 function getPlatformSearchUrl(platform: string, title: string): string {
-  const q = encodeURIComponent(title);
+  const q = encodeURIComponent(title ?? "");
+  if (!q) return `https://www.google.com/search?q=${encodeURIComponent((platform || "course") + " training")}`;
+
   const p = platform.toLowerCase();
   if (p.includes("udemy"))            return `https://www.udemy.com/courses/search/?q=${q}`;
   if (p.includes("coursera"))         return `https://www.coursera.org/search?query=${q}`;
@@ -501,7 +503,7 @@ function CourseRecommendationsSection({ courses }: { courses: CourseRecommendati
                 const tierColor = isOfficial ? "#f59e0b" : isFree ? "#00d4a1" : "#a78bfa";
                 const optColor = OPTION_COLORS[optIdx % OPTION_COLORS.length];
                 const optLabel = OPTION_LABELS[optIdx] ?? String(optIdx + 1);
-                const openUrl = courseLink ? null : (c.url && c.url.length > 0 ? c.url : getPlatformSearchUrl(c.platform, c.title));
+                const openUrl = courseLink ? null : (c.url && c.url.length > 0 ? c.url : getPlatformSearchUrl(c.platform ?? "", c.title ?? ""));
 
                 return (
                   <motion.div
