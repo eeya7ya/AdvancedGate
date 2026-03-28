@@ -478,7 +478,10 @@ function isCoursePage(url: string): boolean {
       host.includes("u.cisco.com") || host.includes("netacad.com") ||
       host.includes("learn.microsoft.com") || host.includes("skillbuilder.aws") ||
       host.includes("cloudskillsboost.google") || host.includes("mylearn.vmware.com") ||
-      host.includes("comptia.org") || host.includes("paloaltonetworks.com")
+      host.includes("comptia.org") || host.includes("paloaltonetworks.com") ||
+      host.includes("knx.org") || host.includes("knxassociation.org") ||
+      host.includes("eccouncil.org") || host.includes("offsec.com") ||
+      host.includes("isc2.org") || host.includes("pmi.org") || host.includes("autodesk.com")
     ) return path.length > 1;
 
     return path.length > 4; // fallback: anything with a real path
