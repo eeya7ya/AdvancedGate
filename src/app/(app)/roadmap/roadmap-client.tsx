@@ -417,16 +417,9 @@ function getPlatformSearchUrl(platform: string, title: string): string {
   if (p.includes("comptia"))          return `https://www.comptia.org/training/certmaster-learn#q=${q}`;
   if (p.includes("vmware"))           return `https://mylearn.vmware.com/search#${q}`;
   if (p.includes("palo alto"))        return `https://www.paloaltonetworks.com/services/education/search#${q}`;
-  if (p.includes("knx"))             return `https://www.knx.org/knx-en/for-professionals/training/`;
-  if (p.includes("netacad"))         return `https://www.netacad.com/catalog/all/page/1`;
-  if (p.includes("ec-council") || p.includes("eccouncil")) return `https://www.eccouncil.org/train-certify/`;
-  if (p.includes("isc2") || p.includes("(isc)²")) return `https://www.isc2.org/Training`;
-  if (p.includes("offsec") || p.includes("offensive security")) return `https://www.offsec.com/courses-and-certifications/`;
-  if (p.includes("pmi"))             return `https://www.pmi.org/learning/training-development`;
-  if (p.includes("autodesk"))        return `https://www.autodesk.com/training`;
-  // Last resort: search the platform's site via Google (site-scoped, still better than bare search)
-  const platformDomainGuess = platform.toLowerCase().replace(/\s+(inc|llc|corp|ltd|co|academy|learning|university|online|official)\.?$/gi, "").trim().replace(/\s+/g, "") + ".com";
-  return `https://www.google.com/search?q=${encodeURIComponent(title)}&as_sitesearch=${encodeURIComponent(platformDomainGuess)}`;
+  // Generic fallback: YouTube search surfaces courses on virtually any topic
+  // (cooking, therapy, Revit, AVIXA, ETAP, META, niche certs — all covered)
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(title + " " + platform + " course tutorial")}`;
 }
 
 /* ── Course Matching ───────────────────────────────────────── */

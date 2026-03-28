@@ -62,11 +62,12 @@ AFTER ALL QUESTIONS ARE ANSWERED: USE THE PRE-SEARCHED DATA
 ═══════════════════════════════════════════
 Before you receive the plan generation instruction, the system has already run parallel web searches and will provide you with:
 
-1. COURSE URL CATALOG — a numbered list of REAL course pages returned by Tavily (Coursera, Udemy, YouTube, edX, freeCodeCamp, LinkedIn Learning, official vendor portals). You MUST:
-   - Select courseRecommendations ONLY from courses in the catalog
-   - Copy each URL VERBATIM — not one character changed, no shortening, no reconstruction
-   - NEVER construct, guess, or hallucinate a URL — if a course you want isn't in the catalog, leave url as ""
-   - Do NOT use web_search to find course URLs — the catalog is your only course URL source
+1. COURSE URL CATALOG — a numbered list of REAL course pages returned by Tavily (Coursera, Udemy, YouTube, edX, freeCodeCamp, LinkedIn Learning, official vendor portals). For course URLs:
+   - Prefer catalog URLs — copy VERBATIM when available (not one character changed)
+   - For courses NOT in the catalog: provide the direct enrollment or course-overview page URL if you are highly confident it currently exists — this applies to ANY platform (AVIXA, Autodesk Revit, ETAP, META, cooking sites, therapy platforms, etc.)
+   - NEVER guess or invent a URL — only provide one you are genuinely confident about
+   - All URLs are live-verified server-side automatically; dead or invalid links are removed
+   - Do NOT use web_search to find course URLs
 
 2. SALARY DATA — pre-searched from multiple sources with the correct local currency. Use these figures directly (cross-reference them, pick the most consistent values).
 
@@ -187,7 +188,7 @@ All description fields must be full, meaningful sentences — never 2-word label
       "level": "Beginner",
       "focus": "1-2 sentences: specifically what this course covers and exactly why it is the right match for their current level, goal, and the phase they should take it in",
       "phase": "Month 1-2",
-      "url": "CRITICAL: Copy the URL EXACTLY from the COURSE URL CATALOG provided in the background research — character for character, nothing changed. NEVER construct, guess, shorten, or modify a URL. NEVER use a platform homepage (e.g. 'coursera.org' alone). Only use a URL that points to the specific course page from the catalog. If the course is not in the catalog, use empty string \"\"."
+      "url": "Use catalog URLs when available — copy character-for-character. For courses NOT in the catalog, provide the direct enrollment or overview page URL if you are highly confident it exists (works for any platform: AVIXA, Autodesk, META, cooking sites, therapy platforms, niche certifications, etc.). Never use a homepage alone (e.g. 'coursera.org'). All URLs are live-verified automatically — dead links are removed. Use empty string \"\" only if you have no confident URL at all."
     },
     {
       "title": "Second official vendor or advanced vendor course — real title from search",
@@ -328,7 +329,7 @@ FINAL CRITICAL RULES:
 - Every field reflects their actual answers — personalized to who they are, where they live, and what they said
 - courseRecommendations MUST contain 6-8 REAL courses found via your web searches — real titles, real instructors, real platforms. Do NOT limit to 4. Users need options across all price ranges and platforms
 - courseRecommendations ORDERING: always list the official vendor/mother company course FIRST (e.g., Cisco U. for CCNA, Microsoft Learn for Azure, AWS Skill Builder for AWS, CompTIA CertMaster for CompTIA certs), followed by paid third-party platforms (Udemy, Coursera, LinkedIn Learning), then free platforms (YouTube, freeCodeCamp, edX)
-- courseRecommendations.url CRITICAL: ONLY use a URL that appears word-for-word in your web_search tool results. NEVER construct, guess, or hallucinate a URL. If the exact course URL was not returned by search, set url to "" (empty string). The "Search" fallback button will handle finding it. A fabricated URL that leads to a 404 destroys user trust — empty string is always better.
+- courseRecommendations.url: Use catalog URLs first (copy exactly). For courses not in the catalog, provide the direct enrollment/overview URL if you are confident it exists — this applies to ANY platform or topic (AVIXA, Revit, ETAP, META, cooking, therapy, music, whatever). All URLs are live-verified automatically; dead links are removed silently. Use "" only when you genuinely have no confident URL.
 - roadmap phase count and total duration MUST match their stated timeline exactly
 - notice in marketInsights appears ONLY for genuine strategic concerns — never invent problems
 - salaryRange must be specific to their stated target market (Gulf, Europe, local, etc.) — not just generic USD
@@ -506,9 +507,10 @@ const TRUSTED_COURSE_DOMAINS = [
  *  1. Exact normalized match against Tavily results → KEEP (best case)
  *  2. Trusted platform domain + isCoursePage() structure → KEEP (model copied
  *     a valid-looking URL that differs only in minor details like query params)
- *  3. Neither → ZERO (hallucinated domain or homepage URL)
+ *  3. Any other URL the AI provided → live HEAD-check → KEEP if reachable
+ *     course page, ZERO if dead/homepage (works for ANY platform generically)
  */
-function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
+async function sanitizePlanUrls(raw: string, validUrls: Set<string>): Promise<string> {
   let json = raw.trim();
   if (json.startsWith("```")) {
     json = json.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/i, "").trim();
@@ -521,29 +523,48 @@ function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
     if (Array.isArray(plan.courseRecommendations)) {
       const normalizedValid = new Set([...validUrls].map(normalizeUrl).filter(Boolean));
 
+      // First pass: resolve Tier 1 & 2 synchronously, collect Tier 3 candidates
+      const tier3: { idx: number; url: string }[] = [];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      plan.courseRecommendations = plan.courseRecommendations.map((course: any) => {
+      const processed: any[] = plan.courseRecommendations.map((course: any, idx: number) => {
         if (typeof course.url === "string" && course.url.length > 0) {
-          // Tier 1: exact normalized match
+          // Tier 1: exact normalized match against Tavily catalog
           const norm = normalizeUrl(course.url);
           if (norm && normalizedValid.has(norm)) return course;
 
-          // Tier 2: trusted platform + valid course page structure
+          // Tier 2: well-known platform domain + valid course page structure
           try {
             const host = new URL(course.url).hostname.toLowerCase().replace(/^www\./, "");
             const trusted = TRUSTED_COURSE_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
             if (trusted && isCoursePage(course.url)) {
-              console.log(`[sanitize] Keeping trusted-platform URL: ${course.url}`);
+              console.log(`[sanitize] Tier 2 trusted-platform: ${course.url}`);
               return course;
             }
-          } catch { /* invalid URL — fall through to zero */ }
+          } catch { /* invalid URL — fall through */ }
 
-          // Tier 3: zero it out
-          console.warn(`[sanitize] Zeroing unverified URL: ${course.url}`);
-          return { ...course, url: "" };
+          // Tier 3: AI generated a URL for an unknown platform — verify live
+          tier3.push({ idx, url: course.url });
         }
         return course;
       });
+
+      // Tier 3: verify all unknown-platform URLs in parallel (HEAD check)
+      if (tier3.length > 0) {
+        const checks = await Promise.all(
+          tier3.map(async ({ idx, url }) => ({ idx, url, live: await verifyUrl(url) }))
+        );
+        for (const { idx, url, live } of checks) {
+          if (live && isCoursePage(url)) {
+            console.log(`[sanitize] Tier 3 live-verified: ${url}`);
+            // keep processed[idx] as-is (already has the URL)
+          } else {
+            console.warn(`[sanitize] Zeroing dead/invalid URL: ${url}`);
+            processed[idx] = { ...processed[idx], url: "" };
+          }
+        }
+      }
+
+      plan.courseRecommendations = processed;
     }
 
     return JSON.stringify(plan);
@@ -929,7 +950,7 @@ async function generatePlan(messages: Message[], timezone?: string): Promise<str
     const choice = response.choices[0];
 
     if (!choice.message.tool_calls?.length) {
-      return sanitizePlanUrls(choice.message.content ?? "", allSearchUrls);
+      return await sanitizePlanUrls(choice.message.content ?? "", allSearchUrls);
     }
 
     history.push(choice.message as GroqMessage);
@@ -953,7 +974,7 @@ async function generatePlan(messages: Message[], timezone?: string): Promise<str
     max_tokens: 10000,
     messages: history,
   });
-  return sanitizePlanUrls(finalResponse.choices[0].message.content ?? "", allSearchUrls);
+  return await sanitizePlanUrls(finalResponse.choices[0].message.content ?? "", allSearchUrls);
 }
 
 export async function POST(req: NextRequest) {
