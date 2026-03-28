@@ -361,41 +361,59 @@ interface SearchResult {
 }
 
 async function webSearch(query: string): Promise<SearchResult> {
+  const apiKey = process.env.TAVILY_API_KEY;
+  if (!apiKey) {
+    console.error("[Tavily] TAVILY_API_KEY is not set — add it to .env.local");
+    return { text: "Search unavailable: TAVILY_API_KEY not configured.", urls: [] };
+  }
   try {
     const res = await fetch("https://api.tavily.com/search", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.TAVILY_API_KEY}`,
-      },
+      headers: { "Content-Type": "application/json" },
+      // Tavily authenticates via api_key in the request body
       body: JSON.stringify({
+        api_key: apiKey,
         query,
         search_depth: "advanced",
-        max_results: 8,
+        max_results: 10,
         include_answer: true,
         include_raw_content: false,
       }),
     });
-    if (!res.ok) return { text: `Search failed with status ${res.status}`, urls: [] };
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      console.error(`[Tavily] Search failed ${res.status}:`, errText);
+      return { text: `Search failed with status ${res.status}`, urls: [] };
+    }
     const data = await res.json() as {
+      answer?: string;
       results?: Array<{ title: string; url: string; content: string }>;
     };
     const results = data.results ?? [];
+    const answer = data.answer ? `Summary: ${data.answer}\n\n` : "";
     return {
       text:
-        results
+        answer +
+        (results
           .map((r) => `Title: ${r.title}\nURL: ${r.url}\nContent: ${r.content}`)
-          .join("\n\n---\n\n") || "No results found.",
+          .join("\n\n---\n\n") || "No results found."),
       urls: results.map((r) => r.url),
     };
-  } catch {
+  } catch (err) {
+    console.error("[Tavily] Request error:", err);
     return { text: "Search unavailable.", urls: [] };
   }
 }
 
-function extractHostname(url: string): string {
+/**
+ * Extract the registered domain (last two labels) so that subdomains all match.
+ * e.g. "u.cisco.com" → "cisco.com", "learn.microsoft.com" → "microsoft.com"
+ */
+function extractRegisteredDomain(url: string): string {
   try {
-    return new URL(url).hostname.toLowerCase();
+    const hostname = new URL(url).hostname.toLowerCase();
+    const parts = hostname.split(".");
+    return parts.length >= 2 ? parts.slice(-2).join(".") : hostname;
   } catch {
     return "";
   }
@@ -403,14 +421,11 @@ function extractHostname(url: string): string {
 
 /**
  * Parse the AI-generated plan JSON, then zero-out any courseRecommendations
- * URL whose domain was not seen in any Tavily search result.
- * Domain-level matching is used (rather than exact path) because the AI copies
- * the right domain from search results but may use a slightly different path
- * (e.g. locale prefix, query string stripped). Completely hallucinated domains
- * (not present in any search result) are still rejected.
+ * URL whose registered domain (e.g. "cisco.com") was not seen in any Tavily
+ * search result. Using registered domain means "u.cisco.com" matches a Tavily
+ * result from "www.cisco.com" — preventing valid subdomains from being wiped.
  */
 function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
-  // Strip markdown code fences the model sometimes adds
   let json = raw.trim();
   if (json.startsWith("```")) {
     json = json.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/i, "").trim();
@@ -421,13 +436,12 @@ function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
     const plan = JSON.parse(json) as Record<string, any>;
 
     if (Array.isArray(plan.courseRecommendations)) {
-      // Build a set of every hostname Tavily actually returned
-      const validDomains = new Set([...validUrls].map(extractHostname).filter(Boolean));
+      const validDomains = new Set([...validUrls].map(extractRegisteredDomain).filter(Boolean));
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       plan.courseRecommendations = plan.courseRecommendations.map((course: any) => {
         if (typeof course.url === "string" && course.url.length > 0) {
-          const domain = extractHostname(course.url);
+          const domain = extractRegisteredDomain(course.url);
           if (!domain || !validDomains.has(domain)) {
             return { ...course, url: "" };
           }
@@ -438,9 +452,81 @@ function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
 
     return JSON.stringify(plan);
   } catch {
-    // JSON parse failed — return original so the frontend can handle it
     return raw;
   }
+}
+
+/**
+ * Detect country and role keywords from the conversation, then pre-run two
+ * targeted Tavily searches (salary + job market) before the model takes over.
+ * This guarantees the plan has real, country-specific salary data — not global
+ * averages hallucinated by the model.
+ */
+async function preSeedSearches(
+  messages: Message[]
+): Promise<{ contextBlock: string; urls: Set<string> }> {
+  const fullText = messages.map((m) => m.content).join(" ");
+
+  // Detect country from the conversation
+  const countryPatterns: [RegExp, string][] = [
+    [/\bjordan\b/i, "Jordan"],
+    [/\begypt\b/i, "Egypt"],
+    [/\bsaudi arabia\b|\bksa\b/i, "Saudi Arabia"],
+    [/\buae\b|\bdubai\b|\babu dhabi\b/i, "UAE"],
+    [/\bkuwait\b/i, "Kuwait"],
+    [/\bqatar\b/i, "Qatar"],
+    [/\bbahrain\b/i, "Bahrain"],
+    [/\boman\b/i, "Oman"],
+    [/\bmorocco\b/i, "Morocco"],
+    [/\btunis(?:ia)?\b/i, "Tunisia"],
+    [/\balger(?:ia)?\b/i, "Algeria"],
+    [/\biraq\b/i, "Iraq"],
+    [/\blebanon\b/i, "Lebanon"],
+    [/\bpalestine\b/i, "Palestine"],
+    [/\bturkey\b|\bturkiye\b/i, "Turkey"],
+    [/\bgermany\b/i, "Germany"],
+    [/\bfrance\b/i, "France"],
+    [/\buk\b|\bunited kingdom\b/i, "UK"],
+    [/\bcanada\b/i, "Canada"],
+    [/\busa\b|\bunited states\b/i, "USA"],
+    [/\baustralia\b/i, "Australia"],
+    [/\bindia\b/i, "India"],
+    [/\bpakistan\b/i, "Pakistan"],
+    [/\bmalaysia\b/i, "Malaysia"],
+    [/\bnigeria\b/i, "Nigeria"],
+  ];
+
+  let country = "";
+  for (const [pattern, name] of countryPatterns) {
+    if (pattern.test(fullText)) { country = name; break; }
+  }
+
+  const allUrls = new Set<string>();
+  const parts: string[] = [];
+
+  if (country) {
+    // Salary search — target authoritative sites with local currency context
+    const currency = ["Jordan", "Egypt", "Morocco", "Tunisia", "Algeria", "Iraq", "Lebanon", "Palestine"].includes(country)
+      ? "JD OR EGP OR MAD OR TND OR DZD OR IQD OR LBP"
+      : ["UAE", "Kuwait", "Qatar", "Bahrain", "Oman"].includes(country)
+      ? "AED OR KWD OR QAR OR BHD OR OMR"
+      : ["Saudi Arabia"].includes(country)
+      ? "SAR"
+      : "USD OR EUR OR GBP";
+
+    const salaryQ = `"${country}" average monthly salary 2024 2025 ${currency} site:payscale.com OR site:glassdoor.com OR site:salary.com OR site:numbeo.com`;
+    const { text: salaryText, urls: salaryUrls } = await webSearch(salaryQ);
+    salaryUrls.forEach((u) => allUrls.add(u));
+    parts.push(`=== PRE-SEARCHED SALARY DATA FOR ${country.toUpperCase()} ===\nQuery: ${salaryQ}\n\n${salaryText}`);
+
+    // Job market demand search
+    const marketQ = `"${country}" job market demand 2025 technology engineering career opportunities`;
+    const { text: marketText, urls: marketUrls } = await webSearch(marketQ);
+    marketUrls.forEach((u) => allUrls.add(u));
+    parts.push(`=== PRE-SEARCHED JOB MARKET DATA FOR ${country.toUpperCase()} ===\nQuery: ${marketQ}\n\n${marketText}`);
+  }
+
+  return { contextBlock: parts.join("\n\n---\n\n"), urls: allUrls };
 }
 
 const WEB_SEARCH_TOOL: Groq.Chat.Completions.ChatCompletionTool = {
@@ -465,30 +551,48 @@ const WEB_SEARCH_TOOL: Groq.Chat.Completions.ChatCompletionTool = {
 async function generatePlan(messages: Message[], timezone?: string): Promise<string> {
   type GroqMessage = Groq.Chat.Completions.ChatCompletionMessageParam;
 
+  // Step 1: Pre-run mandatory salary + market searches based on user's country.
+  // This guarantees the plan has real local salary data before the model starts.
+  const { contextBlock, urls: preUrls } = await preSeedSearches(messages);
+  const allSearchUrls = new Set<string>(preUrls);
+
+  const systemContent = getSystemPrompt(timezone);
   const history: GroqMessage[] = [
-    { role: "system", content: getSystemPrompt(timezone) },
+    { role: "system", content: systemContent },
     ...messages,
   ];
 
+  // Step 2: Inject pre-searched data as context so the model uses real numbers.
+  if (contextBlock) {
+    history.push({
+      role: "user",
+      content:
+        `[BACKGROUND RESEARCH — use this data for salary and market sections of the plan]\n\n${contextBlock}\n\n` +
+        `Now generate the plan. You MUST still run your own web_search calls to find:\n` +
+        `1. The specific role salary in the user's exact country (confirm/refine the pre-searched data with a targeted query)\n` +
+        `2. Direct enrollment URLs for each official vendor training portal (use site: filters)\n` +
+        `3. At least 2 paid platform courses (Udemy/Coursera/LinkedIn Learning) with real URLs\n` +
+        `4. At least 2 free resources (YouTube/freeCodeCamp) with real URLs\n` +
+        `Copy the EXACT URL from the search results — do not construct or guess URLs.`,
+    });
+  }
+
   let searchCount = 0;
-  const maxSearches = 5;
-  // Accumulate every URL Tavily actually returned so we can validate the plan
-  const allSearchUrls = new Set<string>();
+  const maxSearches = 8;
 
   while (searchCount < maxSearches) {
     const response = await client.chat.completions.create({
       model: "llama-3.3-70b-versatile",
-      max_tokens: 8000,
+      max_tokens: 10000,
       messages: history,
       tools: [WEB_SEARCH_TOOL],
-      // Force at least one real search before the model can produce the plan
-      tool_choice: searchCount === 0 ? "required" : "auto",
+      // Force the model to search at least twice before writing the plan
+      tool_choice: searchCount < 2 ? "required" : "auto",
     });
 
     const choice = response.choices[0];
 
     if (!choice.message.tool_calls?.length) {
-      // Model decided to produce the plan — sanitize URLs before returning
       return sanitizePlanUrls(choice.message.content ?? "", allSearchUrls);
     }
 
@@ -496,6 +600,7 @@ async function generatePlan(messages: Message[], timezone?: string): Promise<str
 
     for (const toolCall of choice.message.tool_calls) {
       const args = JSON.parse(toolCall.function.arguments) as { query: string };
+      console.log(`[Tavily] Search #${searchCount + 1}: "${args.query}"`);
       const { text, urls } = await webSearch(args.query);
       urls.forEach((u) => allSearchUrls.add(u));
       history.push({
@@ -507,10 +612,9 @@ async function generatePlan(messages: Message[], timezone?: string): Promise<str
     }
   }
 
-  // Final call after reaching search limit — sanitize here too
   const finalResponse = await client.chat.completions.create({
     model: "llama-3.3-70b-versatile",
-    max_tokens: 8000,
+    max_tokens: 10000,
     messages: history,
   });
   return sanitizePlanUrls(finalResponse.choices[0].message.content ?? "", allSearchUrls);
