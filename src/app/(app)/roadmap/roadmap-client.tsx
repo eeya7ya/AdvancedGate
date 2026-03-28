@@ -8,7 +8,7 @@ import {
   Target, Clock, ArrowRight, ChevronRight, Zap, Brain,
   Map, Bell, BellOff, Mail, RotateCcw, CheckCircle, Loader2,
   CalendarDays, TrendingUp, Globe, BookOpen, AlertTriangle,
-  Printer, Flag, Layers, ExternalLink, Search, PlayCircle,
+  Printer, Flag, Layers, ExternalLink, PlayCircle,
 } from "lucide-react";
 import { subjects } from "@/lib/data";
 
@@ -396,6 +396,29 @@ function MarketInsightsSection({ insights }: { insights: MarketInsights }) {
   );
 }
 
+/* ── Platform-specific search URL fallback ─────────────────── */
+function getPlatformSearchUrl(platform: string, title: string): string {
+  const q = encodeURIComponent(title);
+  const p = platform.toLowerCase();
+  if (p.includes("udemy"))            return `https://www.udemy.com/courses/search/?q=${q}`;
+  if (p.includes("coursera"))         return `https://www.coursera.org/search?query=${q}`;
+  if (p.includes("youtube"))          return `https://www.youtube.com/results?search_query=${q}`;
+  if (p.includes("linkedin"))         return `https://www.linkedin.com/learning/search?keywords=${q}`;
+  if (p.includes("pluralsight"))      return `https://www.pluralsight.com/search?q=${q}`;
+  if (p.includes("edx"))              return `https://www.edx.org/search?q=${q}`;
+  if (p.includes("freecodecamp"))     return `https://www.freecodecamp.org/news/search/?query=${q}`;
+  if (p.includes("khan"))             return `https://www.khanacademy.org/search?page_search_query=${q}`;
+  if (p.includes("cisco"))            return `https://u.cisco.com/search?term=${q}`;
+  if (p.includes("microsoft"))        return `https://learn.microsoft.com/en-us/search/?terms=${q}`;
+  if (p.includes("aws") || p.includes("skill builder")) return `https://explore.skillbuilder.aws/learn?searchTerm=${q}`;
+  if (p.includes("google cloud") || p.includes("cloudskillsboost")) return `https://cloudskillsboost.google/catalog?keywords=${q}`;
+  if (p.includes("comptia"))          return `https://www.comptia.org/training/certmaster-learn#q=${q}`;
+  if (p.includes("vmware"))           return `https://mylearn.vmware.com/search#${q}`;
+  if (p.includes("palo alto"))        return `https://www.paloaltonetworks.com/services/education/search#${q}`;
+  // Default: Google search scoped to the platform name
+  return `https://www.google.com/search?q=${encodeURIComponent(title + " " + platform + " course")}`;
+}
+
 /* ── Course Matching ───────────────────────────────────────── */
 const allInternalCourses = subjects.flatMap((s) =>
   s.courses.map((c) => ({ ...c, subjectTitle: s.title }))
@@ -424,6 +447,9 @@ function findInternalCourse(title: string): { id: string; subjectId: string } | 
 }
 
 /* ── Course Recommendations ────────────────────────────────── */
+const OPTION_LABELS = ["A", "B", "C", "D", "E", "F"];
+const OPTION_COLORS = ["#00d4a1", "#4f9eff", "#a78bfa", "#f59e0b", "#f87171", "#22d3ee"];
+
 function CourseRecommendationsSection({ courses }: { courses: CourseRecommendation[] }) {
   const isRTL = useRTL();
   const levelColor: Record<string, string> = {
@@ -434,88 +460,127 @@ function CourseRecommendationsSection({ courses }: { courses: CourseRecommendati
     Advanced: "#f87171",
   };
 
+  // Group courses by phase
+  const phaseMap = useMemo(() => {
+    const map = new Map<string, CourseRecommendation[]>();
+    for (const c of courses) {
+      const key = c.phase || (isRTL ? "عام" : "General");
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(c);
+    }
+    return map;
+  }, [courses, isRTL]);
+
+  const phases = Array.from(phaseMap.entries());
+
   return (
     <SectionCard delay={0.4}>
       <SectionTitle icon={BookOpen} label={t("courses", isRTL)} color="#a78bfa" />
-      <div className="space-y-4">
-        {courses.map((c, i) => {
-          const internalMatch = findInternalCourse(c.title);
-          const courseLink = internalMatch ? `/learn/${internalMatch.id}` : null;
+      <div className="space-y-6">
+        {phases.map(([phase, phaseCourses], phaseIdx) => (
+          <div key={phase}>
+            {/* Phase header */}
+            <div className="flex items-center gap-2 mb-3">
+              <div
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold"
+                style={{ background: `${OPTION_COLORS[phaseIdx % OPTION_COLORS.length]}18`, color: OPTION_COLORS[phaseIdx % OPTION_COLORS.length], border: `1px solid ${OPTION_COLORS[phaseIdx % OPTION_COLORS.length]}33` }}
+              >
+                <Flag size={10} />
+                {phase}
+              </div>
+              <div className="flex-1 h-px" style={{ background: "var(--border-subtle)" }} />
+            </div>
 
-          return (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 + i * 0.08, duration: 0.35 }}
-              className="rounded-xl p-4 group relative"
-              style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}
-            >
-              <div className="flex items-start justify-between gap-3 mb-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-bold leading-snug" style={{ color: "var(--text-primary)" }}>{c.title}</p>
-                  <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                    {c.platform} · {c.instructor}
-                  </p>
-                </div>
-                <span
-                  className="flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-lg"
-                  style={{ background: `${levelColor[c.level] ?? "#00d4a1"}18`, color: levelColor[c.level] ?? "#00d4a1" }}
-                >
-                  {c.level}
-                </span>
-              </div>
-              <p className="text-xs leading-relaxed mb-3" style={{ color: "var(--text-secondary)" }}>{c.focus}</p>
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md"
-                  style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee" }}>
-                  <Clock size={9} />
-                  {c.estimatedHours}h
-                </span>
-                <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md"
-                  style={{ background: "rgba(0,212,161,0.1)", color: "#00d4a1" }}>
-                  <Flag size={9} />
-                  {c.phase}
-                </span>
-                {courseLink ? (
-                  <Link
-                    href={courseLink}
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-md transition-all hover:scale-105"
-                    style={{ background: "linear-gradient(135deg, rgba(0,212,161,0.15), rgba(34,211,238,0.15))", color: "#00d4a1", border: "1px solid rgba(0,212,161,0.25)" }}
+            {/* Options within this phase */}
+            <div className="space-y-3">
+              {phaseCourses.map((c, optIdx) => {
+                const internalMatch = findInternalCourse(c.title);
+                const courseLink = internalMatch ? `/learn/${internalMatch.id}` : null;
+                const isFree = /youtube|freecodecamp|khan|edx/i.test(c.platform);
+                const isOfficial = /cisco|microsoft|aws|comptia|google cloud|vmware|palo alto/i.test(c.platform);
+                const tierLabel = isOfficial ? (isRTL ? "رسمي" : "Official") : isFree ? (isRTL ? "مجاني" : "Free") : (isRTL ? "مدفوع" : "Paid");
+                const tierColor = isOfficial ? "#f59e0b" : isFree ? "#00d4a1" : "#a78bfa";
+                const optColor = OPTION_COLORS[optIdx % OPTION_COLORS.length];
+                const optLabel = OPTION_LABELS[optIdx] ?? String(optIdx + 1);
+                const openUrl = courseLink ? null : (c.url && c.url.length > 0 ? c.url : getPlatformSearchUrl(c.platform, c.title));
+
+                return (
+                  <motion.div
+                    key={optIdx}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 + phaseIdx * 0.1 + optIdx * 0.06, duration: 0.35 }}
+                    className="rounded-xl p-4 group relative"
+                    style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}
                   >
-                    <PlayCircle size={10} />
-                    {isRTL ? "ابدأ الدورة" : "Start Course"}
-                  </Link>
-                ) : c.url ? (
-                  <a
-                    href={c.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md transition-opacity hover:opacity-80"
-                    style={{ background: "rgba(79,158,255,0.12)", color: "#4f9eff" }}
-                  >
-                    <ExternalLink size={9} />
-                    {isRTL ? "افتح الدورة" : "Go to Course"}
-                  </a>
-                ) : (
-                  <a
-                    href={`https://www.google.com/search?q=${encodeURIComponent(c.title + " " + c.platform + " course")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md transition-opacity hover:opacity-80"
-                    style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa" }}
-                  >
-                    <Search size={9} />
-                    {isRTL ? "بحث" : "Search"}
-                  </a>
-                )}
-              </div>
-            </motion.div>
-          );
-        })}
+                    <div className="flex items-start gap-3">
+                      {/* Option badge */}
+                      <div
+                        className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black"
+                        style={{ background: `${optColor}18`, color: optColor, border: `1px solid ${optColor}33` }}
+                      >
+                        {optLabel}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <p className="text-sm font-bold leading-snug" style={{ color: "var(--text-primary)" }}>{c.title}</p>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg"
+                              style={{ background: `${tierColor}18`, color: tierColor }}>
+                              {tierLabel}
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg"
+                              style={{ background: `${levelColor[c.level] ?? "#00d4a1"}18`, color: levelColor[c.level] ?? "#00d4a1" }}>
+                              {c.level}
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-xs mt-0.5 mb-2" style={{ color: "var(--text-muted)" }}>
+                          {c.platform} · {c.instructor}
+                        </p>
+                        <p className="text-xs leading-relaxed mb-3" style={{ color: "var(--text-secondary)" }}>{c.focus}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md"
+                            style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee" }}>
+                            <Clock size={9} />
+                            {c.estimatedHours}h
+                          </span>
+                          {courseLink ? (
+                            <Link
+                              href={courseLink}
+                              className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-md transition-all hover:scale-105"
+                              style={{ background: "linear-gradient(135deg, rgba(0,212,161,0.15), rgba(34,211,238,0.15))", color: "#00d4a1", border: "1px solid rgba(0,212,161,0.25)" }}
+                            >
+                              <PlayCircle size={10} />
+                              {isRTL ? "ابدأ الدورة" : "Start Course"}
+                            </Link>
+                          ) : (
+                            <a
+                              href={openUrl!}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all hover:scale-105 hover:opacity-90"
+                              style={{
+                                background: c.url && c.url.length > 0
+                                  ? "linear-gradient(135deg, rgba(79,158,255,0.15), rgba(79,158,255,0.08))"
+                                  : `linear-gradient(135deg, ${optColor}22, ${optColor}10)`,
+                                color: c.url && c.url.length > 0 ? "#4f9eff" : optColor,
+                                border: `1px solid ${c.url && c.url.length > 0 ? "rgba(79,158,255,0.3)" : optColor + "44"}`,
+                              }}
+                            >
+                              <ExternalLink size={10} />
+                              {isRTL ? "افتح الدورة" : "Open Course"}
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
     </SectionCard>
   );
@@ -930,31 +995,23 @@ export function RoadmapClient({
                           style={{ background: "rgba(0,212,161,0.1)", color: "#00d4a1" }}>
                           <Flag size={9} /> {c.phase}
                         </span>
-                        {c.url ? (
-                          <a
-                            href={c.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md transition-opacity hover:opacity-80"
-                            style={{ background: "rgba(79,158,255,0.12)", color: "#4f9eff" }}
-                          >
-                            <ExternalLink size={9} />
-                            {isRTL ? "افتح الدورة" : "Go to Course"}
-                          </a>
-                        ) : (
-                          <a
-                            href={`https://www.google.com/search?q=${encodeURIComponent(c.title + " " + c.platform + " course")}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md transition-opacity hover:opacity-80"
-                            style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa" }}
-                          >
-                            <Search size={9} />
-                            {isRTL ? "بحث" : "Search"}
-                          </a>
-                        )}
+                        <a
+                          href={c.url && c.url.length > 0 ? c.url : getPlatformSearchUrl(c.platform, c.title)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all hover:scale-105 hover:opacity-90"
+                          style={{
+                            background: c.url && c.url.length > 0
+                              ? "linear-gradient(135deg, rgba(79,158,255,0.15), rgba(79,158,255,0.08))"
+                              : "linear-gradient(135deg, rgba(0,212,161,0.15), rgba(0,212,161,0.08))",
+                            color: c.url && c.url.length > 0 ? "#4f9eff" : "#00d4a1",
+                            border: c.url && c.url.length > 0 ? "1px solid rgba(79,158,255,0.3)" : "1px solid rgba(0,212,161,0.3)",
+                          }}
+                        >
+                          <ExternalLink size={10} />
+                          {isRTL ? "افتح الدورة" : "Open Course"}
+                        </a>
                       </div>
                     </div>
                   </div>
