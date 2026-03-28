@@ -595,24 +595,112 @@ async function preSeedSearches(
   const allUrls = new Set<string>();
   const parts: string[] = [];
 
-  // ── Course queries (role-based, always run regardless of country) ──────────
-  const vendorQuery = (() => {
-    if (/network engineer|cisco|ccna/i.test(role)) return `CCNA networking course site:u.cisco.com OR site:netacad.com`;
-    if (/software engineer|web developer/i.test(role)) return `software development course site:learn.microsoft.com OR site:skillbuilder.aws`;
-    if (/cloud engineer|devops/i.test(role)) return `cloud computing course site:skillbuilder.aws OR site:cloudskillsboost.google`;
-    if (/cybersecurity/i.test(role)) return `cybersecurity course site:comptia.org OR site:paloaltonetworks.com`;
-    if (/data scientist/i.test(role)) return `data science machine learning course site:coursera.org OR site:edx.org`;
-    return `${role} training certification site:learn.microsoft.com OR site:skillbuilder.aws OR site:coursera.org`;
-  })();
-
-  const courseQueries = [
-    vendorQuery,
-    `${role} course site:coursera.org`,
-    `${role} course site:udemy.com`,
-    `${role} full course tutorial 2024 site:youtube.com`,
-    `${role} free course site:edx.org OR site:freecodecamp.org`,
-    `${role} course site:linkedin.com/learning`,
+  // ── Extract SPECIFIC topics/certs from the conversation ──────────────────
+  // Each entry: [pattern, searchTerm, officialSiteFilter | null]
+  const specificTopicPatterns: [RegExp, string, string | null][] = [
+    // Networking & Cisco
+    [/\bCCNA\b/i,                    "CCNA",                                "site:u.cisco.com OR site:netacad.com"],
+    [/\bCCNP\b/i,                    "CCNP",                                "site:u.cisco.com"],
+    [/\bCCIE\b/i,                    "CCIE",                                "site:u.cisco.com"],
+    // Building automation / ELV / smart systems
+    [/\bKNX\b/i,                     "KNX smart home automation",           "site:knx.org OR site:knxassociation.org"],
+    [/\bBMS\b|\bBuilding Management System\b/i, "BMS building management system", null],
+    [/\bSCADA\b/i,                   "SCADA industrial automation",         null],
+    [/\bPLC\b/i,                     "PLC programming automation",          null],
+    [/\bCCTV\b|\bIP [Cc]amera\b/i,  "CCTV IP surveillance system",         null],
+    [/\bFire Alarm\b|\bFAS\b/i,      "fire alarm system",                   null],
+    [/\bELV\b/i,                     "ELV extra low voltage systems",       null],
+    [/\bAccess Control\b/i,          "access control security systems",     null],
+    // Cloud & DevOps
+    [/\bAWS\b|\bAmazon Web Services\b/i, "AWS cloud",                       "site:skillbuilder.aws"],
+    [/\bAzure\b/i,                   "Microsoft Azure",                     "site:learn.microsoft.com"],
+    [/\bGCP\b|\bGoogle Cloud\b/i,    "Google Cloud",                        "site:cloudskillsboost.google"],
+    [/\bDocker\b/i,                  "Docker containerization",             null],
+    [/\bKubernetes\b|\bK8s\b/i,      "Kubernetes",                          null],
+    // Security certs
+    [/\bSecurity\+\b/i,              "CompTIA Security+",                   "site:comptia.org"],
+    [/\bNetwork\+\b/i,               "CompTIA Network+",                    "site:comptia.org"],
+    [/\bA\+\b|CompTIA A\b/i,         "CompTIA A+",                          "site:comptia.org"],
+    [/\bCEH\b/i,                     "CEH Certified Ethical Hacker",        "site:eccouncil.org"],
+    [/\bOSCP\b/i,                    "OSCP penetration testing",            "site:offsec.com"],
+    [/\bCISSP\b/i,                   "CISSP",                               "site:isc2.org"],
+    // Project management
+    [/\bPMP\b/i,                     "PMP Project Management Professional", "site:pmi.org"],
+    [/\bPrince2\b/i,                 "PRINCE2",                             null],
+    [/\bAgile\b|\bScrum\b/i,         "Agile Scrum",                         null],
+    // Programming / software
+    [/\bPython\b/i,                  "Python programming",                  null],
+    [/\bJavaScript\b|\bJS\b(?!ON)/i, "JavaScript",                         null],
+    [/\bTypeScript\b/i,              "TypeScript",                          null],
+    [/\bReact\b/i,                   "React",                               null],
+    [/\bNode\.?js\b/i,               "Node.js",                             null],
+    [/\bSQL\b/i,                     "SQL database",                        null],
+    [/\bMachine Learning\b|\bML\b/i, "machine learning",                    null],
+    [/\bData Science\b/i,            "data science",                        null],
+    // Electrical / power
+    [/\bAutoCAD\b/i,                 "AutoCAD Electrical",                  "site:autodesk.com"],
+    [/\bSolar\b|\bPV\b|\bPhotovoltaic\b/i, "solar PV installation",        null],
+    [/\bpower systems\b/i,           "power systems electrical",            null],
+    [/\bHVAC\b/i,                    "HVAC",                                null],
+    // Design
+    [/\bFigma\b/i,                   "Figma UI UX design",                  null],
+    [/\bPhotoshop\b/i,               "Adobe Photoshop",                     "site:helpx.adobe.com OR site:learn.adobe.com"],
+    [/\bUI.?UX\b/i,                  "UI UX design",                        null],
   ];
+
+  const detectedTopics: { term: string; official: string | null }[] = [];
+  for (const [pattern, term, official] of specificTopicPatterns) {
+    if (pattern.test(fullText)) {
+      detectedTopics.push({ term, official });
+    }
+  }
+
+  // ── Build course queries — per specific topic, priority: official → paid → free
+  // If no specific topics detected, fall back to role-based queries
+  const courseQueries: string[] = [];
+
+  if (detectedTopics.length > 0) {
+    // Take up to 3 most relevant topics to avoid too many queries
+    const topTopics = detectedTopics.slice(0, 3);
+
+    for (const { term, official } of topTopics) {
+      // 1. Official certification body / vendor portal (highest priority)
+      if (official) {
+        courseQueries.push(`"${term}" course training enrollment 2025 ${official}`);
+      }
+      // 2. Udemy (trusted paid, huge catalog)
+      courseQueries.push(`"${term}" course site:udemy.com`);
+      // 3. Coursera (trusted paid/free, university-backed)
+      courseQueries.push(`"${term}" course site:coursera.org`);
+      // 4. YouTube (free, practical tutorials)
+      courseQueries.push(`"${term}" full course tutorial site:youtube.com`);
+    }
+
+    // One LinkedIn Learning sweep across all detected topics combined
+    const topicStr = topTopics.map((t) => t.term).join(" OR ");
+    courseQueries.push(`(${topicStr}) course site:linkedin.com/learning`);
+
+    // Free fallback (edX / freeCodeCamp) for the primary topic
+    courseQueries.push(`"${topTopics[0].term}" course site:edx.org OR site:freecodecamp.org`);
+  } else {
+    // No specific topics detected — use the broad role as fallback
+    const vendorFallback = (() => {
+      if (/network engineer|cisco|ccna/i.test(role))   return `networking course site:u.cisco.com OR site:netacad.com`;
+      if (/software engineer|web developer/i.test(role)) return `software development course site:learn.microsoft.com`;
+      if (/cloud engineer|devops/i.test(role))          return `cloud computing course site:skillbuilder.aws OR site:cloudskillsboost.google`;
+      if (/cybersecurity/i.test(role))                  return `cybersecurity course site:comptia.org`;
+      if (/data scientist/i.test(role))                 return `data science course site:coursera.org OR site:edx.org`;
+      return `${role} training site:coursera.org OR site:skillbuilder.aws`;
+    })();
+    courseQueries.push(
+      vendorFallback,
+      `${role} course site:udemy.com`,
+      `${role} course site:coursera.org`,
+      `${role} full course tutorial site:youtube.com`,
+      `${role} free course site:edx.org OR site:freecodecamp.org`,
+      `${role} course site:linkedin.com/learning`,
+    );
+  }
 
   // ── Salary + market queries (country-based) ────────────────────────────────
   const salaryQueries = country ? (() => {
