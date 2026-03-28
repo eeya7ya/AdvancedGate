@@ -58,31 +58,23 @@ AFTER ALL 5 TOPICS ARE COVERED
 Once you have all five pieces of information, close the conversation naturally (e.g. "Perfect, I have everything I need — give me a moment while I pull together your roadmap."), then immediately run your web searches and generate the JSON plan. Do not ask more questions unless critical information is genuinely missing.
 
 ═══════════════════════════════════════════
-AFTER ALL QUESTIONS ARE ANSWERED: SEARCH FIRST
+AFTER ALL QUESTIONS ARE ANSWERED: USE THE PRE-SEARCHED DATA
 ═══════════════════════════════════════════
-Before generating the plan, you MUST use web_search to gather real data:
+Before you receive the plan generation instruction, the system has already run parallel web searches and will provide you with:
 
-1. COURSE SEARCH — always follow this priority order:
-   a. FIRST search for the OFFICIAL vendor/mother company training:
-      - CCNA/networking → search "Cisco U. official CCNA training site:u.cisco.com OR site:cisco.com/c/en/us/training-events"
-      - CompTIA certifications → search "CompTIA official CertMaster training site:comptia.org"
-      - Microsoft/Azure/Office → search "Microsoft Learn official training site:learn.microsoft.com"
-      - AWS → search "AWS Skill Builder official training site:skillbuilder.aws"
-      - Google Cloud → search "Google Cloud Skills Boost official site:cloudskillsboost.google"
-      - VMware → search "VMware Learning official site:mylearn.vmware.com"
-      - Palo Alto → search "Palo Alto Networks Academy official site:paloaltonetworks.com/services/education"
-      - For any vendor-specific certification, ALWAYS start with that vendor's own learning portal
-   b. THEN search paid third-party platforms: "best [goal] courses site:coursera.org OR site:udemy.com OR site:linkedin.com/learning OR site:pluralsight.com"
-   c. LAST search free platforms: "best [goal] courses site:youtube.com OR site:freecodecamp.org OR site:khanacademy.org"
-   → Include at least 1-2 official vendor courses, 2-3 paid platform courses, and 2-3 free resources (YouTube, freeCodeCamp, edX) across courseRecommendations. Aim for 6-8 total courses minimum
+1. COURSE URL CATALOG — a numbered list of REAL course pages returned by Tavily (Coursera, Udemy, YouTube, edX, freeCodeCamp, LinkedIn Learning, official vendor portals). You MUST:
+   - Select courseRecommendations ONLY from courses in the catalog
+   - Copy each URL VERBATIM — not one character changed, no shortening, no reconstruction
+   - NEVER construct, guess, or hallucinate a URL — if a course you want isn't in the catalog, leave url as ""
+   - Do NOT use web_search to find course URLs — the catalog is your only course URL source
 
-2. Search for: "[their goal/career] salary [their target market/region] [year]"
-   → Get accurate income ranges for their specific target market, not generic global averages
+2. SALARY DATA — pre-searched from multiple sources with the correct local currency. Use these figures directly (cross-reference them, pick the most consistent values).
 
-3. Search for: "[their goal/career] job market demand [their country] [year]"
-   → Assess real local and regional demand, growth trends, and employment prospects
+3. JOB MARKET DATA — pre-searched for the user's country and role.
 
-Use this real, current data when populating courseRecommendations, marketInsights.salaryRange, and marketInsights.localDemand.
+You may use web_search ONLY if the salary data in the pre-searched block is very sparse or missing. Maximum 2 additional searches for salary refinement only — not for courses.
+
+Use the pre-searched data when populating courseRecommendations, marketInsights.salaryRange, and marketInsights.localDemand.
 
 ═══════════════════════════════════════════
 PHASE COUNT — MATCH USER'S TIMELINE
@@ -195,7 +187,7 @@ All description fields must be full, meaningful sentences — never 2-word label
       "level": "Beginner",
       "focus": "1-2 sentences: specifically what this course covers and exactly why it is the right match for their current level, goal, and the phase they should take it in",
       "phase": "Month 1-2",
-      "url": "STRICT RULE: Only put a URL here if it appears VERBATIM in your web_search results above. Copy the exact URL from the search result — do NOT construct, guess, or modify any URL. If you did not receive an exact URL for this course from search results, you MUST use an empty string \"\". A broken link is far worse than no link."
+      "url": "CRITICAL: Copy the URL EXACTLY from the COURSE URL CATALOG provided in the background research — character for character, nothing changed. NEVER construct, guess, shorten, or modify a URL. NEVER use a platform homepage (e.g. 'coursera.org' alone). Only use a URL that points to the specific course page from the catalog. If the course is not in the catalog, use empty string \"\"."
     },
     {
       "title": "Second official vendor or advanced vendor course — real title from search",
@@ -205,7 +197,7 @@ All description fields must be full, meaningful sentences — never 2-word label
       "level": "Beginner to Intermediate",
       "focus": "1-2 sentences on what it covers and why it fits their path at this stage",
       "phase": "Month 1-2",
-      "url": "Exact URL from search results only — empty string if not found in search"
+      "url": "Exact URL from COURSE URL CATALOG only — empty string \"\" if not in catalog"
     },
     {
       "title": "Coursera course — real title from search",
@@ -215,7 +207,7 @@ All description fields must be full, meaningful sentences — never 2-word label
       "level": "Beginner to Intermediate",
       "focus": "1-2 sentences on what it covers and why it complements the official vendor courses",
       "phase": "Month 2-3",
-      "url": "Exact URL from search results only — empty string if not found in search"
+      "url": "Exact URL from COURSE URL CATALOG only — empty string \"\" if not in catalog"
     },
     {
       "title": "Udemy course — real title from search",
@@ -225,7 +217,7 @@ All description fields must be full, meaningful sentences — never 2-word label
       "level": "Intermediate",
       "focus": "1-2 sentences on what it covers and why it comes after the previous courses",
       "phase": "Month 2-4",
-      "url": "Exact URL from search results only — empty string if not found in search"
+      "url": "Exact URL from COURSE URL CATALOG only — empty string \"\" if not in catalog"
     },
     {
       "title": "LinkedIn Learning or Pluralsight course — real title from search",
@@ -235,7 +227,7 @@ All description fields must be full, meaningful sentences — never 2-word label
       "level": "Intermediate",
       "focus": "1-2 sentences on what makes this a valuable complementary resource",
       "phase": "Month 3-4",
-      "url": "Exact URL from search results only — empty string if not found in search"
+      "url": "Exact URL from COURSE URL CATALOG only — empty string \"\" if not in catalog"
     },
     {
       "title": "YouTube free course — real title from search",
@@ -245,7 +237,7 @@ All description fields must be full, meaningful sentences — never 2-word label
       "level": "Beginner to Intermediate",
       "focus": "1-2 sentences on what it covers — great free alternative for budget-conscious learners",
       "phase": "Month 1-3",
-      "url": "Exact URL from search results only — empty string if not found in search"
+      "url": "Exact URL from COURSE URL CATALOG only — empty string \"\" if not in catalog"
     },
     {
       "title": "Second YouTube or free course — real title from search",
@@ -255,7 +247,7 @@ All description fields must be full, meaningful sentences — never 2-word label
       "level": "Intermediate",
       "focus": "1-2 sentences on what it covers and how it helps reinforce practical skills",
       "phase": "Month 3-5",
-      "url": "Exact URL from search results only — empty string if not found in search"
+      "url": "Exact URL from COURSE URL CATALOG only — empty string \"\" if not in catalog"
     },
     {
       "title": "Free resource (edX, Khan Academy, or freeCodeCamp) — real title from search",
@@ -265,7 +257,7 @@ All description fields must be full, meaningful sentences — never 2-word label
       "level": "Intermediate to Advanced",
       "focus": "1-2 sentences on what it unlocks for their career at this stage",
       "phase": "Month 4-6",
-      "url": "Exact URL from search results only — empty string if not found in search"
+      "url": "Exact URL from COURSE URL CATALOG only — empty string \"\" if not in catalog"
     }
   ],
   "schedule": {
@@ -406,24 +398,71 @@ async function webSearch(query: string): Promise<SearchResult> {
 }
 
 /**
- * Extract the registered domain (last two labels) so that subdomains all match.
- * e.g. "u.cisco.com" → "cisco.com", "learn.microsoft.com" → "microsoft.com"
+ * Normalize a URL for exact comparison — lowercase hostname + path, strip
+ * trailing slash. Keeps YouTube ?v= query param (it IS the video identity).
+ * Strips all other query params and fragments so minor tracking suffixes
+ * on Tavily result URLs don't block valid matches.
  */
-function extractRegisteredDomain(url: string): string {
+function normalizeUrl(url: string): string {
   try {
-    const hostname = new URL(url).hostname.toLowerCase();
-    const parts = hostname.split(".");
-    return parts.length >= 2 ? parts.slice(-2).join(".") : hostname;
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase().replace(/^www\./, "");
+    const path = u.pathname.toLowerCase().replace(/\/$/, "");
+    const isYoutube = host.includes("youtube.com") || host.includes("youtu.be");
+    const search = isYoutube ? (u.searchParams.get("v") ? `?v=${u.searchParams.get("v")}` : "") : "";
+    return `${host}${path}${search}`;
   } catch {
-    return "";
+    return url.toLowerCase().replace(/\/$/, "");
   }
 }
 
 /**
- * Parse the AI-generated plan JSON, then zero-out any courseRecommendations
- * URL whose registered domain (e.g. "cisco.com") was not seen in any Tavily
- * search result. Using registered domain means "u.cisco.com" matches a Tavily
- * result from "www.cisco.com" — preventing valid subdomains from being wiped.
+ * Returns true if the URL looks like an actual course/content page rather
+ * than a platform homepage or search/browse page.
+ */
+function isCoursePage(url: string): boolean {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    const path = u.pathname.toLowerCase();
+
+    if (host.includes("coursera.org"))
+      return /^\/(learn|specializations|professional-certificates|degrees)\/[^/]+/.test(path);
+    if (host.includes("udemy.com"))
+      return /^\/course\/[^/]+/.test(path);
+    if (host.includes("edx.org"))
+      return /^\/(course|professional-certificate|xseries|micromasters)\/[^/]+/.test(path);
+    if (host.includes("linkedin.com"))
+      return path.startsWith("/learning/");
+    if (host.includes("pluralsight.com"))
+      return /^\/(courses|paths)\/[^/]+/.test(path);
+    if (host.includes("youtube.com"))
+      return u.searchParams.has("v") || path.startsWith("/playlist");
+    if (host.includes("youtu.be"))
+      return path.length > 1;
+    if (host.includes("freecodecamp.org"))
+      return path.length > 1 && !path.endsWith("/");
+    if (host.includes("khanacademy.org"))
+      return path.length > 4;
+    // Official vendor portals — any page deeper than root counts
+    if (
+      host.includes("u.cisco.com") || host.includes("netacad.com") ||
+      host.includes("learn.microsoft.com") || host.includes("skillbuilder.aws") ||
+      host.includes("cloudskillsboost.google") || host.includes("mylearn.vmware.com") ||
+      host.includes("comptia.org") || host.includes("paloaltonetworks.com")
+    ) return path.length > 1;
+
+    return path.length > 4; // fallback: anything with a real path
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Parse the AI-generated plan JSON, then zero-out any courseRecommendations URL
+ * that does NOT appear verbatim (normalized) in the Tavily result set.
+ * This prevents the model from constructing fake platform paths like
+ * "coursera.org/courses/made-up-title" when it only saw "coursera.org" in results.
  */
 function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
   let json = raw.trim();
@@ -436,13 +475,15 @@ function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
     const plan = JSON.parse(json) as Record<string, any>;
 
     if (Array.isArray(plan.courseRecommendations)) {
-      const validDomains = new Set([...validUrls].map(extractRegisteredDomain).filter(Boolean));
+      // Build normalized set of every URL Tavily ever returned
+      const normalizedValid = new Set([...validUrls].map(normalizeUrl).filter(Boolean));
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       plan.courseRecommendations = plan.courseRecommendations.map((course: any) => {
         if (typeof course.url === "string" && course.url.length > 0) {
-          const domain = extractRegisteredDomain(course.url);
-          if (!domain || !validDomains.has(domain)) {
+          const norm = normalizeUrl(course.url);
+          if (!norm || !normalizedValid.has(norm)) {
+            console.warn(`[sanitize] Zeroing unverified URL: ${course.url}`);
             return { ...course, url: "" };
           }
         }
@@ -554,39 +595,89 @@ async function preSeedSearches(
   const allUrls = new Set<string>();
   const parts: string[] = [];
 
-  if (country) {
-    const currency = currencyMap[country] ?? "USD";
+  // ── Course queries (role-based, always run regardless of country) ──────────
+  const vendorQuery = (() => {
+    if (/network engineer|cisco|ccna/i.test(role)) return `CCNA networking course site:u.cisco.com OR site:netacad.com`;
+    if (/software engineer|web developer/i.test(role)) return `software development course site:learn.microsoft.com OR site:skillbuilder.aws`;
+    if (/cloud engineer|devops/i.test(role)) return `cloud computing course site:skillbuilder.aws OR site:cloudskillsboost.google`;
+    if (/cybersecurity/i.test(role)) return `cybersecurity course site:comptia.org OR site:paloaltonetworks.com`;
+    if (/data scientist/i.test(role)) return `data science machine learning course site:coursera.org OR site:edx.org`;
+    return `${role} training certification site:learn.microsoft.com OR site:skillbuilder.aws OR site:coursera.org`;
+  })();
 
-    // Fire 5 salary queries + 2 market queries ALL IN PARALLEL
-    // Different query angles ensure no single bad source dominates the result
-    const salaryQueries = [
-      // 1. Entry-level / junior — most relevant for career starters
+  const courseQueries = [
+    vendorQuery,
+    `${role} course site:coursera.org`,
+    `${role} course site:udemy.com`,
+    `${role} full course tutorial 2024 site:youtube.com`,
+    `${role} free course site:edx.org OR site:freecodecamp.org`,
+    `${role} course site:linkedin.com/learning`,
+  ];
+
+  // ── Salary + market queries (country-based) ────────────────────────────────
+  const salaryQueries = country ? (() => {
+    const currency = currencyMap[country] ?? "USD";
+    return [
       `"${country}" "${role}" entry level junior salary 2024 2025 ${currency}`,
-      // 2. City-level data (Numbeo has cost-of-living grounded salary data)
       `${country} ${role} salary monthly 2024 site:numbeo.com`,
-      // 3. PayScale with local currency explicitly in query
       `${country} ${role} average salary ${currency} per month site:payscale.com`,
-      // 4. Glassdoor country-specific
       `"${country}" ${role} salary 2024 2025 site:glassdoor.com`,
-      // 5. Remote / freelance angle so model can contrast local vs remote pay
       `${country} ${role} remote freelance salary USD 2025`,
     ];
+  })() : [];
 
-    const marketQueries = [
-      `"${country}" ${role} job demand hiring 2025 employment opportunities`,
-      `"${country}" technology engineering job market 2025 career prospects`,
-    ];
+  const marketQueries = country ? [
+    `"${country}" ${role} job demand hiring 2025 employment opportunities`,
+    `"${country}" technology engineering job market 2025 career prospects`,
+  ] : [];
 
-    const allQueries = [...salaryQueries, ...marketQueries];
+  // ── Fire EVERYTHING in parallel ────────────────────────────────────────────
+  const allQueries = [...courseQueries, ...salaryQueries, ...marketQueries];
+  const results = await Promise.all(allQueries.map((q) => webSearch(q)));
+  results.forEach((r) => r.urls.forEach((u) => allUrls.add(u)));
 
-    // Run all queries concurrently
-    const results = await Promise.all(allQueries.map((q) => webSearch(q)));
+  const courseResults  = results.slice(0, courseQueries.length);
+  const salaryResults  = results.slice(courseQueries.length, courseQueries.length + salaryQueries.length);
+  const marketResults  = results.slice(courseQueries.length + salaryQueries.length);
 
-    results.forEach((r) => r.urls.forEach((u) => allUrls.add(u)));
+  // ── Build course URL catalog ───────────────────────────────────────────────
+  const catalogLines: string[] = [];
+  let catalogIndex = 1;
+  courseQueries.forEach((_, qi) => {
+    const r = courseResults[qi];
+    const pageUrls = r.urls.filter(isCoursePage);
+    if (pageUrls.length === 0) return;
 
-    const salaryResults = results.slice(0, salaryQueries.length);
-    const marketResults = results.slice(salaryQueries.length);
+    // Parse title from Tavily text (format: "Title: ...\nURL: ...\nContent: ...")
+    const blocks = r.text.split(/\n\n---\n\n/);
+    const urlToTitle: Record<string, string> = {};
+    for (const block of blocks) {
+      const titleMatch = block.match(/Title:\s*(.+)/);
+      const urlMatch   = block.match(/URL:\s*(\S+)/);
+      if (titleMatch && urlMatch) urlToTitle[urlMatch[1].trim()] = titleMatch[1].trim();
+    }
 
+    pageUrls.forEach((url) => {
+      const title = urlToTitle[url] ?? url;
+      catalogLines.push(`${catalogIndex}. "${title}"\n   URL: ${url}`);
+      catalogIndex++;
+    });
+  });
+
+  if (catalogLines.length > 0) {
+    parts.push(
+      `=== COURSE URL CATALOG — VERIFIED BY TAVILY ===\n` +
+      `These are REAL course pages returned directly by Tavily search. ` +
+      `You MUST select courseRecommendations ONLY from this list and copy their URLs character-for-character. ` +
+      `Do NOT add any URL not in this catalog. Do NOT modify, shorten, or reconstruct any URL. ` +
+      `Do NOT run your own course web_search calls — this catalog is your only course URL source.\n\n` +
+      catalogLines.join("\n\n")
+    );
+  }
+
+  // ── Salary + market context blocks ────────────────────────────────────────
+  if (country && salaryQueries.length > 0) {
+    const currency = currencyMap[country] ?? "USD";
     const salaryBlock = salaryQueries
       .map((q, i) => `Query [${i + 1}]: ${q}\n\n${salaryResults[i].text}`)
       .join("\n\n---\n\n");
@@ -594,8 +685,8 @@ async function preSeedSearches(
     parts.push(
       `=== PRE-SEARCHED SALARY DATA FOR ${country.toUpperCase()} (${role}) ===\n` +
       `IMPORTANT: Use local currency (${currency}) for local salary figures. ` +
-      `Cross-reference all ${salaryQueries.length} queries below — pick the figures that appear most consistently across sources, ` +
-      `not the highest or the most optimistic ones. Entry-level/junior figures are the most relevant for career starters.\n\n` +
+      `Cross-reference all ${salaryQueries.length} queries — pick the figures that appear most consistently, ` +
+      `not the highest or most optimistic. Entry-level/junior figures are most relevant for career starters.\n\n` +
       salaryBlock
     );
 
@@ -642,23 +733,30 @@ async function generatePlan(messages: Message[], timezone?: string): Promise<str
     ...messages,
   ];
 
-  // Step 2: Inject pre-searched data as context so the model uses real numbers.
+  // Step 2: Inject pre-searched data. Course URLs come from the catalog — the
+  // model must NOT search for courses itself. It may still search to refine salary
+  // data or find one additional resource not in the catalog.
   if (contextBlock) {
+    const hasCatalog = contextBlock.includes("COURSE URL CATALOG");
     history.push({
       role: "user",
       content:
-        `[BACKGROUND RESEARCH — use this data for salary and market sections of the plan]\n\n${contextBlock}\n\n` +
-        `Now generate the plan. You MUST still run your own web_search calls to find:\n` +
-        `1. The specific role salary in the user's exact country (confirm/refine the pre-searched data with a targeted query)\n` +
-        `2. Direct enrollment URLs for each official vendor training portal (use site: filters)\n` +
-        `3. At least 2 paid platform courses (Udemy/Coursera/LinkedIn Learning) with real URLs\n` +
-        `4. At least 2 free resources (YouTube/freeCodeCamp) with real URLs\n` +
-        `Copy the EXACT URL from the search results — do not construct or guess URLs.`,
+        `[BACKGROUND RESEARCH — real data gathered before plan generation]\n\n${contextBlock}\n\n` +
+        (hasCatalog
+          ? `COURSE URLS: The "COURSE URL CATALOG" above contains real, verified course pages. ` +
+            `You MUST use ONLY URLs from that catalog in courseRecommendations. ` +
+            `Copy each URL exactly as listed — zero characters changed. ` +
+            `Do NOT search for courses. Do NOT construct or guess any course URL.\n\n`
+          : ``) +
+        `SALARY DATA: Use the pre-searched salary figures above. ` +
+        `You may run 1-2 web_search calls ONLY to refine salary data if the pre-searched figures are sparse. ` +
+        `Do not run more than 2 searches total. Then generate the plan immediately.`,
     });
   }
 
   let searchCount = 0;
-  const maxSearches = 8;
+  // With the course catalog pre-seeded, the model only needs 0-2 searches (salary refinement)
+  const maxSearches = 3;
 
   while (searchCount < maxSearches) {
     const response = await client.chat.completions.create({
@@ -666,8 +764,8 @@ async function generatePlan(messages: Message[], timezone?: string): Promise<str
       max_tokens: 10000,
       messages: history,
       tools: [WEB_SEARCH_TOOL],
-      // Force the model to search at least twice before writing the plan
-      tool_choice: searchCount < 2 ? "required" : "auto",
+      // Don't force searches — the catalog already has what's needed
+      tool_choice: "auto",
     });
 
     const choice = response.choices[0];
