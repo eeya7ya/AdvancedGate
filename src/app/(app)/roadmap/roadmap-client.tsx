@@ -8,7 +8,7 @@ import {
   Target, Clock, ArrowRight, ChevronRight, Zap, Brain,
   Map, Bell, BellOff, Mail, RotateCcw, CheckCircle, Loader2,
   CalendarDays, TrendingUp, Globe, BookOpen, AlertTriangle,
-  Printer, Flag, Layers, ExternalLink, PlayCircle,
+  Printer, Flag, Layers, ExternalLink, PlayCircle, Plus,
 } from "lucide-react";
 import { subjects } from "@/lib/data";
 
@@ -69,6 +69,8 @@ interface CourseRecommendation {
   focus: string;
   phase: string;
   url?: string;
+  selected?: boolean;
+  userUrl?: string;
 }
 
 interface ScheduleData {
@@ -810,6 +812,16 @@ export function RoadmapClient({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // Custom URLs the user can add for courses they manually found
+  const [customUrls, setCustomUrls] = useState<Record<number, string>>(() => {
+    const initial: Record<number, string> = {};
+    (plan.courseRecommendations ?? []).forEach((c: CourseRecommendation, i: number) => {
+      if (c.userUrl) initial[i] = c.userUrl;
+    });
+    return initial;
+  });
+  const [showUrlInput, setShowUrlInput] = useState<Set<number>>(new Set());
+
   const toggleCourse = (index: number) => {
     setSelectedCourses((prev) => {
       const next = new Set(prev);
@@ -826,7 +838,11 @@ export function RoadmapClient({
       const updatedPlan = { ...plan };
       if (updatedPlan.courseRecommendations) {
         updatedPlan.courseRecommendations = updatedPlan.courseRecommendations.map(
-          (c: CourseRecommendation, i: number) => ({ ...c, selected: selectedCourses.has(i) })
+          (c: CourseRecommendation, i: number) => ({
+            ...c,
+            selected: selectedCourses.has(i),
+            ...(customUrls[i] ? { userUrl: customUrls[i] } : {}),
+          })
         );
       }
       await fetch("/api/user/roadmap", {
@@ -911,98 +927,173 @@ export function RoadmapClient({
               ? "اختر الدورات التي تريد التسجيل بها حسب ميزانيتك وتفضيلاتك. الدورات المجانية والمدفوعة متاحة لكل مسار."
               : "Select courses you want to enroll in based on your budget and preferences. Free and paid options are available for each path."}
           </p>
-          <div className="space-y-3">
-            {plan.courseRecommendations.map((c: CourseRecommendation, i: number) => {
-              const isSelected = selectedCourses.has(i);
-              const isFree = /youtube|freecodecamp|khan|edx/i.test(c.platform);
-              const levelColor: Record<string, string> = {
-                Beginner: "#00d4a1",
-                "Beginner to Intermediate": "#22d3ee",
-                Intermediate: "#a78bfa",
-                "Intermediate to Advanced": "#f59e0b",
-                Advanced: "#f87171",
-              };
+          {/* Group courses by phase */}
+          {(() => {
+            const levelColor: Record<string, string> = {
+              Beginner: "#00d4a1",
+              "Beginner to Intermediate": "#22d3ee",
+              Intermediate: "#a78bfa",
+              "Intermediate to Advanced": "#f59e0b",
+              Advanced: "#f87171",
+            };
+            const phaseOrder: string[] = [];
+            const phaseMap: Record<string, number[]> = {};
+            plan.courseRecommendations!.forEach((c: CourseRecommendation, i: number) => {
+              const key = c.phase || (isRTL ? "عام" : "General");
+              if (!phaseMap[key]) { phaseMap[key] = []; phaseOrder.push(key); }
+              phaseMap[key].push(i);
+            });
+            const phaseColors = ["#00d4a1", "#4f9eff", "#a78bfa", "#f59e0b", "#f87171", "#22d3ee"];
 
-              return (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 + i * 0.06, duration: 0.35 }}
-                  className="rounded-xl p-4 cursor-pointer transition-all"
-                  style={{
-                    background: isSelected ? "rgba(0,212,161,0.06)" : "var(--bg-base)",
-                    border: isSelected ? "2px solid rgba(0,212,161,0.5)" : "1px solid var(--border-subtle)",
-                    boxShadow: isSelected ? "0 0 16px rgba(0,212,161,0.15)" : "none",
-                  }}
-                  onClick={() => toggleCourse(i)}
-                >
-                  <div className="flex items-start gap-3">
-                    {/* Checkbox */}
+            return (
+              <div className="space-y-5">
+                {phaseOrder.map((phase, phaseIdx) => (
+                  <div key={phase} className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${phaseColors[phaseIdx % phaseColors.length]}22` }}>
+                    {/* Phase header boundary */}
                     <div
-                      className="flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center mt-0.5 transition-all"
-                      style={{
-                        background: isSelected ? "linear-gradient(135deg, #00d4a1, #22d3ee)" : "var(--bg-card)",
-                        border: isSelected ? "none" : "2px solid var(--border-medium)",
-                      }}
+                      className="flex items-center gap-2 px-4 py-2.5"
+                      style={{ background: `${phaseColors[phaseIdx % phaseColors.length]}0d`, borderBottom: `1px solid ${phaseColors[phaseIdx % phaseColors.length]}22` }}
                     >
-                      {isSelected && <CheckCircle size={12} className="text-white" />}
+                      <Flag size={11} style={{ color: phaseColors[phaseIdx % phaseColors.length] }} />
+                      <span className="text-xs font-bold" style={{ color: phaseColors[phaseIdx % phaseColors.length] }}>{phase}</span>
+                      <span className="text-[10px] ms-auto" style={{ color: "var(--text-muted)" }}>
+                        {phaseMap[phase].filter((i) => selectedCourses.has(i)).length}/{phaseMap[phase].length} {isRTL ? "مختارة" : "selected"}
+                      </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <p className="text-sm font-bold leading-snug" style={{ color: "var(--text-primary)" }}>{c.title}</p>
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <span
-                            className="text-[10px] font-bold px-2 py-0.5 rounded-lg"
-                            style={{ background: isFree ? "rgba(0,212,161,0.12)" : "rgba(167,139,250,0.12)", color: isFree ? "#00d4a1" : "#a78bfa" }}
+                    {/* Courses within this phase */}
+                    <div className="divide-y" style={{ borderColor: "var(--border-subtle)" }}>
+                      {phaseMap[phase].map((i) => {
+                        const c = plan.courseRecommendations![i];
+                        const isSelected = selectedCourses.has(i);
+                        const isFree = /youtube|freecodecamp|khan|edx/i.test(c.platform);
+                        const effectiveUrl = customUrls[i] || (c.url && c.url.length > 0 ? c.url : null);
+                        const urlInputVisible = showUrlInput.has(i);
+
+                        return (
+                          <motion.div
+                            key={i}
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.4 + i * 0.05, duration: 0.3 }}
+                            className="p-4 cursor-pointer transition-all"
+                            style={{
+                              background: isSelected ? "rgba(0,212,161,0.04)" : "transparent",
+                            }}
+                            onClick={() => toggleCourse(i)}
                           >
-                            {isFree ? (isRTL ? "مجاني" : "Free") : (isRTL ? "مدفوع" : "Paid")}
-                          </span>
-                          <span
-                            className="text-[10px] font-bold px-2 py-0.5 rounded-lg"
-                            style={{ background: `${levelColor[c.level] ?? "#00d4a1"}18`, color: levelColor[c.level] ?? "#00d4a1" }}
-                          >
-                            {c.level}
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
-                        {c.platform} · {c.instructor}
-                      </p>
-                      <p className="text-xs leading-relaxed mb-2" style={{ color: "var(--text-secondary)" }}>{c.focus}</p>
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md"
-                          style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee" }}>
-                          <Clock size={9} /> {c.estimatedHours}h
-                        </span>
-                        <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md"
-                          style={{ background: "rgba(0,212,161,0.1)", color: "#00d4a1" }}>
-                          <Flag size={9} /> {c.phase}
-                        </span>
-                        <a
-                          href={c.url && c.url.length > 0 ? c.url : getPlatformSearchUrl(c.platform, c.title)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all hover:scale-105 hover:opacity-90"
-                          style={{
-                            background: c.url && c.url.length > 0
-                              ? "linear-gradient(135deg, rgba(79,158,255,0.15), rgba(79,158,255,0.08))"
-                              : "linear-gradient(135deg, rgba(0,212,161,0.15), rgba(0,212,161,0.08))",
-                            color: c.url && c.url.length > 0 ? "#4f9eff" : "#00d4a1",
-                            border: c.url && c.url.length > 0 ? "1px solid rgba(79,158,255,0.3)" : "1px solid rgba(0,212,161,0.3)",
-                          }}
-                        >
-                          <ExternalLink size={10} />
-                          {isRTL ? "افتح الدورة" : "Open Course"}
-                        </a>
-                      </div>
+                            <div className="flex items-start gap-3">
+                              {/* Checkbox */}
+                              <div
+                                className="flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center mt-0.5 transition-all"
+                                style={{
+                                  background: isSelected ? "linear-gradient(135deg, #00d4a1, #22d3ee)" : "var(--bg-card)",
+                                  border: isSelected ? "none" : "2px solid var(--border-medium)",
+                                }}
+                              >
+                                {isSelected && <CheckCircle size={12} className="text-white" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2 mb-1">
+                                  <p className="text-sm font-bold leading-snug" style={{ color: "var(--text-primary)" }}>{c.title}</p>
+                                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                                    <span
+                                      className="text-[10px] font-bold px-2 py-0.5 rounded-lg"
+                                      style={{ background: isFree ? "rgba(0,212,161,0.12)" : "rgba(167,139,250,0.12)", color: isFree ? "#00d4a1" : "#a78bfa" }}
+                                    >
+                                      {isFree ? (isRTL ? "مجاني" : "Free") : (isRTL ? "مدفوع" : "Paid")}
+                                    </span>
+                                    <span
+                                      className="text-[10px] font-bold px-2 py-0.5 rounded-lg"
+                                      style={{ background: `${levelColor[c.level] ?? "#00d4a1"}18`, color: levelColor[c.level] ?? "#00d4a1" }}
+                                    >
+                                      {c.level}
+                                    </span>
+                                  </div>
+                                </div>
+                                <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
+                                  {c.platform} · {c.instructor}
+                                </p>
+                                <p className="text-xs leading-relaxed mb-2" style={{ color: "var(--text-secondary)" }}>{c.focus}</p>
+                                <div className="flex items-center gap-3 flex-wrap">
+                                  <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md"
+                                    style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee" }}>
+                                    <Clock size={9} /> {c.estimatedHours}h
+                                  </span>
+                                  <a
+                                    href={effectiveUrl ?? getPlatformSearchUrl(c.platform, c.title)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all hover:scale-105 hover:opacity-90"
+                                    style={{
+                                      background: effectiveUrl
+                                        ? "linear-gradient(135deg, rgba(79,158,255,0.15), rgba(79,158,255,0.08))"
+                                        : "linear-gradient(135deg, rgba(0,212,161,0.15), rgba(0,212,161,0.08))",
+                                      color: effectiveUrl ? "#4f9eff" : "#00d4a1",
+                                      border: effectiveUrl ? "1px solid rgba(79,158,255,0.3)" : "1px solid rgba(0,212,161,0.3)",
+                                    }}
+                                  >
+                                    <ExternalLink size={10} />
+                                    {customUrls[i] ? (isRTL ? "رابطك" : "Your Link") : (isRTL ? "افتح الدورة" : "Open Course")}
+                                  </a>
+                                </div>
+
+                                {/* Custom URL section */}
+                                {urlInputVisible ? (
+                                  <div
+                                    className="mt-3 flex items-center gap-2"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <Globe size={10} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+                                    <input
+                                      type="url"
+                                      value={customUrls[i] ?? ""}
+                                      onChange={(e) => setCustomUrls((prev) => ({ ...prev, [i]: e.target.value }))}
+                                      placeholder={isRTL ? "الصق رابط الدورة التي اخترتها..." : "Paste your course link here..."}
+                                      dir="ltr"
+                                      className="flex-1 text-xs bg-transparent outline-none px-2.5 py-1.5 rounded-lg"
+                                      style={{
+                                        border: "1px solid rgba(0,212,161,0.3)",
+                                        color: "var(--text-primary)",
+                                        caretColor: "#00d4a1",
+                                      }}
+                                    />
+                                    {customUrls[i] && (
+                                      <a
+                                        href={customUrls[i]}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0 hover:opacity-80"
+                                        style={{ background: "rgba(0,212,161,0.1)", color: "#00d4a1", border: "1px solid rgba(0,212,161,0.2)" }}
+                                      >
+                                        <ExternalLink size={11} />
+                                      </a>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setShowUrlInput((prev) => { const n = new Set(prev); n.add(i); return n; });
+                                    }}
+                                    className="mt-2.5 flex items-center gap-1 text-[10px] font-medium hover:opacity-80 transition-opacity"
+                                    style={{ color: "var(--text-muted)" }}
+                                  >
+                                    <Plus size={9} />
+                                    {isRTL ? "أضف رابطك الخاص" : "Add your own link"}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
                     </div>
                   </div>
-                </motion.div>
-              );
-            })}
-          </div>
+                ))}
+              </div>
+            );
+          })()}
 
           {/* Save button */}
           <div className="flex items-center justify-between mt-5 pt-4" style={{ borderTop: "1px solid var(--border-subtle)" }}>

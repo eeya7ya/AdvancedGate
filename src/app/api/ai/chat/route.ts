@@ -63,6 +63,8 @@ Be real. React to what they say. Get curious about their story. Use a well-place
 
 After each answer: react briefly and genuinely (one sentence that shows you actually read what they said), then naturally ask the next thing. Keep the energy alive.
 
+CRITICAL: NEVER send a standalone acknowledgment message. If you want to acknowledge what the user said, combine it seamlessly with your next question in the same message — do NOT output a message that is purely confirmatory text with nothing else (e.g., do NOT send "Got it — X schedule, Y hours. Let's make this happen! 🚀" as a message by itself). Every message you send must contain a question, an action, or meaningful new information.
+
 You need to understand these things through conversation (not necessarily in this exact order — adapt to how the chat flows):
 
 1. Who they are: name, where they're from, current situation (student/working/other), current field or subject
@@ -147,7 +149,7 @@ All description fields must be full, meaningful sentences — never 2-word label
   "marketInsights": {
     "localDemand": "1-2 honest sentences assessing local market demand in their specific country for this career path, based on your search results",
     "globalDemand": "1-2 sentences on global demand, growth trends, and remote opportunity for their goal, based on your search results",
-    "salaryRange": "Realistic income range from your search data, specific to their target market (e.g., 'JD 600–1,200/month locally; $2,500–5,000/month in Gulf region; $4,000–9,000/month for remote global clients')",
+    "salaryRange": "Realistic income range from your search data. Use the correct ISO currency code for EACH market segment — NEVER mix currency symbols. Local figures must use the user's local currency (e.g., JOD for Jordan, EGP for Egypt, SAR for Saudi Arabia). Gulf region uses the relevant Gulf currency (SAR, AED, QAR). Global remote uses USD. Example for a Jordanian user: 'JOD 600–1,200/month locally; AED 5,000–9,000/month in the UAE; USD 3,000–6,000/month for global remote clients'. All amounts must use proper ISO codes.",
     "notice": "Only include if there is a genuine strategic concern. Write constructively: acknowledge the challenge, explain why it matters for their decision, and give a specific recommended alternative path. Omit this field entirely if there are no real concerns.",
     "recommendation": "2-3 sentences of strategic advice tailored precisely to their country, stated target market, work style preference, and goal — referencing what they told you"
   },
@@ -574,6 +576,19 @@ function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
     return raw;
   }
 }
+
+// ╔══════════════════════════════════════════════════════════════════════════════╗
+// ║  LINK COLLECTION SECTION — DO NOT MODIFY WITHOUT ADMIN APPROVAL             ║
+// ║                                                                              ║
+// ║  The preSeedSearches function below handles all course URL discovery,        ║
+// ║  salary data pre-fetching, and job market research via parallel Tavily       ║
+// ║  searches. This section is working correctly and has been carefully tuned.   ║
+// ║                                                                              ║
+// ║  ⚠️  AI-ASSISTED EDITS TO THIS FUNCTION ARE PROHIBITED.                      ║
+// ║  Any change must be reviewed and approved by the project owner before        ║
+// ║  merging. Automated rewrites risk breaking live-verified URL catalogs,        ║
+// ║  currency handling, and parallel search logic that users depend on.          ║
+// ╚══════════════════════════════════════════════════════════════════════════════╝
 
 /**
  * Detect country and role keywords from the conversation, then fire multiple

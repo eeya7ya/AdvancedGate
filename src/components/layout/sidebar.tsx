@@ -80,7 +80,7 @@ export function Sidebar() {
             <Sparkles size={11} className="text-white" />
           </div>
           <span className="text-xs font-semibold" style={{ color: "#00d4a1" }}>
-            AI-Powered Advisor
+            eSpark AI
           </span>
         </div>
       </div>
@@ -162,7 +162,7 @@ export function Sidebar() {
             style={{ background: "#00d4a1", boxShadow: "0 0 6px #00d4a1" }}
           />
           <span className="text-[10px] font-medium" style={{ color: "rgba(255,255,255,0.3)" }}>
-            Platform v2026.1
+            Beta v1.0A
           </span>
         </div>
       </div>
