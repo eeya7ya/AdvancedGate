@@ -959,11 +959,40 @@ export function AIDashboard({ firstName }: { firstName: string }) {
           .catch(() => null)
           .finally(() => setIsLoading(false));
       } else if (looksLikePlanAttempt(full)) {
-        // AI tried to generate a plan but output was malformed/truncated
-        setMessages([
-          ...newMessages,
-          { role: "assistant", content: "I had trouble generating your plan — the response was incomplete. Please send your last message again and I'll try once more." },
-        ]);
+        // Plan JSON was malformed/truncated — auto-retry via the full Tavily generation path
+        const retryMsg = lang === "ar"
+          ? "تقريباً انتهيت — أُنشئ خطتك الآن، لحظة من فضلك..."
+          : "Almost there — building your plan now, just a moment...";
+        setMessages([...newMessages, { role: "assistant" as const, content: retryMsg }]);
+        fetch("/api/ai/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: newMessages }), // isInit omitted → full Tavily plan path
+        })
+          .then(async (r) => {
+            if (!r.ok || !r.body) return;
+            const retryReader = r.body.getReader();
+            const retryDecoder = new TextDecoder();
+            let retryText = "";
+            while (true) {
+              const { done, value } = await retryReader.read();
+              if (done) break;
+              retryText += retryDecoder.decode(value, { stream: true });
+            }
+            const retryPlan = parsePlan(retryText);
+            if (retryPlan) {
+              setPlan(retryPlan);
+              setPhase("plan");
+              setMessages([...newMessages, { role: "assistant" as const, content: retryText }]);
+              fetch("/api/user/roadmap", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ plan: retryPlan }),
+              }).catch(() => null);
+            }
+          })
+          .catch(() => null)
+          .finally(() => setIsLoading(false));
       } else {
         setMessages([...newMessages, { role: "assistant", content: full }]);
       }
