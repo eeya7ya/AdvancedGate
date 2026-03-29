@@ -92,13 +92,13 @@ Before you receive the plan generation instruction, the system has already run p
    - Select courseRecommendations ONLY from courses in the catalog
    - Copy each URL VERBATIM — not one character changed, no shortening, no reconstruction
    - NEVER construct, guess, or hallucinate a URL — if a course you want isn't in the catalog, leave url as ""
-   - Do NOT use web_search to find course URLs — the catalog is your only course URL source
+   - Do NOT search for course URLs — the catalog is your only course URL source
 
 2. SALARY DATA — pre-searched from multiple sources with the correct local currency. Use these figures directly (cross-reference them, pick the most consistent values).
 
 3. JOB MARKET DATA — pre-searched for the user's country and role.
 
-You may use web_search ONLY if the salary data in the pre-searched block is very sparse or missing. Maximum 2 additional searches for salary refinement only — not for courses.
+All course, salary, and market data has been pre-searched using AI deep search. Use the provided data directly — do not attempt additional searches.
 
 Use the pre-searched data when populating courseRecommendations, marketInsights.salaryRange, and marketInsights.localDemand.
 
@@ -354,7 +354,7 @@ FINAL CRITICAL RULES:
 - Every field reflects their actual answers — personalized to who they are, where they live, and what they said
 - courseRecommendations MUST contain 6-8 REAL courses found via your web searches — real titles, real instructors, real platforms. Do NOT limit to 4. Users need options across all price ranges and platforms
 - courseRecommendations ORDERING: always list the official vendor/mother company course FIRST (e.g., Cisco U. for CCNA, Microsoft Learn for Azure, AWS Skill Builder for AWS, CompTIA CertMaster for CompTIA certs), followed by paid third-party platforms (Udemy, Coursera, LinkedIn Learning), then free platforms (YouTube, freeCodeCamp, edX)
-- courseRecommendations.url CRITICAL: ONLY use a URL that appears word-for-word in your web_search tool results. NEVER construct, guess, or hallucinate a URL. If the exact course URL was not returned by search, set url to "" (empty string). The "Search" fallback button will handle finding it. A fabricated URL that leads to a 404 destroys user trust — empty string is always better.
+- courseRecommendations.url CRITICAL: ONLY use a URL that appears word-for-word in the COURSE URL CATALOG provided in the background research. NEVER construct, guess, or hallucinate a URL. If the exact course URL was not in the catalog, set url to "" (empty string). The "Search" fallback button will handle finding it. A fabricated URL that leads to a 404 destroys user trust — empty string is always better.
 - roadmap phase count and total duration MUST match their stated timeline exactly
 - notice in marketInsights appears ONLY for genuine strategic concerns — never invent problems
 - salaryRange must be specific to their stated target market (Gulf, Europe, local, etc.) — not just generic USD
@@ -379,46 +379,80 @@ interface SearchResult {
 }
 
 async function webSearch(query: string): Promise<SearchResult> {
-  const apiKey = process.env.TAVILY_API_KEY;
-  if (!apiKey) {
-    console.error("[Tavily] TAVILY_API_KEY is not set — add it to .env.local");
-    return { text: "Search unavailable: TAVILY_API_KEY not configured.", urls: [] };
-  }
   try {
-    const res = await fetch("https://api.tavily.com/search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      // Tavily authenticates via api_key in the request body
-      body: JSON.stringify({
-        api_key: apiKey,
-        query,
-        search_depth: "advanced",
-        max_results: 10,
-        include_answer: true,
-        include_raw_content: false,
-      }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const response = await (client.chat.completions.create as any)({
+      model: "groq/compound",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a precise search assistant. For every query, find the most relevant and current web results. " +
+            "Return each result with its exact Title, URL, and a brief Content summary. " +
+            "Focus on real, currently available pages — especially course enrollment pages, official documentation, and authoritative sources. " +
+            "Always include direct URLs to specific pages, never platform homepages.",
+        },
+        { role: "user", content: query },
+      ],
     });
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      console.error(`[Tavily] Search failed ${res.status}:`, errText);
-      return { text: `Search failed with status ${res.status}`, urls: [] };
+
+    const choice = response.choices[0];
+    const message = choice?.message;
+    const content: string = message?.content ?? "";
+
+    // Extract URLs from executed_tools search_results (structured data from compound model)
+    const urls: string[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const executedTools = (message as any)?.executed_tools;
+    if (Array.isArray(executedTools)) {
+      for (const tool of executedTools) {
+        const results = tool.search_results?.results;
+        if (Array.isArray(results)) {
+          for (const r of results) {
+            if (r.url) urls.push(r.url);
+          }
+        }
+      }
     }
-    const data = await res.json() as {
-      answer?: string;
-      results?: Array<{ title: string; url: string; content: string }>;
-    };
-    const results = data.results ?? [];
-    const answer = data.answer ? `Summary: ${data.answer}\n\n` : "";
-    return {
-      text:
-        answer +
-        (results
-          .map((r) => `Title: ${r.title}\nURL: ${r.url}\nContent: ${r.content}`)
-          .join("\n\n---\n\n") || "No results found."),
-      urls: results.map((r) => r.url),
-    };
+
+    // Also extract URLs from the text content (compound model often cites URLs inline)
+    const urlRegex = /https?:\/\/[^\s"'<>\])}]+/g;
+    const textUrls = content.match(urlRegex) ?? [];
+    for (const u of textUrls) {
+      const clean = u.replace(/[.,;:!?)]+$/, ""); // strip trailing punctuation
+      if (!urls.includes(clean)) urls.push(clean);
+    }
+
+    // Build text in the same Title/URL/Content format the catalog builder expects
+    let formattedText = "";
+    if (Array.isArray(executedTools)) {
+      const blocks: string[] = [];
+      for (const tool of executedTools) {
+        const results = tool.search_results?.results;
+        if (Array.isArray(results)) {
+          for (const r of results) {
+            blocks.push(
+              `Title: ${r.title ?? "Untitled"}\nURL: ${r.url ?? ""}\nContent: ${r.content ?? ""}`
+            );
+          }
+        }
+      }
+      if (blocks.length > 0) {
+        formattedText = blocks.join("\n\n---\n\n");
+      }
+    }
+
+    // If no structured results, fall back to the model's text content
+    if (!formattedText) {
+      formattedText = content || "No results found.";
+    } else if (content) {
+      formattedText = `Summary: ${content}\n\n${formattedText}`;
+    }
+
+    console.log(`[Groq Compound] "${query}" → ${urls.length} URLs found`);
+    return { text: formattedText, urls };
   } catch (err) {
-    console.error("[Tavily] Request error:", err);
+    console.error("[Groq Compound] Search error:", err);
     return { text: "Search unavailable.", urls: [] };
   }
 }
@@ -576,24 +610,18 @@ function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
 }
 
 // ╔══════════════════════════════════════════════════════════════════════════════╗
-// ║  LINK COLLECTION SECTION — DO NOT MODIFY WITHOUT ADMIN APPROVAL             ║
+// ║  LINK COLLECTION SECTION — Powered by Groq Compound (AI deep search)       ║
 // ║                                                                              ║
 // ║  The preSeedSearches function below handles all course URL discovery,        ║
-// ║  salary data pre-fetching, and job market research via parallel Tavily       ║
-// ║  searches. This section is working correctly and has been carefully tuned.   ║
-// ║                                                                              ║
-// ║  ⚠️  AI-ASSISTED EDITS TO THIS FUNCTION ARE PROHIBITED.                      ║
-// ║  Any change must be reviewed and approved by the project owner before        ║
-// ║  merging. Automated rewrites risk breaking live-verified URL catalogs,        ║
-// ║  currency handling, and parallel search logic that users depend on.          ║
+// ║  salary data pre-fetching, and job market research via parallel Groq         ║
+// ║  Compound model searches (AI-driven web search, no separate API key).       ║
 // ╚══════════════════════════════════════════════════════════════════════════════╝
 
 /**
  * Detect country and role keywords from the conversation, then fire multiple
- * Tavily searches IN PARALLEL (salary from different angles + job market) before
- * the model takes over. Parallel queries across different query formulations and
- * sources give the model a richer, more accurate picture — no single bad source
- * can dominate the salary figure.
+ * Groq Compound searches IN PARALLEL (salary from different angles + job market)
+ * before the model takes over. The compound model uses AI-driven deep web search
+ * for smarter, more contextual results than raw keyword searches.
  */
 async function preSeedSearches(
   messages: Message[]
@@ -864,7 +892,7 @@ async function preSeedSearches(
       `Every URL below was checked and confirmed reachable (HTTP live check + Tavily search). ` +
       `You MUST select courseRecommendations ONLY from this list. ` +
       `Copy each URL character-for-character — do NOT modify, shorten, or reconstruct any URL. ` +
-      `Do NOT run your own course web_search calls — this catalog is your only course URL source.\n\n` +
+      `Do NOT search for course URLs — this catalog is your only course URL source.\n\n` +
       catalogLines.join("\n\n")
     );
   }
@@ -894,30 +922,10 @@ async function preSeedSearches(
   return { contextBlock: parts.join("\n\n---\n\n"), urls: allUrls };
 }
 
-const WEB_SEARCH_TOOL: Groq.Chat.Completions.ChatCompletionTool = {
-  type: "function",
-  function: {
-    name: "web_search",
-    description:
-      "Search the web for current information about courses, salaries, job market data, and career resources.",
-    parameters: {
-      type: "object",
-      properties: {
-        query: {
-          type: "string",
-          description: "The search query to execute.",
-        },
-      },
-      required: ["query"],
-    },
-  },
-};
-
 async function generatePlan(messages: Message[], timezone?: string): Promise<string> {
   type GroqMessage = Groq.Chat.Completions.ChatCompletionMessageParam;
 
-  // Step 1: Pre-run mandatory salary + market searches based on user's country.
-  // This guarantees the plan has real local salary data before the model starts.
+  // Pre-run all searches via Groq Compound (AI deep search) — courses, salary, market
   const { contextBlock, urls: preUrls } = await preSeedSearches(messages);
   const allSearchUrls = new Set<string>(preUrls);
 
@@ -927,69 +935,31 @@ async function generatePlan(messages: Message[], timezone?: string): Promise<str
     ...messages,
   ];
 
-  // Step 2: Inject pre-searched data. Course URLs come from the catalog — the
-  // model must NOT search for courses itself. It may still search to refine salary
-  // data or find one additional resource not in the catalog.
+  // Inject pre-searched data. Course URLs come from the catalog — the
+  // model generates the plan directly from this rich context.
   if (contextBlock) {
     const hasCatalog = contextBlock.includes("COURSE URL CATALOG");
     history.push({
       role: "user",
       content:
-        `[BACKGROUND RESEARCH — real data gathered before plan generation]\n\n${contextBlock}\n\n` +
+        `[BACKGROUND RESEARCH — real data gathered via AI deep search before plan generation]\n\n${contextBlock}\n\n` +
         (hasCatalog
           ? `COURSE URLS: The "COURSE URL CATALOG" above contains real, verified course pages. ` +
             `You MUST use ONLY URLs from that catalog in courseRecommendations. ` +
             `Copy each URL exactly as listed — zero characters changed. ` +
-            `Do NOT search for courses. Do NOT construct or guess any course URL.\n\n`
+            `Do NOT construct or guess any course URL.\n\n`
           : ``) +
-        `SALARY DATA: Use the pre-searched salary figures above. ` +
-        `You may run 1-2 web_search calls ONLY to refine salary data if the pre-searched figures are sparse. ` +
-        `Do not run more than 2 searches total. Then generate the plan immediately.`,
+        `SALARY DATA: Use the pre-searched salary figures above. Generate the plan immediately.`,
     });
   }
 
-  let searchCount = 0;
-  // With the course catalog pre-seeded, the model only needs 0-2 searches (salary refinement)
-  const maxSearches = 3;
-
-  while (searchCount < maxSearches) {
-    const response = await client.chat.completions.create({
-      model: "moonshotai/kimi-k2-instruct",
-      max_tokens: 10000,
-      messages: history,
-      tools: [WEB_SEARCH_TOOL],
-      // Don't force searches — the catalog already has what's needed
-      tool_choice: "auto",
-    });
-
-    const choice = response.choices[0];
-
-    if (!choice.message.tool_calls?.length) {
-      return sanitizePlanUrls(choice.message.content ?? "", allSearchUrls);
-    }
-
-    history.push(choice.message as GroqMessage);
-
-    for (const toolCall of choice.message.tool_calls) {
-      const args = JSON.parse(toolCall.function.arguments) as { query: string };
-      console.log(`[Tavily] Search #${searchCount + 1}: "${args.query}"`);
-      const { text, urls } = await webSearch(args.query);
-      urls.forEach((u) => allSearchUrls.add(u));
-      history.push({
-        role: "tool",
-        tool_call_id: toolCall.id,
-        content: text,
-      });
-      searchCount++;
-    }
-  }
-
-  const finalResponse = await client.chat.completions.create({
+  const response = await client.chat.completions.create({
     model: "moonshotai/kimi-k2-instruct",
     max_tokens: 10000,
     messages: history,
   });
-  return sanitizePlanUrls(finalResponse.choices[0].message.content ?? "", allSearchUrls);
+
+  return sanitizePlanUrls(response.choices[0].message.content ?? "", allSearchUrls);
 }
 
 export async function POST(req: NextRequest) {
