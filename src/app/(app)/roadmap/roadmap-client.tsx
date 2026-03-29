@@ -417,8 +417,9 @@ function getPlatformSearchUrl(platform: string, title: string): string {
   if (p.includes("comptia"))          return `https://www.comptia.org/training/certmaster-learn#q=${q}`;
   if (p.includes("vmware"))           return `https://mylearn.vmware.com/search#${q}`;
   if (p.includes("palo alto"))        return `https://www.paloaltonetworks.com/services/education/search#${q}`;
-  // Default: Google search scoped to the platform name
-  return `https://www.google.com/search?q=${encodeURIComponent(title + " " + platform + " course")}`;
+  // Generic fallback: YouTube search surfaces courses on virtually any topic
+  // (cooking, therapy, Revit, AVIXA, ETAP, META, niche certs — all covered)
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(title + " " + platform + " course tutorial")}`;
 }
 
 /* ── Course Matching ───────────────────────────────────────── */
