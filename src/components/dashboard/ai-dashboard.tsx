@@ -804,7 +804,7 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
               setChatInput(e.target.value);
               const el = e.target;
               el.style.height = "auto";
-              el.style.height = Math.min(el.scrollHeight, 120) + "px";
+              el.style.height = Math.min(el.scrollHeight, 160) + "px";
             }}
             onKeyDown={handleChatKeyDown}
             placeholder={td("chatPlaceholder", ar)}
@@ -814,11 +814,14 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
             className="flex-1 resize-none bg-transparent outline-none text-sm leading-relaxed py-1.5 disabled:opacity-40"
             style={{
               color: "var(--text-primary)",
-              maxHeight: "120px",
+              minHeight: "36px",
+              maxHeight: "160px",
               overflowY: "auto",
               caretColor: "#00d4a1",
-              height: "auto",
+              height: "36px",
               textAlign: isArabic(chatInput) ? "right" : "left",
+              wordBreak: "break-word",
+              whiteSpace: "pre-wrap",
             }}
           />
           <button
@@ -1159,21 +1162,24 @@ export function AIDashboard({ firstName }: { firstName: string }) {
                   setInput(e.target.value);
                   const el = e.target;
                   el.style.height = "auto";
-                  el.style.height = Math.min(el.scrollHeight, 120) + "px";
+                  el.style.height = Math.min(el.scrollHeight, 160) + "px";
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder={td("placeholder", lang === "ar")}
                 rows={1}
                 disabled={isLoading}
                 dir={getTextDir(input)}
-                className="flex-1 resize-none bg-transparent outline-none text-sm leading-relaxed py-1 disabled:opacity-40"
+                className="flex-1 resize-none bg-transparent outline-none text-sm leading-relaxed py-1.5 disabled:opacity-40"
                 style={{
                   color: "var(--text-primary)",
-                  maxHeight: "120px",
+                  minHeight: "36px",
+                  maxHeight: "160px",
                   overflowY: "auto",
                   caretColor: "#00d4a1",
-                  height: "auto",
+                  height: "36px",
                   textAlign: isArabic(input) ? "right" : "left",
+                  wordBreak: "break-word",
+                  whiteSpace: "pre-wrap",
                 }}
               />
               <button

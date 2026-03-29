@@ -396,29 +396,12 @@ function MarketInsightsSection({ insights }: { insights: MarketInsights }) {
   );
 }
 
-/* ── Platform-specific search URL fallback ─────────────────── */
+/* ── Grok AI search fallback — used when no direct course URL is available ── */
 function getPlatformSearchUrl(platform: string, title: string): string {
-  const q = encodeURIComponent(title ?? "");
-  if (!q) return `https://www.google.com/search?q=${encodeURIComponent((platform || "course") + " training")}`;
-
-  const p = platform.toLowerCase();
-  if (p.includes("udemy"))            return `https://www.udemy.com/courses/search/?q=${q}`;
-  if (p.includes("coursera"))         return `https://www.coursera.org/search?query=${q}`;
-  if (p.includes("youtube"))          return `https://www.youtube.com/results?search_query=${q}`;
-  if (p.includes("linkedin"))         return `https://www.linkedin.com/learning/search?keywords=${q}`;
-  if (p.includes("pluralsight"))      return `https://www.pluralsight.com/search?q=${q}`;
-  if (p.includes("edx"))              return `https://www.edx.org/search?q=${q}`;
-  if (p.includes("freecodecamp"))     return `https://www.freecodecamp.org/news/search/?query=${q}`;
-  if (p.includes("khan"))             return `https://www.khanacademy.org/search?page_search_query=${q}`;
-  if (p.includes("cisco"))            return `https://u.cisco.com/search?term=${q}`;
-  if (p.includes("microsoft"))        return `https://learn.microsoft.com/en-us/search/?terms=${q}`;
-  if (p.includes("aws") || p.includes("skill builder")) return `https://explore.skillbuilder.aws/learn?searchTerm=${q}`;
-  if (p.includes("google cloud") || p.includes("cloudskillsboost")) return `https://cloudskillsboost.google/catalog?keywords=${q}`;
-  if (p.includes("comptia"))          return `https://www.comptia.org/training/certmaster-learn#q=${q}`;
-  if (p.includes("vmware"))           return `https://mylearn.vmware.com/search#${q}`;
-  if (p.includes("palo alto"))        return `https://www.paloaltonetworks.com/services/education/search#${q}`;
-  // Default: Google search scoped to the platform name
-  return `https://www.google.com/search?q=${encodeURIComponent(title + " " + platform + " course")}`;
+  const query = title
+    ? `Find the best "${title}" course on ${platform || "online learning platforms"} — give me the direct link`
+    : `Find a good ${platform || "online"} course for this topic — give me the direct enrollment link`;
+  return `https://grok.com/?q=${encodeURIComponent(query)}`;
 }
 
 /* ── Course Matching ───────────────────────────────────────── */

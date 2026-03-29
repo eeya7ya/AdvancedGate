@@ -1,33 +1,13 @@
 import { GoogleSignInButton } from "@/components/auth/google-sign-in";
 import { Lock, CheckCircle, Sparkles, Brain, Zap } from "lucide-react";
+import { VideoPanel } from "./video-panel";
 
 // Middleware redirects authenticated users away from /login
 export default function LoginPage() {
   return (
     <div className="h-screen w-screen flex overflow-hidden bg-[#080c14]">
-      {/* Preload the video */}
-      <link rel="preload" as="video" href="/background.mp4" type="video/mp4" />
-
-      {/* ─── LHS: Looping Video (clean, no text overlay) ─────────────── */}
-      <div
-        className="relative hidden lg:flex lg:w-3/5 xl:w-[60%] overflow-hidden"
-        style={{ background: "linear-gradient(135deg,#0d1424 0%,#111827 100%)" }}
-      >
-        <video
-          src="/background.mp4"
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          // @ts-expect-error — fetchpriority is a valid HTML attribute not yet typed
-          fetchpriority="high"
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        {/* Subtle edge gradients only — no text overlays */}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#080c14]/80" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#080c14]/40 via-transparent to-transparent" />
-      </div>
+      {/* ─── LHS: Looping Video (fades in smoothly once buffered) ───── */}
+      <VideoPanel />
 
       {/* ─── RHS: All Content + Login Panel ─────────────────────────── */}
       <div
