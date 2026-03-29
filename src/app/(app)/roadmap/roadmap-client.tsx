@@ -398,12 +398,20 @@ function MarketInsightsSection({ insights }: { insights: MarketInsights }) {
   );
 }
 
-/* ── Grok AI search fallback — used when no direct course URL is available ── */
-function getPlatformSearchUrl(platform: string, title: string): string {
-  const query = title
-    ? `Find the best "${title}" course on ${platform || "online learning platforms"} — give me the direct link`
-    : `Find a good ${platform || "online"} course for this topic — give me the direct enrollment link`;
-  return `https://grok.com/?q=${encodeURIComponent(query)}`;
+/* ── Course link resolver — calls our AI model to find real enrollment pages ── */
+async function fetchCourseLink(title: string, platform: string, instructor: string): Promise<string> {
+  try {
+    const res = await fetch("/api/ai/course-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, platform, instructor }),
+    });
+    if (!res.ok) return "";
+    const data = await res.json();
+    return typeof data.url === "string" ? data.url : "";
+  } catch {
+    return "";
+  }
 }
 
 /* ── Course Matching ───────────────────────────────────────── */
@@ -437,7 +445,15 @@ function findInternalCourse(title: string): { id: string; subjectId: string } | 
 const OPTION_LABELS = ["A", "B", "C", "D", "E", "F"];
 const OPTION_COLORS = ["#00d4a1", "#4f9eff", "#a78bfa", "#f59e0b", "#f87171", "#22d3ee"];
 
-function CourseRecommendationsSection({ courses }: { courses: CourseRecommendation[] }) {
+function CourseRecommendationsSection({
+  courses,
+  resolvedUrls,
+  loadingKeys,
+}: {
+  courses: CourseRecommendation[];
+  resolvedUrls: Record<string, string>;
+  loadingKeys: Set<string>;
+}) {
   const isRTL = useRTL();
   const levelColor: Record<string, string> = {
     Beginner: "#00d4a1",
@@ -488,7 +504,10 @@ function CourseRecommendationsSection({ courses }: { courses: CourseRecommendati
                 const tierColor = isOfficial ? "#f59e0b" : isFree ? "#00d4a1" : "#a78bfa";
                 const optColor = OPTION_COLORS[optIdx % OPTION_COLORS.length];
                 const optLabel = OPTION_LABELS[optIdx] ?? String(optIdx + 1);
-                const openUrl = courseLink ? null : (c.url && c.url.length > 0 ? c.url : getPlatformSearchUrl(c.platform ?? "", c.title ?? ""));
+                const courseKey = `${c.title}__${c.platform}`;
+                const resolvedUrl = resolvedUrls[courseKey] ?? "";
+                const openUrl = courseLink ? null : (c.url && c.url.length > 0 ? c.url : resolvedUrl || null);
+                const isLoadingUrl = !courseLink && !c.url && loadingKeys.has(courseKey);
 
                 return (
                   <motion.div
@@ -540,9 +559,17 @@ function CourseRecommendationsSection({ courses }: { courses: CourseRecommendati
                               <PlayCircle size={10} />
                               {isRTL ? "ابدأ الدورة" : "Start Course"}
                             </Link>
-                          ) : (
+                          ) : isLoadingUrl ? (
+                            <span
+                              className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg"
+                              style={{ background: `linear-gradient(135deg, ${optColor}22, ${optColor}10)`, color: optColor, border: `1px solid ${optColor}44` }}
+                            >
+                              <Loader2 size={10} className="animate-spin" />
+                              {isRTL ? "جارٍ البحث..." : "Finding link..."}
+                            </span>
+                          ) : openUrl ? (
                             <a
-                              href={openUrl!}
+                              href={openUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all hover:scale-105 hover:opacity-90"
@@ -557,6 +584,14 @@ function CourseRecommendationsSection({ courses }: { courses: CourseRecommendati
                               <ExternalLink size={10} />
                               {isRTL ? "افتح الدورة" : "Open Course"}
                             </a>
+                          ) : (
+                            <span
+                              className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg opacity-40 cursor-not-allowed"
+                              style={{ background: `linear-gradient(135deg, ${optColor}12, ${optColor}08)`, color: optColor, border: `1px solid ${optColor}22` }}
+                            >
+                              <ExternalLink size={10} />
+                              {isRTL ? "لا يوجد رابط" : "No link found"}
+                            </span>
                           )}
                         </div>
                       </div>
@@ -822,6 +857,25 @@ export function RoadmapClient({
   });
   const [showUrlInput, setShowUrlInput] = useState<Set<number>>(new Set());
 
+  // Resolved URLs fetched by our AI model for courses without a direct URL
+  const [resolvedUrls, setResolvedUrls] = useState<Record<string, string>>({});
+  const [loadingKeys, setLoadingKeys] = useState<Set<string>>(new Set());
+
+  // On mount, fetch links for any course missing a URL
+  useEffect(() => {
+    const courses = plan.courseRecommendations ?? [];
+    courses.forEach((c: CourseRecommendation) => {
+      if (c.url && c.url.length > 0) return; // already has a URL
+      const key = `${c.title}__${c.platform}`;
+      setLoadingKeys((prev) => { const n = new Set(prev); n.add(key); return n; });
+      fetchCourseLink(c.title, c.platform, c.instructor).then((url) => {
+        setLoadingKeys((prev) => { const n = new Set(prev); n.delete(key); return n; });
+        if (url) setResolvedUrls((prev) => ({ ...prev, [key]: url }));
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const toggleCourse = (index: number) => {
     setSelectedCourses((prev) => {
       const next = new Set(prev);
@@ -966,7 +1020,9 @@ export function RoadmapClient({
                         const c = plan.courseRecommendations![i];
                         const isSelected = selectedCourses.has(i);
                         const isFree = /youtube|freecodecamp|khan|edx/i.test(c.platform);
-                        const effectiveUrl = customUrls[i] || (c.url && c.url.length > 0 ? c.url : null);
+                        const courseKey2 = `${c.title}__${c.platform}`;
+                        const effectiveUrl = customUrls[i] || (c.url && c.url.length > 0 ? c.url : resolvedUrls[courseKey2] || null);
+                        const isLoadingCourse = !effectiveUrl && loadingKeys.has(courseKey2);
                         const urlInputVisible = showUrlInput.has(i);
 
                         return (
@@ -1019,23 +1075,39 @@ export function RoadmapClient({
                                     style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee" }}>
                                     <Clock size={9} /> {c.estimatedHours}h
                                   </span>
-                                  <a
-                                    href={effectiveUrl ?? getPlatformSearchUrl(c.platform, c.title)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all hover:scale-105 hover:opacity-90"
-                                    style={{
-                                      background: effectiveUrl
-                                        ? "linear-gradient(135deg, rgba(79,158,255,0.15), rgba(79,158,255,0.08))"
-                                        : "linear-gradient(135deg, rgba(0,212,161,0.15), rgba(0,212,161,0.08))",
-                                      color: effectiveUrl ? "#4f9eff" : "#00d4a1",
-                                      border: effectiveUrl ? "1px solid rgba(79,158,255,0.3)" : "1px solid rgba(0,212,161,0.3)",
-                                    }}
-                                  >
-                                    <ExternalLink size={10} />
-                                    {customUrls[i] ? (isRTL ? "رابطك" : "Your Link") : (isRTL ? "افتح الدورة" : "Open Course")}
-                                  </a>
+                                  {isLoadingCourse ? (
+                                    <span
+                                      className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg"
+                                      style={{ background: "linear-gradient(135deg, rgba(0,212,161,0.15), rgba(0,212,161,0.08))", color: "#00d4a1", border: "1px solid rgba(0,212,161,0.3)" }}
+                                    >
+                                      <Loader2 size={10} className="animate-spin" />
+                                      {isRTL ? "جارٍ البحث..." : "Finding link..."}
+                                    </span>
+                                  ) : effectiveUrl ? (
+                                    <a
+                                      href={effectiveUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all hover:scale-105 hover:opacity-90"
+                                      style={{
+                                        background: "linear-gradient(135deg, rgba(79,158,255,0.15), rgba(79,158,255,0.08))",
+                                        color: "#4f9eff",
+                                        border: "1px solid rgba(79,158,255,0.3)",
+                                      }}
+                                    >
+                                      <ExternalLink size={10} />
+                                      {customUrls[i] ? (isRTL ? "رابطك" : "Your Link") : (isRTL ? "افتح الدورة" : "Open Course")}
+                                    </a>
+                                  ) : (
+                                    <span
+                                      className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg opacity-40 cursor-not-allowed"
+                                      style={{ background: "linear-gradient(135deg, rgba(0,212,161,0.12), rgba(0,212,161,0.06))", color: "#00d4a1", border: "1px solid rgba(0,212,161,0.2)" }}
+                                    >
+                                      <ExternalLink size={10} />
+                                      {isRTL ? "لا يوجد رابط" : "No link found"}
+                                    </span>
+                                  )}
                                 </div>
 
                                 {/* Custom URL section */}
