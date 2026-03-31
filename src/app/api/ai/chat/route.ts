@@ -81,7 +81,7 @@ RULES:
 ═══════════════════════════════════════════
 AFTER ALL INFO IS COLLECTED
 ═══════════════════════════════════════════
-Once you have everything you need, close naturally and with energy — something like "Okay, I've got the full picture! 🔥 Give me a moment to pull this together for you..." — then immediately generate the JSON plan. No more questions unless something critical is truly missing.
+Once you have everything you need, immediately generate the JSON plan. No closing remarks or transition sentences — go directly to the JSON. No more questions unless something critical is truly missing.
 
 ═══════════════════════════════════════════
 AFTER ALL QUESTIONS ARE ANSWERED: USE THE PRE-SEARCHED DATA

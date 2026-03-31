@@ -1,10 +1,4 @@
-"use client";
-
-import { useState } from "react";
-
 export function VideoPanel() {
-  const [ready, setReady] = useState(false);
-
   return (
     <div
       className="relative hidden lg:flex lg:w-3/5 xl:w-[60%] overflow-hidden"
@@ -19,12 +13,7 @@ export function VideoPanel() {
         preload="auto"
         // @ts-expect-error — fetchpriority is a valid HTML attribute not yet typed
         fetchpriority="high"
-        onCanPlay={() => setReady(true)}
         className="absolute inset-0 w-full h-full object-cover"
-        style={{
-          opacity: ready ? 1 : 0,
-          transition: "opacity 0.6s ease",
-        }}
       />
       {/* Subtle edge gradients only — no text overlays */}
       <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#080c14]/80" />
