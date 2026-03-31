@@ -2,6 +2,7 @@ import { subjects } from "@/lib/data";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Zap, Network, Code2, Clock, ChevronRight, BookOpen } from "lucide-react";
+import DeepCourseSearch from "@/components/subjects/deep-course-search";
 
 const subjectIcons: Record<string, React.ReactNode> = {
   "power-engineering": <Zap size={24} />,
@@ -20,6 +21,9 @@ export default function SubjectsPage() {
           Three structured engineering disciplines. Courses within each discipline build on one another. Start with any open course and progress at your own pace.
         </p>
       </div>
+
+      {/* Deep Course Search */}
+      <DeepCourseSearch />
 
       {/* Disciplines */}
       <div className="space-y-6">
