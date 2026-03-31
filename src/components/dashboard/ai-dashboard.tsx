@@ -1382,6 +1382,16 @@ export function AIDashboard({ firstName }: { firstName: string }) {
     }
   };
 
+  // Must be declared before any early returns (Rules of Hooks)
+  const handleIntroComplete = useCallback((scenarioId: string, scenarioLabel: string) => {
+    void scenarioId;
+    localStorage.setItem("espark-intro-done", "1");
+    localStorage.setItem("espark-scenario", scenarioLabel);
+    setScenario(scenarioLabel);
+    setShowIntro(false);
+    void startInterview(scenarioLabel);
+  }, [startInterview]);
+
   if (isInitializing) {
     return (
       <div className="max-w-4xl mx-auto flex items-center justify-center" style={{ minHeight: "60vh" }}>
@@ -1403,15 +1413,6 @@ export function AIDashboard({ firstName }: { firstName: string }) {
       </div>
     );
   }
-
-  const handleIntroComplete = useCallback((scenarioId: string, scenarioLabel: string) => {
-    localStorage.setItem("espark-intro-done", "1");
-    localStorage.setItem("espark-scenario", scenarioLabel);
-    setScenario(scenarioLabel);
-    setShowIntro(false);
-    void startInterview(scenarioLabel);
-    void scenarioId; // used by localStorage key only
-  }, [startInterview]);
 
   return (
     <div className="max-w-4xl mx-auto">
