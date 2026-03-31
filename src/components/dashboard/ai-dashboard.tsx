@@ -49,6 +49,9 @@ interface CourseRecommendation {
   focus: string;
   phase: string;
   url?: string;
+  sourceType?: "free" | "paid" | "certificate" | "official";
+  isFree?: boolean;
+  hasCertificate?: boolean;
 }
 
 interface ScheduleData {
@@ -152,6 +155,15 @@ const D: Record<string, { en: string; ar: string }> = {
   startOverMsg:   { en: "This will permanently delete your saved roadmap and all session data, then restart from scratch. This cannot be undone.", ar: "سيؤدي هذا إلى حذف خارطة طريقك المحفوظة وجميع بيانات الجلسة نهائياً، ثم البدء من الصفر. لا يمكن التراجع عن هذا." },
   startOverConfirm: { en: "Yes, Delete & Restart", ar: "نعم، احذف وابدأ من جديد" },
   aiGuide:        { en: "Your AI Guide", ar: "مرشدك الذكي" },
+  introWelcome:   { en: "Welcome to eSpark", ar: "مرحباً بك في eSpark" },
+  introSub:       { en: "Let's figure out how we can help you.", ar: "دعنا نكتشف كيف يمكننا مساعدتك." },
+  introSkip:      { en: "Skip intro", ar: "تخطى المقدمة" },
+  introQuestion:  { en: "What brings you here today?", ar: "ما الذي أتى بك إلينا اليوم؟" },
+  introGo:        { en: "Got it, let's go!", ar: "فهمت، هيا نبدأ!" },
+  guideAdvisor:   { en: "This is your AI Advisor — ask it anything about your plan", ar: "هذا هو مستشارك الذكي — اسأله أي شيء عن خطتك" },
+  guideSidebar:   { en: "Navigate to Courses, Roadmap, Schedule and more", ar: "تصفح الدورات وخارطة الطريق والجدول وأكثر" },
+  guideLang:      { en: "Switch between English and Arabic anytime", ar: "تبديل بين الإنجليزية والعربية في أي وقت" },
+  guideReady:     { en: "You're all set! Click below to start your session.", ar: "أنت جاهز! انقر أدناه لبدء جلستك." },
 };
 function td(key: string, ar: boolean): string {
   return ar ? (D[key]?.ar ?? key) : (D[key]?.en ?? key);
@@ -426,6 +438,277 @@ function ChatBubble({ msg, isStreaming }: { msg: Message; isStreaming?: boolean 
       >
         {isAI ? formatAIMessage(msg.content, isStreaming) : <p className="leading-relaxed text-sm">{msg.content}</p>}
       </div>
+    </motion.div>
+  );
+}
+
+/* ── Intro Overlay ─────────────────────────────────────────────── */
+const SCENARIOS = [
+  { id: "career",    emoji: "🗺️", en: "Work Roadmap / Career Path",     ar: "خارطة العمل / المسار المهني",    descEn: "Build a step-by-step plan for your professional goals",            descAr: "ابنِ خطة خطوة بخطوة لأهدافك المهنية" },
+  { id: "study",     emoji: "📚", en: "Study Specific Classes",          ar: "دراسة مواد محددة",               descEn: "Follow structured learning paths and courses",                     descAr: "اتبع مسارات تعلم منظمة ودورات دراسية" },
+  { id: "explore",   emoji: "🔭", en: "Explore Fields & Domains",        ar: "استكشاف المجالات والتخصصات",     descEn: "Discover what's out there and find your direction",                 descAr: "اكتشف ما يتوفر وابحث عن اتجاهك" },
+  { id: "freelance", emoji: "💼", en: "Freelance / Business Growth",     ar: "العمل الحر / نمو الأعمال",       descEn: "Scale your work, find clients, build your brand",                  descAr: "طوّر عملك وابحث عن عملاء وابنِ علامتك التجارية" },
+  { id: "help",      emoji: "🤝", en: "I Need Help / I'm Struggling",   ar: "أحتاج مساعدة / أواجه صعوبات",  descEn: "General guidance for whatever challenge you're facing",             descAr: "توجيه عام لأي تحدي تواجهه" },
+];
+
+const GUIDE_STEPS = [
+  { keyRef: "advisor", icon: "🤖" },
+  { keyRef: "sidebar", icon: "📂" },
+  { keyRef: "lang",    icon: "🌐" },
+  { keyRef: "ready",   icon: "🚀" },
+];
+
+function IntroOverlay({
+  firstName,
+  onComplete,
+}: {
+  firstName: string;
+  onComplete: (scenarioId: string, scenarioLabel: string) => void;
+}) {
+  const { lang } = useLang();
+  const ar = lang === "ar";
+  const [phase, setPhase] = useState<"typing" | "scenarios" | "guide">("typing");
+  const [typed, setTyped] = useState("");
+  const [subVisible, setSubVisible] = useState(false);
+  const [selectedScenario, setSelectedScenario] = useState<(typeof SCENARIOS)[0] | null>(null);
+  const [guideStep, setGuideStep] = useState(0);
+
+  const welcomeText = ar
+    ? `مرحباً بك في eSpark، ${firstName}.`
+    : `Welcome to eSpark, ${firstName}.`;
+
+  // Typewriter effect
+  useEffect(() => {
+    if (phase !== "typing") return;
+    let i = 0;
+    setTyped("");
+    setSubVisible(false);
+    const interval = setInterval(() => {
+      i++;
+      setTyped(welcomeText.slice(0, i));
+      if (i >= welcomeText.length) {
+        clearInterval(interval);
+        setTimeout(() => setSubVisible(true), 300);
+        setTimeout(() => setPhase("scenarios"), 2600);
+      }
+    }, 45);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, lang]);
+
+  const handleScenarioSelect = (scenario: (typeof SCENARIOS)[0]) => {
+    setSelectedScenario(scenario);
+    setTimeout(() => setPhase("guide"), 300);
+  };
+
+  const handleFinish = () => {
+    if (!selectedScenario) return;
+    onComplete(selectedScenario.id, ar ? selectedScenario.ar : selectedScenario.en);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.4 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{
+        background: "rgba(5, 8, 22, 0.88)",
+        backdropFilter: "blur(16px)",
+      }}
+      dir={ar ? "rtl" : "ltr"}
+    >
+      <AnimatePresence mode="wait">
+
+        {/* Phase 1 — Typewriter */}
+        {phase === "typing" && (
+          <motion.div
+            key="typing"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="text-center max-w-xl"
+          >
+            <div
+              className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-8"
+              style={{
+                background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
+                boxShadow: "0 0 60px rgba(0,212,161,0.4)",
+              }}
+            >
+              <Brain size={40} className="text-white animate-pulse" />
+            </div>
+            <h1
+              className="text-4xl lg:text-5xl font-black text-white mb-6 min-h-[1.2em]"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
+              {typed}
+              <span className="animate-pulse" style={{ color: "#00d4a1" }}>|</span>
+            </h1>
+            <AnimatePresence>
+              {subVisible && (
+                <motion.p
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-lg"
+                  style={{ color: "rgba(255,255,255,0.6)" }}
+                >
+                  {td("introSub", ar)}
+                </motion.p>
+              )}
+            </AnimatePresence>
+            <button
+              onClick={() => setPhase("scenarios")}
+              className="mt-10 text-xs font-medium hover:opacity-70 transition-opacity"
+              style={{ color: "rgba(255,255,255,0.3)" }}
+            >
+              {td("introSkip", ar)}
+            </button>
+          </motion.div>
+        )}
+
+        {/* Phase 2 — Scenario Selection */}
+        {phase === "scenarios" && (
+          <motion.div
+            key="scenarios"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="w-full max-w-2xl"
+          >
+            <h2 className="text-2xl lg:text-3xl font-black text-white text-center mb-2">
+              {td("introQuestion", ar)}
+            </h2>
+            <p className="text-center text-sm mb-8" style={{ color: "rgba(255,255,255,0.4)" }}>
+              {ar ? "اختر ما يصف وضعك أفضل" : "Choose what best describes your situation"}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {SCENARIOS.map((s) => (
+                <motion.button
+                  key={s.id}
+                  whileHover={{ scale: 1.02, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleScenarioSelect(s)}
+                  className="flex items-start gap-4 p-4 rounded-2xl text-left transition-all"
+                  style={{
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.border = "1px solid rgba(0,212,161,0.4)";
+                    (e.currentTarget as HTMLElement).style.background = "rgba(0,212,161,0.08)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.border = "1px solid rgba(255,255,255,0.1)";
+                    (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
+                  }}
+                >
+                  <span className="text-2xl flex-shrink-0 mt-0.5">{s.emoji}</span>
+                  <div className={ar ? "text-right" : "text-left"}>
+                    <div className="text-sm font-bold text-white mb-1">
+                      {ar ? s.ar : s.en}
+                    </div>
+                    <div className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>
+                      {ar ? s.descAr : s.descEn}
+                    </div>
+                  </div>
+                </motion.button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Phase 3 — Navigation Guide */}
+        {phase === "guide" && (
+          <motion.div
+            key="guide"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="w-full max-w-md text-center"
+          >
+            {selectedScenario && (
+              <div
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold mb-8"
+                style={{
+                  background: "rgba(0,212,161,0.12)",
+                  border: "1px solid rgba(0,212,161,0.3)",
+                  color: "#00d4a1",
+                }}
+              >
+                <span>{selectedScenario.emoji}</span>
+                {ar ? selectedScenario.ar : selectedScenario.en}
+              </div>
+            )}
+
+            <div className="space-y-3 mb-8">
+              {GUIDE_STEPS.map((step, idx) => {
+                const passed = idx < guideStep;
+                const active = idx === guideStep;
+                return (
+                  <motion.div
+                    key={step.keyRef}
+                    initial={{ opacity: 0, x: ar ? 20 : -20 }}
+                    animate={{ opacity: idx <= guideStep ? 1 : 0.3, x: 0 }}
+                    transition={{ delay: idx * 0.12 }}
+                    className="flex items-center gap-3 p-4 rounded-2xl"
+                    style={{
+                      background: active
+                        ? "rgba(0,212,161,0.1)"
+                        : passed
+                        ? "rgba(255,255,255,0.03)"
+                        : "transparent",
+                      border: active
+                        ? "1px solid rgba(0,212,161,0.3)"
+                        : "1px solid rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    <span className="text-xl flex-shrink-0">{step.icon}</span>
+                    <p
+                      className={`text-sm ${ar ? "text-right" : "text-left"}`}
+                      style={{ color: active ? "#e2e8f0" : "rgba(255,255,255,0.4)" }}
+                    >
+                      {td(`guide${step.keyRef.charAt(0).toUpperCase()}${step.keyRef.slice(1)}`, ar)}
+                    </p>
+                    {passed && (
+                      <span className="ms-auto text-[#00d4a1] flex-shrink-0">✓</span>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {guideStep < GUIDE_STEPS.length - 1 ? (
+              <button
+                onClick={() => setGuideStep((s) => s + 1)}
+                className="px-6 py-3 rounded-2xl text-sm font-semibold transition-all hover:opacity-90"
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  color: "#e2e8f0",
+                }}
+              >
+                {ar ? "التالي ←" : "Next →"}
+              </button>
+            ) : (
+              <motion.button
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={handleFinish}
+                className="px-8 py-3.5 rounded-2xl text-sm font-bold text-white transition-all"
+                style={{
+                  background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
+                  boxShadow: "0 0 32px rgba(0,212,161,0.4)",
+                }}
+              >
+                {td("introGo", ar)}
+              </motion.button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -855,23 +1138,35 @@ export function AIDashboard({ firstName }: { firstName: string }) {
   const [isInitializing, setIsInitializing] = useState(true);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showIntro, setShowIntro] = useState(false);
+  const [scenario, setScenario] = useState<string>("");
   const { lang } = useLang();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const streamBufferRef = useRef("");
 
-  // Restore saved plan from DB on mount
+  // Restore saved plan from DB on mount + check intro state
   useEffect(() => {
+    const introDone = localStorage.getItem("espark-intro-done");
+    const savedScenario = localStorage.getItem("espark-scenario") ?? "";
+    if (savedScenario) setScenario(savedScenario);
+
     fetch("/api/user/roadmap")
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (data?.planJson && (data.planJson as LearningPlan).type === "LEARNING_PLAN") {
           setPlan(data.planJson as LearningPlan);
           setPhase("plan");
+        } else if (!introDone) {
+          // First time — show intro overlay over the welcome screen
+          setShowIntro(true);
         }
       })
-      .catch(() => null)
+      .catch(() => {
+        if (!introDone) setShowIntro(true);
+      })
       .finally(() => setIsInitializing(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -1007,22 +1302,24 @@ export function AIDashboard({ firstName }: { firstName: string }) {
     }
   }, [messages, isLoading]);
 
-  const startInterview = useCallback(async () => {
+  const startInterview = useCallback(async (scenarioLabel?: string) => {
     setPhase("chat");
     setIsLoading(true);
     setStreamedText("");
+    const activeScenario = scenarioLabel ?? scenario;
 
     try {
+      const focusSuffix = activeScenario ? ` My focus: ${activeScenario}.` : "";
       const greeting = lang === "ar"
-        ? "مرحباً! أنا مستعد للحصول على خطة العمل الشخصية الخاصة بي."
-        : "Hello! I'm ready to get my personalized action plan.";
+        ? `مرحباً! أنا مستعد للحصول على خطة العمل الشخصية الخاصة بي.${activeScenario ? ` تركيزي: ${activeScenario}.` : ""}`
+        : `Hello! I'm ready to get my personalized action plan.${focusSuffix}`;
       const initMessages: Message[] = [{ role: "user", content: greeting }];
       setMessages(initMessages);
 
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: initMessages, isInit: true }),
+        body: JSON.stringify({ messages: initMessages, isInit: true, scenario: activeScenario }),
       });
 
       if (!res.ok || !res.body) throw new Error("API error");
@@ -1049,7 +1346,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
       setIsLoading(false);
       setStreamedText("");
     }
-  }, [lang]);
+  }, [lang, scenario]);
 
   const handleReset = useCallback(() => {
     setShowResetConfirm(true);
@@ -1070,6 +1367,11 @@ export function AIDashboard({ firstName }: { firstName: string }) {
       setInput("");
       setStreamedText("");
       setIsLoading(false);
+      // Clear intro so user sees scenario selection again
+      localStorage.removeItem("espark-intro-done");
+      localStorage.removeItem("espark-scenario");
+      setScenario("");
+      setShowIntro(true);
     }
   }, []);
 
@@ -1102,8 +1404,28 @@ export function AIDashboard({ firstName }: { firstName: string }) {
     );
   }
 
+  const handleIntroComplete = useCallback((scenarioId: string, scenarioLabel: string) => {
+    localStorage.setItem("espark-intro-done", "1");
+    localStorage.setItem("espark-scenario", scenarioLabel);
+    setScenario(scenarioLabel);
+    setShowIntro(false);
+    void startInterview(scenarioLabel);
+    void scenarioId; // used by localStorage key only
+  }, [startInterview]);
+
   return (
     <div className="max-w-4xl mx-auto">
+      {/* First-time intro overlay */}
+      <AnimatePresence>
+        {showIntro && (
+          <IntroOverlay
+            key="intro"
+            firstName={firstName}
+            onComplete={handleIntroComplete}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Page header */}
       {phase !== "welcome" && (
         <div className="flex items-center justify-between mb-6" dir={lang === "ar" ? "rtl" : "ltr"}>

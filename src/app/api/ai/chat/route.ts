@@ -213,7 +213,10 @@ All description fields must be full, meaningful sentences — never 2-word label
       "level": "Beginner",
       "focus": "1-2 sentences: specifically what this course covers and exactly why it is the right match for their current level, goal, and the phase they should take it in",
       "phase": "Month 1-2",
-      "url": "CRITICAL: Copy the URL EXACTLY from the COURSE URL CATALOG provided in the background research — character for character, nothing changed. NEVER construct, guess, shorten, or modify a URL. NEVER use a platform homepage (e.g. 'coursera.org' alone). Only use a URL that points to the specific course page from the catalog. If the course is not in the catalog, use empty string \"\"."
+      "url": "CRITICAL: Copy the URL EXACTLY from the COURSE URL CATALOG provided in the background research — character for character, nothing changed. NEVER construct, guess, shorten, or modify a URL. NEVER use a platform homepage (e.g. 'coursera.org' alone). Only use a URL that points to the specific course page from the catalog. If the course is not in the catalog, use empty string \"\".",
+      "sourceType": "official | paid | certificate | free — classify each course: 'official' for vendor portals (Cisco U., AWS Skill Builder, Microsoft Learn, Google Cloud Skills Boost, CompTIA CertMaster); 'certificate' for Coursera Certificate, edX Professional Certificate, Google Career Certificate, AWS Certification, CompTIA/Cisco/PMI exams; 'paid' for Udemy, LinkedIn Learning, Pluralsight, Coursera subscription; 'free' for YouTube, freeCodeCamp, Khan Academy, MIT OpenCourseWare, free Coursera audit tracks",
+      "isFree": "true if sourceType is 'free', false otherwise",
+      "hasCertificate": "true if this course leads to an official certificate or certification exam prep, false otherwise"
     },
     {
       "title": "Second official vendor or advanced vendor course — real title from search",
@@ -354,6 +357,7 @@ FINAL CRITICAL RULES:
 - Every field reflects their actual answers — personalized to who they are, where they live, and what they said
 - courseRecommendations MUST contain 6-8 REAL courses found via your web searches — real titles, real instructors, real platforms. Do NOT limit to 4. Users need options across all price ranges and platforms
 - courseRecommendations ORDERING: always list the official vendor/mother company course FIRST (e.g., Cisco U. for CCNA, Microsoft Learn for Azure, AWS Skill Builder for AWS, CompTIA CertMaster for CompTIA certs), followed by paid third-party platforms (Udemy, Coursera, LinkedIn Learning), then free platforms (YouTube, freeCodeCamp, edX)
+- courseRecommendations MUST include sourceType, isFree, and hasCertificate fields on EVERY course entry — these power the source-type badges shown to users so they know what costs money vs what is free vs what earns a certificate
 - courseRecommendations.url CRITICAL: ONLY use a URL that appears word-for-word in the COURSE URL CATALOG provided in the background research. NEVER construct, guess, or hallucinate a URL. If the exact course URL was not in the catalog, set url to "" (empty string). The "Search" fallback button will handle finding it. A fabricated URL that leads to a 404 destroys user trust — empty string is always better.
 - roadmap phase count and total duration MUST match their stated timeline exactly
 - notice in marketInsights appears ONLY for genuine strategic concerns — never invent problems
@@ -970,10 +974,12 @@ export async function POST(req: NextRequest) {
 
   let messages: Message[];
   let isInit = false;
+  let scenario = "";
   try {
     const body = await req.json();
     messages = body.messages;
     isInit = body.isInit === true;
+    scenario = typeof body.scenario === "string" ? body.scenario.slice(0, 120) : "";
   } catch {
     return new Response("Invalid JSON", { status: 400 });
   }
@@ -1000,11 +1006,14 @@ export async function POST(req: NextRequest) {
     const readable = new ReadableStream({
       async start(controller) {
         try {
+          const scenarioNote = scenario
+            ? `\n\n═══════════════════════════════════════════\nUSER SELECTED FOCUS AREA\n═══════════════════════════════════════════\nThe user has selected their focus area before starting: "${scenario}". Tailor your opening question, conversation, and final roadmap to align with this intent. You do NOT need to ask them about their focus — it is already known.\n`
+            : "";
           const stream = await client.chat.completions.create({
             model: "moonshotai/kimi-k2-instruct",
             max_tokens: 8192,
             messages: [
-              { role: "system", content: getSystemPrompt(timezone) },
+              { role: "system", content: getSystemPrompt(timezone) + scenarioNote },
               ...messages,
             ],
             stream: true,

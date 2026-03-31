@@ -7,7 +7,7 @@ import { signOut, useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useState } from "react";
-import { LogOut, User, LayoutDashboard, Map, TrendingUp, CalendarDays } from "lucide-react";
+import { LogOut, User, LayoutDashboard, Map, TrendingUp, CalendarDays, Zap } from "lucide-react";
 import { useLang } from "@/lib/language";
 
 const mobileNav = [
@@ -79,6 +79,20 @@ export function Navbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-2.5">
+          {/* Upgrade CTA (desktop only) */}
+          <Link
+            href="/pricing"
+            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all hover:opacity-90"
+            style={{
+              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              color: "#fff",
+              boxShadow: "0 0 14px rgba(99,102,241,0.35)",
+            }}
+          >
+            <Zap size={12} fill="currentColor" />
+            {lang === "ar" ? "ترقية" : "Upgrade"}
+          </Link>
+
           {/* Language toggle */}
           <button
             onClick={toggleLang}
