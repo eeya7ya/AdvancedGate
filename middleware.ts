@@ -11,6 +11,7 @@ export default auth((req) => {
     nextUrl.pathname.startsWith("/roadmap") ||
     nextUrl.pathname.startsWith("/learn") ||
     nextUrl.pathname.startsWith("/profile") ||
+    nextUrl.pathname.startsWith("/pricing") ||
     nextUrl.pathname.startsWith("/console");
 
   if (isProtected && !isLoggedIn) {
