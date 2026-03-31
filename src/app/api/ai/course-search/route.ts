@@ -81,10 +81,10 @@ export async function POST(req: NextRequest) {
 
     // Hydrate results with full course data from the catalog
     const hydrated: CourseSearchResult[] = parsed.results
-      .map(({ courseId, matchReason }) => {
+      .flatMap(({ courseId, matchReason }) => {
         const entry = catalog.find((c) => c.courseId === courseId);
-        if (!entry) return null;
-        return {
+        if (!entry) return [];
+        return [{
           courseId: entry.courseId,
           subjectId: entry.subjectId,
           title: entry.title,
@@ -94,9 +94,8 @@ export async function POST(req: NextRequest) {
           tags: entry.tags,
           comingSoon: entry.comingSoon,
           matchReason,
-        } satisfies CourseSearchResult;
-      })
-      .filter((r): r is CourseSearchResult => r !== null);
+        } satisfies CourseSearchResult];
+      });
 
     return NextResponse.json({ results: hydrated, summary: parsed.summary } satisfies CourseSearchResponse);
   } catch (err) {
