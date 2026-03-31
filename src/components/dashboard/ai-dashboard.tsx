@@ -1211,28 +1211,30 @@ export function AIDashboard({ firstName }: { firstName: string }) {
       // Check if it's a learning plan
       const detected = parsePlan(full);
       if (detected) {
-        setPlan(detected);
-        setPhase("plan");
-        setMessages([...newMessages, { role: "assistant", content: full }]);
-        // Persist initial plan immediately
-        fetch("/api/user/roadmap", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plan: detected }),
-        }).then((r) => {
-          if (!r.ok) r.json().then((d) => console.error("[roadmap save] failed:", d)).catch(() => null);
-        }).catch((err) => console.error("[roadmap save] network error:", err));
-
-        // Re-generate the plan with Tavily web search to get real course URLs and data.
-        // The initial plan (above) appears instantly; this background call enriches it.
+        // Keep loading — wait for Tavily-enriched plan (with real course links) before showing anything
         setIsLoading(true);
+        const tavilyController = new AbortController();
+        const tavilyTimeout = setTimeout(() => tavilyController.abort(), 150000);
         fetch("/api/ai/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ messages: newMessages }), // isInit omitted → false → Tavily path
+          signal: tavilyController.signal,
         })
           .then(async (r) => {
-            if (!r.ok || !r.body) return;
+            clearTimeout(tavilyTimeout);
+            if (!r.ok || !r.body) {
+              // Fall back to initial plan if Tavily fails
+              setPlan(detected);
+              setPhase("plan");
+              setMessages([...newMessages, { role: "assistant", content: full }]);
+              fetch("/api/user/roadmap", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ plan: detected }),
+              }).catch(() => null);
+              return;
+            }
             const tavilyReader = r.body.getReader();
             const tavilyDecoder = new TextDecoder();
             let tavilyText = "";
@@ -1244,27 +1246,51 @@ export function AIDashboard({ firstName }: { firstName: string }) {
             const enrichedPlan = parsePlan(tavilyText);
             if (enrichedPlan) {
               setPlan(enrichedPlan);
+              setPhase("plan");
+              setMessages([...newMessages, { role: "assistant", content: tavilyText }]);
               fetch("/api/user/roadmap", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ plan: enrichedPlan }),
               }).catch(() => null);
+            } else {
+              // Tavily response malformed — fall back to initial plan
+              setPlan(detected);
+              setPhase("plan");
+              setMessages([...newMessages, { role: "assistant", content: full }]);
+              fetch("/api/user/roadmap", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ plan: detected }),
+              }).catch(() => null);
             }
           })
-          .catch(() => null)
+          .catch(() => {
+            clearTimeout(tavilyTimeout);
+            // On timeout/error fall back to initial plan
+            setPlan(detected);
+            setPhase("plan");
+            setMessages([...newMessages, { role: "assistant", content: full }]);
+            fetch("/api/user/roadmap", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ plan: detected }),
+            }).catch(() => null);
+          })
           .finally(() => setIsLoading(false));
       } else if (looksLikePlanAttempt(full)) {
-        // Plan JSON was malformed/truncated — auto-retry via the full Tavily generation path
-        const retryMsg = lang === "ar"
-          ? "تقريباً انتهيت — أُنشئ خطتك الآن، لحظة من فضلك..."
-          : "Almost there — building your plan now, just a moment...";
-        setMessages([...newMessages, { role: "assistant" as const, content: retryMsg }]);
+        // Plan JSON was malformed/truncated — auto-retry via the full Tavily generation path silently
+        setIsLoading(true);
+        const retryController = new AbortController();
+        const retryTimeout = setTimeout(() => retryController.abort(), 150000);
         fetch("/api/ai/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ messages: newMessages }), // isInit omitted → full Tavily plan path
+          signal: retryController.signal,
         })
           .then(async (r) => {
+            clearTimeout(retryTimeout);
             if (!r.ok || !r.body) return;
             const retryReader = r.body.getReader();
             const retryDecoder = new TextDecoder();
@@ -1286,16 +1312,13 @@ export function AIDashboard({ firstName }: { firstName: string }) {
               }).catch(() => null);
             }
           })
-          .catch(() => null)
+          .catch(() => { clearTimeout(retryTimeout); })
           .finally(() => setIsLoading(false));
       } else {
         setMessages([...newMessages, { role: "assistant", content: full }]);
       }
     } catch {
-      setMessages([
-        ...newMessages,
-        { role: "assistant", content: "I'm sorry, something went wrong. Please try again." },
-      ]);
+      // Silently stop loading on error — no error message shown in chat
     } finally {
       setIsLoading(false);
       setStreamedText("");
