@@ -1,10 +1,10 @@
-import Groq from "groq-sdk";
+import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "~/auth";
 
-const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-/* ── URL helpers (mirrors the logic in /api/ai/chat) ────────────────── */
+/* ── URL helpers ─────────────────────────────────────────────────────── */
 
 function isCoursePage(url: string): boolean {
   try {
@@ -66,58 +66,7 @@ function normalizeUrl(url: string): string {
   } catch { return url; }
 }
 
-/* ── Single compound-model search — same pattern as /api/ai/chat ─────── */
-interface SearchResult { urls: string[] }
-
-async function webSearch(query: string): Promise<SearchResult> {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await (client.chat.completions.create as any)({
-      model: "groq/compound",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a course search assistant. Find the direct enrollment page for the course described in the query. " +
-            "Return the exact page URL. Prefer English-language pages.",
-        },
-        { role: "user", content: query },
-      ],
-    });
-
-    const message = response.choices[0]?.message;
-    const content: string = message?.content ?? "";
-    const urls: string[] = [];
-
-    // Primary source: structured tool results from compound model
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const executedTools = (message as any)?.executed_tools;
-    if (Array.isArray(executedTools)) {
-      for (const tool of executedTools) {
-        const results = tool.search_results?.results;
-        if (Array.isArray(results)) {
-          for (const r of results) {
-            if (r.url) urls.push(r.url.replace(/[.,;:!?)]+$/, ""));
-          }
-        }
-      }
-    }
-
-    // Secondary: URLs cited inline in the model's text response
-    const urlRegex = /https?:\/\/[^\s"'<>\])}]+/g;
-    for (const u of content.match(urlRegex) ?? []) {
-      const clean = u.replace(/[.,;:!?)]+$/, "");
-      if (!urls.includes(clean)) urls.push(clean);
-    }
-
-    return { urls };
-  } catch (err) {
-    console.error("[course-link] search error for query:", err);
-    return { urls: [] };
-  }
-}
-
-/* ── Google search fallback — platform-targeted, never an AI chatbot ─── */
+/* ── Google search fallback ──────────────────────────────────────────── */
 function platformSearchUrl(title: string, platform: string): string {
   const site = (() => {
     const p = platform.toLowerCase();
@@ -141,6 +90,64 @@ function platformSearchUrl(title: string, platform: string): string {
   return `https://www.google.com/search?q=${encodeURIComponent(q)}`;
 }
 
+/* ── Claude Sonnet 4.6 web search ────────────────────────────────────── */
+async function findCourseLink(title: string, platform: string, instructor: string): Promise<string[]> {
+  const platformHint = platform
+    ? ` on ${platform}`
+    : " on platforms like Udemy, Coursera, edX, YouTube, LinkedIn Learning, freeCodeCamp, Pluralsight, or Cisco NetAcad";
+  const instructorHint = instructor ? ` by instructor "${instructor}"` : "";
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const response = await (anthropic.messages.create as any)({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1024,
+      tools: [{ type: "web_search_20250305", name: "web_search" }],
+      system:
+        "You are a course search assistant. Use web search to find the direct enrollment or course page for the requested course. Prefer English-language pages on trusted educational platforms.",
+      messages: [
+        {
+          role: "user",
+          content:
+            `Find the direct enrollment/course page URL for the course titled "${title}"${instructorHint}${platformHint}. ` +
+            `Return the exact URL of the course page where someone can enroll or watch it.`,
+        },
+      ],
+    });
+
+    const urls: string[] = [];
+
+    for (const block of response.content ?? []) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const b = block as any;
+
+      // URLs from web_search_tool_result blocks (Anthropic built-in tool results)
+      if (b.type === "web_search_tool_result") {
+        const content = b.content;
+        if (Array.isArray(content)) {
+          for (const item of content) {
+            if (item.url) urls.push(item.url.replace(/[.,;:!?)]+$/, ""));
+          }
+        }
+      }
+
+      // URLs cited inline in Claude's text response
+      if (b.type === "text") {
+        const urlRegex = /https?:\/\/[^\s"'<>\])}]+/g;
+        for (const u of (b.text as string).match(urlRegex) ?? []) {
+          const clean = u.replace(/[.,;:!?)]+$/, "");
+          if (!urls.includes(clean)) urls.push(clean);
+        }
+      }
+    }
+
+    return urls;
+  } catch (err) {
+    console.error("[course-link] Claude search error:", err);
+    return [];
+  }
+}
+
 /* ── Main handler ─────────────────────────────────────────────────────── */
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -158,64 +165,27 @@ export async function POST(req: NextRequest) {
 
   if (!title) return NextResponse.json({ url: "" });
 
-  // Build multiple parallel queries — same strategy as the working chat route.
-  // Each query targets one platform using site: so the compound model's web
-  // search returns results from the right domain.
-  const titleQ = `"${title}"${instructor ? ` "${instructor}"` : ""}`;
+  const allUrls = await findCourseLink(title, platform, instructor);
 
-  const queries: string[] = [];
-
-  // Platform-specific targeted query (highest priority — most relevant)
-  if (platform) {
-    const p = platform.toLowerCase();
-    if (p.includes("udemy"))        queries.push(`${titleQ} course site:udemy.com`);
-    else if (p.includes("coursera")) queries.push(`${titleQ} course site:coursera.org`);
-    else if (p.includes("edx"))     queries.push(`${titleQ} course site:edx.org`);
-    else if (p.includes("youtube")) queries.push(`${titleQ} tutorial site:youtube.com`);
-    else if (p.includes("linkedin")) queries.push(`${titleQ} course site:linkedin.com/learning`);
-    else if (p.includes("freecodecamp")) queries.push(`${titleQ} site:freecodecamp.org`);
-    else if (p.includes("pluralsight")) queries.push(`${titleQ} course site:pluralsight.com`);
-    else if (p.includes("cisco") || p.includes("netacad")) queries.push(`${titleQ} course site:netacad.com`);
-    else if (p.includes("microsoft")) queries.push(`${titleQ} course site:learn.microsoft.com`);
-    else if (p.includes("aws") || p.includes("amazon")) queries.push(`${titleQ} course site:skillbuilder.aws`);
-    else if (p.includes("google cloud") || p.includes("gcp")) queries.push(`${titleQ} course site:cloudskillsboost.google`);
-    else queries.push(`${titleQ} course ${platform} enroll`); // unknown platform — open query
-  }
-
-  // Broad cross-platform queries — always run these as additional coverage
-  queries.push(`${titleQ} course site:udemy.com`);
-  queries.push(`${titleQ} course site:coursera.org`);
-  queries.push(`${titleQ} tutorial full course site:youtube.com`);
-  queries.push(`${titleQ} course site:edx.org OR site:linkedin.com/learning`);
-  queries.push(`${titleQ} course site:freecodecamp.org OR site:khanacademy.org`);
-
-  // De-duplicate queries (platform-specific might equal a broad one)
-  const uniqueQueries = [...new Set(queries)];
-
-  // Fire all searches in parallel
-  const results = await Promise.all(uniqueQueries.map(webSearch));
-
-  // Collect, deduplicate, and rank URLs
+  // De-duplicate by normalised URL
   const seen = new Set<string>();
-  const allUrls: string[] = [];
-  for (const r of results) {
-    for (const url of r.urls) {
-      const norm = normalizeUrl(url);
-      if (!seen.has(norm)) {
-        seen.add(norm);
-        allUrls.push(url);
-      }
+  const deduped: string[] = [];
+  for (const url of allUrls) {
+    const norm = normalizeUrl(url);
+    if (!seen.has(norm)) {
+      seen.add(norm);
+      deduped.push(url);
     }
   }
 
   // Pick best: trusted platform course page first, then any course page, then first URL
   const best =
-    allUrls.find((u) => isTrusted(u) && isCoursePage(u)) ??
-    allUrls.find((u) => isCoursePage(u)) ??
-    allUrls[0] ??
+    deduped.find((u) => isTrusted(u) && isCoursePage(u)) ??
+    deduped.find((u) => isCoursePage(u)) ??
+    deduped[0] ??
     "";
 
-  // If we found nothing at all, fall back to a Google search (NOT Grok)
+  // Fall back to a Google search if nothing was found
   const finalUrl = best || platformSearchUrl(title, platform);
 
   console.log(`[course-link] "${title}" → ${best ? best : "(fallback google search)"}`);
