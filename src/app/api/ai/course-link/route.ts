@@ -146,22 +146,16 @@ function platformSearchUrl(title: string, platform: string): string {
 
 /* ── Claude Sonnet 4.6 web search ────────────────────────────────────── */
 async function findCourseLink(title: string, platform: string, instructor: string): Promise<{ urls: string[]; cost: number }> {
-  const platformHint = platform
-    ? ` on ${platform}`
-    : " on platforms like Udemy, Coursera, edX, YouTube, LinkedIn Learning, freeCodeCamp, or Cisco NetAcad";
-  const instructorHint = instructor ? ` by "${instructor}"` : "";
+  const query = [title, instructor, platform].filter(Boolean).join(" ");
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const response = await (anthropic.messages.create as any)({
       model: "claude-sonnet-4-6",
-      max_tokens: 512,
-      tools: [{ type: "web_search_20250305", name: "web_search" }],
-      system:
-        "Course search assistant. Priority: 1) Official tech site (python.org, react.dev…). " +
-        "2) Coursera, edX, Udemy, LinkedIn Learning. 3) Free YouTube by a top educator. " +
-        "English only. Return the most direct enrollment/watch URL.",
-      messages: [{ role: "user", content: `Find the best URL for "${title}"${instructorHint}${platformHint}. Return the direct course or video URL.` }],
+      max_tokens: 128,
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 1 }],
+      system: "You find course URLs. Do ONE search. Reply with only the bare URL, nothing else.",
+      messages: [{ role: "user", content: `Find the enrollment or watch URL for this course: ${query}` }],
     }) as Anthropic.Message;
 
     const urls: string[] = [];
