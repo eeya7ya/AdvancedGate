@@ -36,9 +36,46 @@ function isCoursePage(url: string): boolean {
   }
 }
 
+// Official product/technology sites — ranked above general educational platforms
+const OFFICIAL_DOMAINS = new Set([
+  "python.org", "docs.python.org",
+  "react.dev", "reactjs.org",
+  "vuejs.org", "angular.io",
+  "nodejs.org", "developer.mozilla.org",
+  "docs.microsoft.com", "learn.microsoft.com",
+  "developer.apple.com", "developer.android.com",
+  "developers.google.com", "cloud.google.com", "cloudskillsboost.google",
+  "docs.aws.amazon.com", "skillbuilder.aws",
+  "kubernetes.io", "docker.com", "docs.docker.com",
+  "tensorflow.org", "pytorch.org", "keras.io",
+  "php.net", "ruby-lang.org", "go.dev", "golang.org", "rust-lang.org",
+  "swift.org", "kotlinlang.org", "typescriptlang.org",
+  "netacad.com", "cisco.com",
+  "oracle.com", "docs.oracle.com",
+  "linux.org", "kernel.org",
+  "git-scm.com", "github.com",
+  "postgresql.org", "mysql.com", "mongodb.com", "redis.io",
+]);
+
+function isOfficial(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    return OFFICIAL_DOMAINS.has(host) ||
+      [...OFFICIAL_DOMAINS].some((d) => host.endsWith("." + d));
+  } catch { return false; }
+}
+
+// YouTube — used for free tier ranking
+function isYouTube(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    return host === "youtube.com" || host === "youtu.be";
+  } catch { return false; }
+}
+
 const TRUSTED_PLATFORMS = new Set([
-  "coursera.org", "udemy.com", "edx.org", "linkedin.com", "youtube.com",
-  "youtu.be", "freecodecamp.org", "khanacademy.org", "pluralsight.com",
+  "coursera.org", "udemy.com", "edx.org", "linkedin.com",
+  "freecodecamp.org", "khanacademy.org", "pluralsight.com",
   "skillshare.com", "udacity.com", "codecademy.com",
   "cisco.com", "netacad.com", "learn.microsoft.com", "microsoft.com",
   "aws.amazon.com", "skillbuilder.aws", "cloud.google.com",
@@ -104,13 +141,20 @@ async function findCourseLink(title: string, platform: string, instructor: strin
       max_tokens: 1024,
       tools: [{ type: "web_search_20250305", name: "web_search" }],
       system:
-        "You are a course search assistant. Use web search to find the direct enrollment or course page for the requested course. Prefer English-language pages on trusted educational platforms.",
+        "You are a course search assistant. Search in this priority order: " +
+        "1) Official documentation or learning pages on the technology's own website (e.g. python.org, react.dev, pytorch.org). " +
+        "2) Paid/accredited platforms: Coursera, edX, Udemy, LinkedIn Learning, Pluralsight, Udacity. " +
+        "3) Free courses: YouTube videos by well-known, trending instructors in that specific field (search for the most-viewed or highest-rated channel). " +
+        "Return only English-language pages. Prefer the most direct enrollment or watch URL.",
       messages: [
         {
           role: "user",
           content:
-            `Find the direct enrollment/course page URL for the course titled "${title}"${instructorHint}${platformHint}. ` +
-            `Return the exact URL of the course page where someone can enroll or watch it.`,
+            `Find the best URL for the course titled "${title}"${instructorHint}${platformHint}. ` +
+            `First check if the official technology site has a learning/tutorial page. ` +
+            `Then look for it on Coursera, Udemy, or edX. ` +
+            `Finally, find a free YouTube course by a trending educator in this subject. ` +
+            `Return the direct course page or video URL.`,
         },
       ],
     });
@@ -178,10 +222,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Pick best: trusted platform course page first, then any course page, then first URL
+  // Priority: official site course page → official site → trusted (non-YT) course page →
+  //           trusted course page (incl. YT) → any course page → YT → first URL
   const best =
+    deduped.find((u) => isOfficial(u) && isCoursePage(u)) ??
+    deduped.find((u) => isOfficial(u)) ??
+    deduped.find((u) => isTrusted(u) && isCoursePage(u) && !isYouTube(u)) ??
     deduped.find((u) => isTrusted(u) && isCoursePage(u)) ??
     deduped.find((u) => isCoursePage(u)) ??
+    deduped.find((u) => isYouTube(u)) ??
     deduped[0] ??
     "";
 

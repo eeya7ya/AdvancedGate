@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useLayoutEffect } from "react";
 
 export type Lang = "en" | "ar";
 
@@ -12,14 +12,17 @@ interface LangContextValue {
 const LangContext = createContext<LangContextValue>({ lang: "en", toggle: () => {} });
 
 export function LangProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLang] = useState<Lang>("en");
+  // Read localStorage synchronously on first render so there is no en→ar flash
+  const [lang, setLang] = useState<Lang>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("espark-lang");
+      if (stored === "ar" || stored === "en") return stored;
+    }
+    return "en";
+  });
 
-  useEffect(() => {
-    const stored = localStorage.getItem("espark-lang") as Lang | null;
-    if (stored === "ar" || stored === "en") setLang(stored);
-  }, []);
-
-  useEffect(() => {
+  // useLayoutEffect runs before paint → dir/lang attribute set before first pixel drawn
+  useLayoutEffect(() => {
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
     document.documentElement.lang = lang;
   }, [lang]);

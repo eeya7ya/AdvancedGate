@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { Send, Sparkles, Brain, Target, Clock, ArrowRight, RotateCcw, Map, Globe, X, Trash2, TrendingUp, MessageCircle } from "lucide-react";
+import { Send, Sparkles, Brain, Target, Clock, ArrowRight, RotateCcw, Map, Globe, X, Trash2, TrendingUp, MessageCircle, CalendarDays, CheckCircle } from "lucide-react";
 import { useLang } from "@/lib/language";
 
 /* ── Types ─────────────────────────────────────────────────────── */
@@ -125,15 +125,15 @@ function looksLikePlanAttempt(text: string): boolean {
 
 /* ── Translations ───────────────────────────────────────────────── */
 const D: Record<string, { en: string; ar: string }> = {
-  badge:          { en: "Real-time AI Advisor · Powered by eSpark", ar: "مستشار ذكاء اصطناعي · مدعوم بـ eSpark" },
-  heroTitle:      { en: "Achieve Any Dream With", ar: "حقق أي حلم بمساعدة" },
-  heroAI:         { en: "Your AI Advisor", ar: "مستشارك الذكي" },
-  heroDesc:       { en: "No matter what your goal is — career, business, creative, academic, or personal — your AI advisor will understand your unique situation and build a real-time roadmap with mind maps, charts, and actionable steps to help you get there.", ar: "مهما كان هدفك — مهني، تجاري، إبداعي، أكاديمي أو شخصي — سيفهم مستشارك الذكي وضعك الفريد ويبني لك خارطة طريق حقيقية بخرائط ذهنية ورسوم بيانية وخطوات عملية توصلك إلى ما تريد." },
-  startSession:   { en: "Start AI Session", ar: "ابدأ الجلسة الذكية" },
-  chip1:          { en: "Any goal, any domain", ar: "أي هدف، أي مجال" },
-  chip2:          { en: "Mind maps & charts", ar: "خرائط ذهنية ورسوم بيانية" },
-  chip3:          { en: "Real-time action plan", ar: "خطة عمل آنية" },
-  chip4:          { en: "Saves your progress", ar: "يحفظ تقدمك" },
+  badge:          { en: "AI Advisor · Powered by eSpark", ar: "مستشار ذكاء اصطناعي · مدعوم بـ eSpark" },
+  heroTitle:      { en: "Build your path.", ar: "ابنِ طريقك." },
+  heroAI:         { en: "Start with a conversation.", ar: "ابدأ بمحادثة." },
+  heroDesc:       { en: "Tell the advisor where you are and what you want. It will map out courses, weekly schedules, and concrete next steps — and save everything so you can pick up where you left off.", ar: "أخبر المستشار أين أنت وماذا تريد. سيضع لك خارطة دورات وجداول أسبوعية وخطوات عملية واضحة — ويحفظ كل شيء حتى تكمل من حيث توقفت." },
+  startSession:   { en: "Start Session", ar: "ابدأ الجلسة" },
+  chip1:          { en: "Courses & roadmaps", ar: "دورات وخرائط طريق" },
+  chip2:          { en: "Weekly schedule", ar: "جدول أسبوعي" },
+  chip3:          { en: "Progress saved", ar: "التقدم محفوظ" },
+  chip4:          { en: "Any goal or field", ar: "أي هدف أو مجال" },
   yourPlan:       { en: "Your Personalized Action Plan", ar: "خطتك الشخصية" },
   marketNotice:   { en: "Market Notice", ar: "تنبيه السوق" },
   viewRoadmap:    { en: "View Roadmap", ar: "عرض خارطة الطريق" },
@@ -803,108 +803,114 @@ function IntroOverlay({
 }
 
 /* ── Welcome Screen ─────────────────────────────────────────────── */
+const WELCOME_FEATURES: { icon: React.ReactNode; keyEn: string; keyAr: string }[] = [
+  { icon: <Map size={14} />,         keyEn: "Courses & roadmaps",  keyAr: "دورات وخرائط طريق" },
+  { icon: <CalendarDays size={14} />, keyEn: "Weekly schedule",    keyAr: "جدول أسبوعي" },
+  { icon: <CheckCircle size={14} />,  keyEn: "Progress saved",     keyAr: "التقدم محفوظ" },
+  { icon: <Sparkles size={14} />,     keyEn: "Any goal or field",  keyAr: "أي هدف أو مجال" },
+];
+
 function WelcomeScreen({ onStart }: { onStart: () => void }) {
   const { lang } = useLang();
   const ar = lang === "ar";
-  const chips = [
-    td("chip1", ar), td("chip2", ar), td("chip3", ar), td("chip4", ar),
-  ];
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4"
+      className="flex flex-col items-center justify-center min-h-[60vh] px-4"
       dir={ar ? "rtl" : "ltr"}
     >
-      {/* Glowing brain icon */}
+      {/* Icon */}
       <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
+        initial={{ scale: 0.85, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
-        className="relative mb-8"
+        transition={{ delay: 0.05, type: "spring", stiffness: 220 }}
+        className="relative mb-7"
       >
         <div
-          className="absolute inset-0 rounded-full blur-2xl scale-150 opacity-40"
+          className="absolute inset-0 rounded-full blur-2xl scale-150 opacity-30"
           style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)" }}
         />
         <div
-          className="relative w-24 h-24 rounded-3xl flex items-center justify-center animate-float"
+          className="relative w-20 h-20 rounded-2xl flex items-center justify-center animate-float"
           style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)" }}
         >
-          <Brain size={44} className="text-white" strokeWidth={1.5} />
+          <Brain size={38} className="text-white" strokeWidth={1.5} />
         </div>
       </motion.div>
 
+      {/* Heading block */}
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
+        initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.25 }}
+        transition={{ delay: 0.15 }}
+        className="text-center max-w-md"
       >
-        <div
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-4"
-          style={{
-            background: "rgba(0,212,161,0.1)",
-            border: "1px solid rgba(0,212,161,0.2)",
-            color: "var(--brand-teal)",
-          }}
+        <p
+          className="text-xs font-semibold uppercase tracking-widest mb-3"
+          style={{ color: "var(--brand-teal)" }}
         >
-          <Sparkles size={11} />
           {td("badge", ar)}
-        </div>
+        </p>
         <h1
-          className="text-3xl lg:text-4xl font-bold mb-4 leading-tight max-w-lg mx-auto"
+          className="text-3xl lg:text-4xl font-bold mb-1 leading-tight"
           style={{ color: "var(--text-primary)" }}
         >
-          {td("heroTitle", ar)}{" "}
-          <span className="gradient-text-ai">{td("heroAI", ar)}</span>
+          {td("heroTitle", ar)}
         </h1>
+        <h2
+          className="text-xl lg:text-2xl font-semibold mb-5 gradient-text-ai"
+        >
+          {td("heroAI", ar)}
+        </h2>
         <p
-          className="max-w-lg mx-auto text-base leading-relaxed mb-10"
+          className="text-sm leading-relaxed mb-8"
           style={{ color: "var(--text-secondary)" }}
         >
           {td("heroDesc", ar)}
         </p>
 
         <motion.button
-          whileHover={{ scale: 1.04 }}
+          whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
           onClick={onStart}
-          className="relative inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl text-base font-bold text-white overflow-hidden group"
+          className="relative inline-flex items-center gap-2.5 px-7 py-3.5 rounded-2xl text-sm font-bold text-white overflow-hidden group"
           style={{
             background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
-            boxShadow: "0 0 40px rgba(0,212,161,0.35)",
+            boxShadow: "0 0 32px rgba(0,212,161,0.3)",
           }}
         >
           <span
             className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
             style={{ background: "linear-gradient(135deg, #00c090, #0ea5c5)" }}
           />
-          <Brain size={18} className="relative z-10" />
+          <Brain size={16} className="relative z-10" />
           <span className="relative z-10">{td("startSession", ar)}</span>
-          <ArrowRight size={18} className="relative z-10" />
+          <ArrowRight size={16} className="relative z-10" />
         </motion.button>
       </motion.div>
 
-      {/* Feature chips */}
+      {/* Feature grid */}
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="flex flex-wrap items-center justify-center gap-3 mt-10"
+        transition={{ delay: 0.3 }}
+        className="grid grid-cols-2 gap-2.5 mt-10 w-full max-w-xs"
       >
-        {chips.map((text) => (
+        {WELCOME_FEATURES.map((f) => (
           <div
-            key={text}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
+            key={f.keyEn}
+            className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium"
             style={{
               background: "var(--bg-card)",
               border: "1px solid var(--border-subtle)",
               color: "var(--text-secondary)",
             }}
           >
-            <span style={{ color: "var(--brand-teal)" }}>✦</span>
-            {text}
+            <span style={{ color: "var(--brand-teal)" }}>{f.icon}</span>
+            {ar ? f.keyAr : f.keyEn}
           </div>
         ))}
       </motion.div>
@@ -1239,23 +1245,61 @@ export function AIDashboard({ firstName }: { firstName: string }) {
     const savedScenario = localStorage.getItem("espark-scenario") ?? "";
     if (savedScenario) setScenario(savedScenario);
 
+    // --- sessionStorage plan cache: show saved plan instantly, then re-validate in background ---
+    const CACHE_KEY = "espark-plan-cache";
+    const cached = sessionStorage.getItem(CACHE_KEY);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached) as LearningPlan;
+        if (parsed?.type === "LEARNING_PLAN") {
+          setPlan(parsed);
+          setPhase("plan");
+          setIsInitializing(false);
+          // Revalidate silently in background — update cache but don't re-render if plan unchanged
+          fetch("/api/user/roadmap")
+            .then((r) => r.ok ? r.json() : null)
+            .then((data) => {
+              if (data?.planJson && (data.planJson as LearningPlan).type === "LEARNING_PLAN") {
+                sessionStorage.setItem(CACHE_KEY, JSON.stringify(data.planJson));
+              } else {
+                // Plan was deleted externally — clear cache + reset
+                sessionStorage.removeItem(CACHE_KEY);
+              }
+            })
+            .catch(() => {});
+          return;
+        }
+      } catch {
+        sessionStorage.removeItem(CACHE_KEY);
+      }
+    }
+
+    const introSeen = sessionStorage.getItem("espark-intro-seen");
+
     fetch("/api/user/roadmap")
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (data?.planJson && (data.planJson as LearningPlan).type === "LEARNING_PLAN") {
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify(data.planJson));
           setPlan(data.planJson as LearningPlan);
           setPhase("plan");
-        } else {
-          // No saved plan — always show intro (first visit or after reset)
+        } else if (!introSeen) {
+          // First visit — show full intro
           setShowIntro(true);
         }
+        // else: intro already seen this session → show WelcomeScreen directly
       })
       .catch(() => {
-        setShowIntro(true);
+        if (!introSeen) setShowIntro(true);
       })
       .finally(() => setIsInitializing(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keep sessionStorage plan cache in sync — powers instant re-navigation
+  useEffect(() => {
+    if (plan) sessionStorage.setItem("espark-plan-cache", JSON.stringify(plan));
+  }, [plan]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1479,6 +1523,8 @@ export function AIDashboard({ firstName }: { firstName: string }) {
       setStreamedText("");
       setIsLoading(false);
       localStorage.removeItem("espark-scenario");
+      sessionStorage.removeItem("espark-intro-seen");
+      sessionStorage.removeItem("espark-plan-cache");
       setScenario("");
       setShowIntro(true);
     }
@@ -1495,6 +1541,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
   const handleIntroComplete = useCallback((scenarioId: string, scenarioLabel: string) => {
     void scenarioId;
     localStorage.setItem("espark-scenario", scenarioLabel);
+    sessionStorage.setItem("espark-intro-seen", "1");
     setScenario(scenarioLabel);
     setShowIntro(false);
     void startInterview(scenarioLabel);
