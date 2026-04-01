@@ -1234,9 +1234,8 @@ export function AIDashboard({ firstName }: { firstName: string }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const streamBufferRef = useRef("");
 
-  // Restore saved plan from DB on mount + check intro state
+  // Restore saved plan from DB on mount; show intro whenever there is no plan
   useEffect(() => {
-    const introDone = localStorage.getItem("espark-intro-done");
     const savedScenario = localStorage.getItem("espark-scenario") ?? "";
     if (savedScenario) setScenario(savedScenario);
 
@@ -1246,13 +1245,13 @@ export function AIDashboard({ firstName }: { firstName: string }) {
         if (data?.planJson && (data.planJson as LearningPlan).type === "LEARNING_PLAN") {
           setPlan(data.planJson as LearningPlan);
           setPhase("plan");
-        } else if (!introDone) {
-          // First time — show intro overlay over the welcome screen
+        } else {
+          // No saved plan — always show intro (first visit or after reset)
           setShowIntro(true);
         }
       })
       .catch(() => {
-        if (!introDone) setShowIntro(true);
+        setShowIntro(true);
       })
       .finally(() => setIsInitializing(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1479,8 +1478,6 @@ export function AIDashboard({ firstName }: { firstName: string }) {
       setInput("");
       setStreamedText("");
       setIsLoading(false);
-      // Clear intro so user sees scenario selection again
-      localStorage.removeItem("espark-intro-done");
       localStorage.removeItem("espark-scenario");
       setScenario("");
       setShowIntro(true);
@@ -1497,7 +1494,6 @@ export function AIDashboard({ firstName }: { firstName: string }) {
   // Must be declared before any early returns (Rules of Hooks)
   const handleIntroComplete = useCallback((scenarioId: string, scenarioLabel: string) => {
     void scenarioId;
-    localStorage.setItem("espark-intro-done", "1");
     localStorage.setItem("espark-scenario", scenarioLabel);
     setScenario(scenarioLabel);
     setShowIntro(false);
