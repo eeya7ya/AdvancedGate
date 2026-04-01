@@ -469,6 +469,7 @@ function IntroOverlay({
   const ar = lang === "ar";
   const [phase, setPhase] = useState<"typing" | "scenarios" | "guide">("typing");
   const [typed, setTyped] = useState("");
+  const [noiseChar, setNoiseChar] = useState("");
   const [subVisible, setSubVisible] = useState(false);
   const [selectedScenario, setSelectedScenario] = useState<(typeof SCENARIOS)[0] | null>(null);
   const [guideStep, setGuideStep] = useState(0);
@@ -477,22 +478,45 @@ function IntroOverlay({
     ? `مرحباً بك في eSpark، ${firstName}.`
     : `Welcome to eSpark, ${firstName}.`;
 
-  // Typewriter effect
+  // Old-printer typewriter effect with variable timing and noise chars
   useEffect(() => {
     if (phase !== "typing") return;
     let i = 0;
+    let cancelled = false;
     setTyped("");
+    setNoiseChar("");
     setSubVisible(false);
-    const interval = setInterval(() => {
-      i++;
-      setTyped(welcomeText.slice(0, i));
+
+    const NOISE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#@!%&*";
+
+    const printNext = () => {
+      if (cancelled) return;
       if (i >= welcomeText.length) {
-        clearInterval(interval);
-        setTimeout(() => setSubVisible(true), 300);
-        setTimeout(() => setPhase("scenarios"), 2600);
+        setNoiseChar("");
+        setTimeout(() => { if (!cancelled) setSubVisible(true); }, 400);
+        setTimeout(() => { if (!cancelled) setPhase("scenarios"); }, 2800);
+        return;
       }
-    }, 45);
-    return () => clearInterval(interval);
+      // 28% chance of noise char appearing before the real char settles
+      const hasNoise = Math.random() < 0.28;
+      if (hasNoise) {
+        setNoiseChar(NOISE_CHARS[Math.floor(Math.random() * NOISE_CHARS.length)]);
+        setTimeout(() => {
+          if (cancelled) return;
+          setNoiseChar("");
+          i++;
+          setTyped(welcomeText.slice(0, i));
+          setTimeout(printNext, 40 + Math.random() * 35);
+        }, 30);
+      } else {
+        i++;
+        setTyped(welcomeText.slice(0, i));
+        setTimeout(printNext, 40 + Math.random() * 35);
+      }
+    };
+
+    setTimeout(printNext, 300);
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, lang]);
 
@@ -512,13 +536,40 @@ function IntroOverlay({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.4 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden"
       style={{
-        background: "rgba(5, 8, 22, 0.88)",
-        backdropFilter: "blur(16px)",
+        background: "radial-gradient(ellipse 90% 70% at 50% 38%, rgba(0,212,161,0.09) 0%, rgba(5,8,22,0.97) 65%)",
+        backdropFilter: "blur(20px)",
       }}
       dir={ar ? "rtl" : "ltr"}
     >
+      {/* CRT scanlines overlay */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 pointer-events-none z-0"
+        style={{
+          backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(0,0,0,0.13) 1px, rgba(0,0,0,0.13) 2px)",
+          backgroundSize: "100% 2px",
+        }}
+      />
+      {/* Edge vignette */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 pointer-events-none z-0"
+        style={{
+          background: "radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.55) 100%)",
+        }}
+      />
+      {/* Top glare streak */}
+      <div
+        aria-hidden="true"
+        className="absolute top-0 left-1/2 -translate-x-1/2 pointer-events-none z-0"
+        style={{
+          width: "60%",
+          height: "1px",
+          background: "linear-gradient(90deg, transparent, rgba(0,212,161,0.25), transparent)",
+        }}
+      />
       <AnimatePresence mode="wait">
 
         {/* Phase 1 — Typewriter */}
@@ -528,31 +579,69 @@ function IntroOverlay({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="text-center max-w-xl"
+            className="text-center max-w-xl relative z-10"
           >
+            {/* Glowing icon with printer-flicker effect */}
+            <div className="relative mb-10">
+              <div
+                className="absolute inset-0 rounded-full blur-3xl scale-[2] opacity-20"
+                style={{ background: "radial-gradient(circle, #00d4a1, #22d3ee)" }}
+              />
+              <div
+                className="relative w-20 h-20 rounded-3xl flex items-center justify-center mx-auto animate-printer-flicker"
+                style={{
+                  background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
+                  boxShadow: "0 0 40px rgba(0,212,161,0.5), 0 0 80px rgba(0,212,161,0.15)",
+                }}
+              >
+                <Brain size={40} className="text-white" />
+              </div>
+            </div>
+
+            {/* Printer-style terminal text */}
             <div
-              className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-8"
+              className="inline-block px-6 py-4 rounded-xl mb-6"
               style={{
-                background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
-                boxShadow: "0 0 60px rgba(0,212,161,0.4)",
+                background: "rgba(0,0,0,0.35)",
+                border: "1px solid rgba(0,212,161,0.2)",
+                boxShadow: "inset 0 0 30px rgba(0,0,0,0.3)",
               }}
             >
-              <Brain size={40} className="text-white animate-pulse" />
+              <h1
+                className="text-2xl lg:text-3xl font-bold text-white min-h-[1.4em] animate-printer-flicker"
+                style={{
+                  fontFamily: "'Courier New', Courier, monospace",
+                  fontVariantNumeric: "tabular-nums",
+                  letterSpacing: "0.04em",
+                  textShadow: "0 0 8px rgba(0,212,161,0.7), 0 0 20px rgba(0,212,161,0.25)",
+                }}
+              >
+                {typed}
+                {noiseChar && (
+                  <span style={{ color: "#4ade80", opacity: 0.65 }}>{noiseChar}</span>
+                )}
+                <span
+                  className="animate-blink-cursor inline-block w-[0.55em] h-[1.1em] ml-0.5 align-text-bottom"
+                  style={{
+                    background: "#00d4a1",
+                    boxShadow: "0 0 6px rgba(0,212,161,0.8)",
+                    verticalAlign: "text-bottom",
+                  }}
+                />
+              </h1>
             </div>
-            <h1
-              className="text-4xl lg:text-5xl font-black text-white mb-6 min-h-[1.2em]"
-              style={{ fontVariantNumeric: "tabular-nums" }}
-            >
-              {typed}
-              <span className="animate-pulse" style={{ color: "#00d4a1" }}>|</span>
-            </h1>
+
             <AnimatePresence>
               {subVisible && (
                 <motion.p
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="text-lg"
-                  style={{ color: "rgba(255,255,255,0.6)" }}
+                  className="text-base"
+                  style={{
+                    color: "rgba(255,255,255,0.55)",
+                    fontFamily: "'Courier New', Courier, monospace",
+                    letterSpacing: "0.03em",
+                  }}
                 >
                   {td("introSub", ar)}
                 </motion.p>
@@ -561,7 +650,7 @@ function IntroOverlay({
             <button
               onClick={() => setPhase("scenarios")}
               className="mt-10 text-xs font-medium hover:opacity-70 transition-opacity"
-              style={{ color: "rgba(255,255,255,0.3)" }}
+              style={{ color: "rgba(255,255,255,0.25)", fontFamily: "'Courier New', Courier, monospace" }}
             >
               {td("introSkip", ar)}
             </button>
@@ -575,7 +664,7 @@ function IntroOverlay({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="w-full max-w-2xl"
+            className="w-full max-w-2xl relative z-10"
           >
             <h2 className="text-2xl lg:text-3xl font-black text-white text-center mb-2">
               {td("introQuestion", ar)}
@@ -627,7 +716,7 @@ function IntroOverlay({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="w-full max-w-md text-center"
+            className="w-full max-w-md text-center relative z-10"
           >
             {selectedScenario && (
               <div
