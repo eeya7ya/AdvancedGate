@@ -399,18 +399,21 @@ function MarketInsightsSection({ insights }: { insights: MarketInsights }) {
 }
 
 /* ── Course link resolver — calls our AI model to find real enrollment pages ── */
-async function fetchCourseLink(title: string, platform: string, instructor: string): Promise<string> {
+async function fetchCourseLink(title: string, platform: string, instructor: string): Promise<{ url: string; quotaExceeded: boolean }> {
   try {
     const res = await fetch("/api/ai/course-link", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title, platform, instructor }),
     });
-    if (!res.ok) return "";
+    if (!res.ok) return { url: "", quotaExceeded: false };
     const data = await res.json();
-    return typeof data.url === "string" ? data.url : "";
+    return {
+      url: typeof data.url === "string" ? data.url : "",
+      quotaExceeded: data.quota_exceeded === true,
+    };
   } catch {
-    return "";
+    return { url: "", quotaExceeded: false };
   }
 }
 
@@ -449,10 +452,12 @@ function CourseRecommendationsSection({
   courses,
   resolvedUrls,
   loadingKeys,
+  quotaExceededKeys,
 }: {
   courses: CourseRecommendation[];
   resolvedUrls: Record<string, string>;
   loadingKeys: Set<string>;
+  quotaExceededKeys: Set<string>;
 }) {
   const isRTL = useRTL();
   const levelColor: Record<string, string> = {
@@ -508,6 +513,7 @@ function CourseRecommendationsSection({
                 const resolvedUrl = resolvedUrls[courseKey] ?? "";
                 const openUrl = courseLink ? null : (c.url && c.url.length > 0 ? c.url : resolvedUrl || null);
                 const isLoadingUrl = !courseLink && !c.url && loadingKeys.has(courseKey);
+                const isQuotaExceeded = !courseLink && !c.url && !resolvedUrl && quotaExceededKeys.has(courseKey);
 
                 return (
                   <motion.div
@@ -566,6 +572,15 @@ function CourseRecommendationsSection({
                             >
                               <Loader2 size={10} className="animate-spin" />
                               {isRTL ? "جارٍ البحث..." : "Finding link..."}
+                            </span>
+                          ) : isQuotaExceeded ? (
+                            <span
+                              className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg opacity-70 cursor-not-allowed"
+                              style={{ background: "rgba(245,166,35,0.1)", color: "#f5a623", border: "1px solid rgba(245,166,35,0.3)" }}
+                              title={isRTL ? "تم استنفاد حصة البحث اليومية" : "Daily search quota reached"}
+                            >
+                              <ExternalLink size={10} />
+                              {isRTL ? "انتهت الحصة اليومية" : "No quota left"}
                             </span>
                           ) : openUrl ? (
                             <a
@@ -860,6 +875,7 @@ export function RoadmapClient({
   // Resolved URLs fetched by our AI model for courses without a direct URL
   const [resolvedUrls, setResolvedUrls] = useState<Record<string, string>>({});
   const [loadingKeys, setLoadingKeys] = useState<Set<string>>(new Set());
+  const [quotaExceededKeys, setQuotaExceededKeys] = useState<Set<string>>(new Set());
 
   // On mount, fetch links for any course missing a URL
   useEffect(() => {
@@ -868,9 +884,13 @@ export function RoadmapClient({
       if (c.url && c.url.length > 0) return; // already has a URL
       const key = `${c.title}__${c.platform}`;
       setLoadingKeys((prev) => { const n = new Set(prev); n.add(key); return n; });
-      fetchCourseLink(c.title, c.platform, c.instructor).then((url) => {
+      fetchCourseLink(c.title, c.platform, c.instructor).then(({ url, quotaExceeded }) => {
         setLoadingKeys((prev) => { const n = new Set(prev); n.delete(key); return n; });
-        if (url) setResolvedUrls((prev) => ({ ...prev, [key]: url }));
+        if (quotaExceeded) {
+          setQuotaExceededKeys((prev) => { const n = new Set(prev); n.add(key); return n; });
+        } else if (url) {
+          setResolvedUrls((prev) => ({ ...prev, [key]: url }));
+        }
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1023,6 +1043,7 @@ export function RoadmapClient({
                         const courseKey2 = `${c.title}__${c.platform}`;
                         const effectiveUrl = customUrls[i] || (c.url && c.url.length > 0 ? c.url : resolvedUrls[courseKey2] || null);
                         const isLoadingCourse = !effectiveUrl && loadingKeys.has(courseKey2);
+                        const isQuotaExceededCourse = !effectiveUrl && !isLoadingCourse && quotaExceededKeys.has(courseKey2);
                         const urlInputVisible = showUrlInput.has(i);
 
                         return (
@@ -1082,6 +1103,15 @@ export function RoadmapClient({
                                     >
                                       <Loader2 size={10} className="animate-spin" />
                                       {isRTL ? "جارٍ البحث..." : "Finding link..."}
+                                    </span>
+                                  ) : isQuotaExceededCourse ? (
+                                    <span
+                                      className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg opacity-70 cursor-not-allowed"
+                                      style={{ background: "rgba(245,166,35,0.1)", color: "#f5a623", border: "1px solid rgba(245,166,35,0.3)" }}
+                                      title={isRTL ? "تم استنفاد حصة البحث اليومية" : "Daily search quota reached"}
+                                    >
+                                      <ExternalLink size={10} />
+                                      {isRTL ? "انتهت الحصة اليومية" : "No quota left"}
                                     </span>
                                   ) : effectiveUrl ? (
                                     <a

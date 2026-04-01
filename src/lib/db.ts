@@ -135,6 +135,29 @@ export async function createTables() {
       visited_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS course_link_cache (
+      cache_key  TEXT PRIMARY KEY,
+      url        TEXT NOT NULL,
+      cached_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS api_budget (
+      id         INTEGER PRIMARY KEY DEFAULT 1,
+      spent      NUMERIC(10,6) NOT NULL DEFAULT 0,
+      reset_date DATE NOT NULL DEFAULT CURRENT_DATE
+    );
+  `;
+
+  // Ensure the single budget row exists
+  await sql`
+    INSERT INTO api_budget (id, spent, reset_date)
+    VALUES (1, 0, CURRENT_DATE)
+    ON CONFLICT (id) DO NOTHING;
+  `;
 }
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
@@ -450,6 +473,67 @@ export async function deleteUserRoadmap(userId: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+// ─── API Budget ─────────────────────────────────────────────────────────────
+
+export async function getApiSpent(): Promise<number> {
+  try {
+    await ensureTables();
+    const { rows } = await sql`
+      SELECT spent, reset_date FROM api_budget WHERE id = 1
+    `;
+    const row = rows[0] as { spent: string; reset_date: string } | undefined;
+    if (!row) return 0;
+
+    // Auto-reset if the stored date is before today
+    const today = new Date().toISOString().slice(0, 10);
+    if (row.reset_date < today) {
+      await sql`UPDATE api_budget SET spent = 0, reset_date = CURRENT_DATE WHERE id = 1`;
+      return 0;
+    }
+    return parseFloat(row.spent);
+  } catch {
+    return 0;
+  }
+}
+
+export async function addApiCost(amount: number): Promise<void> {
+  try {
+    await sql`
+      UPDATE api_budget
+      SET spent = spent + ${amount}
+      WHERE id = 1
+    `;
+  } catch {
+    // non-fatal
+  }
+}
+
+// ─── Course Link Cache ──────────────────────────────────────────────────────
+
+export async function getCachedCourseLink(cacheKey: string): Promise<string | null> {
+  try {
+    await ensureTables();
+    const { rows } = await sql`
+      SELECT url FROM course_link_cache WHERE cache_key = ${cacheKey}
+    `;
+    return (rows[0] as { url: string })?.url ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedCourseLink(cacheKey: string, url: string): Promise<void> {
+  try {
+    await sql`
+      INSERT INTO course_link_cache (cache_key, url)
+      VALUES (${cacheKey}, ${url})
+      ON CONFLICT (cache_key) DO UPDATE SET url = EXCLUDED.url, cached_at = NOW()
+    `;
+  } catch {
+    // non-fatal
   }
 }
 
