@@ -143,6 +143,21 @@ export async function createTables() {
       cached_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS api_budget (
+      id         INTEGER PRIMARY KEY DEFAULT 1,
+      spent      NUMERIC(10,6) NOT NULL DEFAULT 0,
+      reset_date DATE NOT NULL DEFAULT CURRENT_DATE
+    );
+  `;
+
+  // Ensure the single budget row exists
+  await sql`
+    INSERT INTO api_budget (id, spent, reset_date)
+    VALUES (1, 0, CURRENT_DATE)
+    ON CONFLICT (id) DO NOTHING;
+  `;
 }
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
@@ -458,6 +473,41 @@ export async function deleteUserRoadmap(userId: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+// ─── API Budget ─────────────────────────────────────────────────────────────
+
+export async function getApiSpent(): Promise<number> {
+  try {
+    await ensureTables();
+    const { rows } = await sql`
+      SELECT spent, reset_date FROM api_budget WHERE id = 1
+    `;
+    const row = rows[0] as { spent: string; reset_date: string } | undefined;
+    if (!row) return 0;
+
+    // Auto-reset if the stored date is before today
+    const today = new Date().toISOString().slice(0, 10);
+    if (row.reset_date < today) {
+      await sql`UPDATE api_budget SET spent = 0, reset_date = CURRENT_DATE WHERE id = 1`;
+      return 0;
+    }
+    return parseFloat(row.spent);
+  } catch {
+    return 0;
+  }
+}
+
+export async function addApiCost(amount: number): Promise<void> {
+  try {
+    await sql`
+      UPDATE api_budget
+      SET spent = spent + ${amount}
+      WHERE id = 1
+    `;
+  } catch {
+    // non-fatal
   }
 }
 

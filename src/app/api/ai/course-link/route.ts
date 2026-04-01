@@ -1,7 +1,23 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "~/auth";
-import { getCachedCourseLink, setCachedCourseLink } from "@/lib/db";
+import { getCachedCourseLink, setCachedCourseLink, getApiSpent, addApiCost } from "@/lib/db";
+
+// Daily budget cap in USD
+const DAILY_BUDGET_USD = 0.70;
+
+// Claude Sonnet 4.6 pricing
+const COST_PER_INPUT_TOKEN  = 3    / 1_000_000; // $3 / MTok
+const COST_PER_OUTPUT_TOKEN = 15   / 1_000_000; // $15 / MTok
+const COST_PER_WEB_SEARCH   = 10   / 1_000;     // $10 / 1k searches
+
+function calcCost(inputTokens: number, outputTokens: number, webSearches: number): number {
+  return (
+    inputTokens  * COST_PER_INPUT_TOKEN +
+    outputTokens * COST_PER_OUTPUT_TOKEN +
+    webSearches  * COST_PER_WEB_SEARCH
+  );
+}
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -129,7 +145,7 @@ function platformSearchUrl(title: string, platform: string): string {
 }
 
 /* ── Claude Sonnet 4.6 web search ────────────────────────────────────── */
-async function findCourseLink(title: string, platform: string, instructor: string): Promise<string[]> {
+async function findCourseLink(title: string, platform: string, instructor: string): Promise<{ urls: string[]; cost: number }> {
   const platformHint = platform
     ? ` on ${platform}`
     : " on platforms like Udemy, Coursera, edX, YouTube, LinkedIn Learning, freeCodeCamp, Pluralsight, or Cisco NetAcad";
@@ -161,6 +177,7 @@ async function findCourseLink(title: string, platform: string, instructor: strin
     });
 
     const urls: string[] = [];
+    let webSearchCount = 0;
 
     for (const block of response.content ?? []) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -168,6 +185,7 @@ async function findCourseLink(title: string, platform: string, instructor: strin
 
       // URLs from web_search_tool_result blocks (Anthropic built-in tool results)
       if (b.type === "web_search_tool_result") {
+        webSearchCount++;
         const content = b.content;
         if (Array.isArray(content)) {
           for (const item of content) {
@@ -186,10 +204,16 @@ async function findCourseLink(title: string, platform: string, instructor: strin
       }
     }
 
-    return urls;
+    const cost = calcCost(
+      response.usage?.input_tokens ?? 0,
+      response.usage?.output_tokens ?? 0,
+      webSearchCount,
+    );
+
+    return { urls, cost };
   } catch (err) {
     console.error("[course-link] Claude search error:", err);
-    return [];
+    return { urls: [], cost: 0 };
   }
 }
 
@@ -218,7 +242,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url: cached });
   }
 
-  const allUrls = await findCourseLink(title, platform, instructor);
+  // Budget guard — check before spending
+  const spent = await getApiSpent();
+  if (spent >= DAILY_BUDGET_USD) {
+    console.warn(`[course-link] daily budget exhausted ($${spent.toFixed(4)} / $${DAILY_BUDGET_USD})`);
+    return NextResponse.json({ url: "", quota_exceeded: true });
+  }
+
+  const { urls: allUrls, cost } = await findCourseLink(title, platform, instructor);
+
+  // Record cost immediately after the call
+  if (cost > 0) await addApiCost(cost);
 
   // De-duplicate by normalised URL
   const seen = new Set<string>();
