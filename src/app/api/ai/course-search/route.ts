@@ -2,7 +2,10 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "~/auth";
 import { subjects } from "@/lib/data";
-import { isBudgetExhausted, addRuntimeCost, DAILY_BUDGET_USD } from "@/lib/runtime-cache";
+import { getUserApiSpent, addUserApiCost } from "@/lib/db";
+
+// Per-user budget cap in USD
+const USER_BUDGET_USD = 0.70;
 
 // Claude Sonnet 4.6 pricing
 const COST_PER_INPUT_TOKEN  = 3  / 1_000_000; // $3 / MTok
@@ -65,10 +68,12 @@ export async function POST(req: NextRequest) {
 
   const userMessage = `Catalog:${JSON.stringify(catalog)}\nQuery:"${query}"`;
 
-  // Budget guard — check before spending
-  if (isBudgetExhausted()) {
-    console.warn(`[course-search] budget exhausted ($${DAILY_BUDGET_USD} cap)`);
-    return NextResponse.json({ error: "Daily AI budget exhausted" }, { status: 429 });
+  // Per-user budget guard
+  const userId = session.user.id!;
+  const spent = await getUserApiSpent(userId);
+  if (spent >= USER_BUDGET_USD) {
+    console.warn(`[course-search] user ${userId} budget exhausted ($${spent.toFixed(4)} / $${USER_BUDGET_USD})`);
+    return NextResponse.json({ error: "Search budget exhausted" }, { status: 429 });
   }
 
   try {
@@ -79,11 +84,11 @@ export async function POST(req: NextRequest) {
       system: systemPrompt,
     });
 
-    // Track cost against shared runtime budget
+    // Track cost against this user's budget
     const cost =
       (message.usage?.input_tokens ?? 0)  * COST_PER_INPUT_TOKEN +
       (message.usage?.output_tokens ?? 0) * COST_PER_OUTPUT_TOKEN;
-    if (cost > 0) addRuntimeCost(cost);
+    if (cost > 0) await addUserApiCost(userId, cost);
 
     const rawText =
       message.content[0]?.type === "text" ? message.content[0].text : "";

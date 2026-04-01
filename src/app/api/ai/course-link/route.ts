@@ -1,7 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "~/auth";
-import { isBudgetExhausted, addRuntimeCost, getCachedLink, setCachedLink, DAILY_BUDGET_USD } from "@/lib/runtime-cache";
+import { getCachedLink, setCachedLink } from "@/lib/runtime-cache";
+import { getUserApiSpent, addUserApiCost } from "@/lib/db";
+
+// Per-user budget cap in USD
+const USER_BUDGET_USD = 0.70;
 
 // Claude Sonnet 4.6 pricing
 const COST_PER_INPUT_TOKEN  = 3    / 1_000_000; // $3 / MTok
@@ -221,16 +225,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url: cached });
   }
 
-  // Budget guard — check before spending
-  if (isBudgetExhausted()) {
-    console.warn(`[course-link] budget exhausted ($${DAILY_BUDGET_USD} cap)`);
+  // Per-user budget guard
+  const userId = session.user.id!;
+  const spent = await getUserApiSpent(userId);
+  if (spent >= USER_BUDGET_USD) {
+    console.warn(`[course-link] user ${userId} budget exhausted ($${spent.toFixed(4)} / $${USER_BUDGET_USD})`);
     return NextResponse.json({ url: "", quota_exceeded: true });
   }
 
   const { urls: allUrls, cost } = await findCourseLink(title, platform, instructor);
 
-  // Record cost immediately after the call
-  if (cost > 0) addRuntimeCost(cost);
+  // Record cost against this user's budget
+  if (cost > 0) await addUserApiCost(userId, cost);
 
   // De-duplicate by normalised URL
   const seen = new Set<string>();

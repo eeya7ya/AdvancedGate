@@ -145,18 +145,10 @@ export async function createTables() {
   `;
 
   await sql`
-    CREATE TABLE IF NOT EXISTS api_budget (
-      id         INTEGER PRIMARY KEY DEFAULT 1,
-      spent      NUMERIC(10,6) NOT NULL DEFAULT 0,
-      reset_date DATE NOT NULL DEFAULT CURRENT_DATE
+    CREATE TABLE IF NOT EXISTS user_api_budget (
+      user_id  TEXT PRIMARY KEY,
+      spent    NUMERIC(10,6) NOT NULL DEFAULT 0
     );
-  `;
-
-  // Ensure the single budget row exists
-  await sql`
-    INSERT INTO api_budget (id, spent, reset_date)
-    VALUES (1, 0, CURRENT_DATE)
-    ON CONFLICT (id) DO NOTHING;
   `;
 }
 
@@ -476,35 +468,42 @@ export async function deleteUserRoadmap(userId: string): Promise<boolean> {
   }
 }
 
-// ─── API Budget ─────────────────────────────────────────────────────────────
+// ─── Per-user API Budget ─────────────────────────────────────────────────────
+// New users start with $0 spent automatically (no row = fresh start).
+// Budget only resets when the user explicitly calls resetUserBudget().
 
-export async function getApiSpent(): Promise<number> {
+export async function getUserApiSpent(userId: string): Promise<number> {
   try {
     await ensureTables();
     const { rows } = await sql`
-      SELECT spent, reset_date FROM api_budget WHERE id = 1
+      SELECT spent FROM user_api_budget WHERE user_id = ${userId}
     `;
-    const row = rows[0] as { spent: string; reset_date: string } | undefined;
-    if (!row) return 0;
-
-    // Auto-reset if the stored date is before today
-    const today = new Date().toISOString().slice(0, 10);
-    if (row.reset_date < today) {
-      await sql`UPDATE api_budget SET spent = 0, reset_date = CURRENT_DATE WHERE id = 1`;
-      return 0;
-    }
-    return parseFloat(row.spent);
+    const row = rows[0] as { spent: string } | undefined;
+    return row ? parseFloat(row.spent) : 0;
   } catch {
     return 0;
   }
 }
 
-export async function addApiCost(amount: number): Promise<void> {
+export async function addUserApiCost(userId: string, amount: number): Promise<void> {
   try {
     await sql`
-      UPDATE api_budget
-      SET spent = spent + ${amount}
-      WHERE id = 1
+      INSERT INTO user_api_budget (user_id, spent)
+      VALUES (${userId}, ${amount})
+      ON CONFLICT (user_id) DO UPDATE
+        SET spent = user_api_budget.spent + EXCLUDED.spent
+    `;
+  } catch {
+    // non-fatal
+  }
+}
+
+export async function resetUserBudget(userId: string): Promise<void> {
+  try {
+    await sql`
+      INSERT INTO user_api_budget (user_id, spent)
+      VALUES (${userId}, 0)
+      ON CONFLICT (user_id) DO UPDATE SET spent = 0
     `;
   } catch {
     // non-fatal
