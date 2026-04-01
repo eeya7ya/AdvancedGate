@@ -4,7 +4,7 @@ import { auth } from "~/auth";
 import { getCachedCourseLink, setCachedCourseLink, getApiSpent, addApiCost } from "@/lib/db";
 
 // Daily budget cap in USD
-const DAILY_BUDGET_USD = 0.50;
+const DAILY_BUDGET_USD = 0.70;
 
 // Claude Sonnet 4.6 pricing
 const COST_PER_INPUT_TOKEN  = 3    / 1_000_000; // $3 / MTok
@@ -144,38 +144,7 @@ function platformSearchUrl(title: string, platform: string): string {
   return `https://www.google.com/search?q=${encodeURIComponent(q)}`;
 }
 
-/* ── Web search via best available model ─────────────────────────────── */
-// Prefer Sonnet 4.5 (lighter, same web-search support); fall back to 4.6.
-const SEARCH_MODELS = ["claude-sonnet-4-5", "claude-sonnet-4-6"] as const;
-
-async function callWithWebSearch(params: {
-  system: string;
-  userMessage: string;
-}): Promise<{ response: Anthropic.Message; model: string }> {
-  for (const model of SEARCH_MODELS) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const response = await (anthropic.messages.create as any)({
-        model,
-        max_tokens: 512,
-        tools: [{ type: "web_search_20250305", name: "web_search" }],
-        system: params.system,
-        messages: [{ role: "user", content: params.userMessage }],
-      }) as Anthropic.Message;
-      return { response, model };
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      // If this model doesn't support the web_search tool, try the next one
-      if (/tool.*not.*supported|unsupported.*tool|invalid.*tool/i.test(msg)) {
-        console.warn(`[course-link] ${model} doesn't support web_search, trying next model`);
-        continue;
-      }
-      throw err; // re-throw unrelated errors
-    }
-  }
-  throw new Error("No model supports web_search");
-}
-
+/* ── Claude Sonnet 4.6 web search ────────────────────────────────────── */
 async function findCourseLink(title: string, platform: string, instructor: string): Promise<{ urls: string[]; cost: number }> {
   const platformHint = platform
     ? ` on ${platform}`
@@ -183,15 +152,17 @@ async function findCourseLink(title: string, platform: string, instructor: strin
   const instructorHint = instructor ? ` by "${instructor}"` : "";
 
   try {
-    const { response } = await callWithWebSearch({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const response = await (anthropic.messages.create as any)({
+      model: "claude-sonnet-4-6",
+      max_tokens: 512,
+      tools: [{ type: "web_search_20250305", name: "web_search" }],
       system:
         "Course search assistant. Priority: 1) Official tech site (python.org, react.dev…). " +
         "2) Coursera, edX, Udemy, LinkedIn Learning. 3) Free YouTube by a top educator. " +
         "English only. Return the most direct enrollment/watch URL.",
-      userMessage:
-        `Find the best URL for "${title}"${instructorHint}${platformHint}. ` +
-        `Return the direct course or video URL.`,
-    });
+      messages: [{ role: "user", content: `Find the best URL for "${title}"${instructorHint}${platformHint}. Return the direct course or video URL.` }],
+    }) as Anthropic.Message;
 
     const urls: string[] = [];
     let webSearchCount = 0;
