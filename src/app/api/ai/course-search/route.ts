@@ -2,6 +2,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "~/auth";
 import { subjects } from "@/lib/data";
+import { getApiSpent, addApiCost } from "@/lib/db";
+
+// Shared daily budget cap in USD (same pool as course-link)
+const DAILY_BUDGET_USD = 0.70;
+
+// Claude Sonnet 4.6 pricing
+const COST_PER_INPUT_TOKEN  = 3  / 1_000_000; // $3 / MTok
+const COST_PER_OUTPUT_TOKEN = 15 / 1_000_000; // $15 / MTok
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -60,13 +68,26 @@ export async function POST(req: NextRequest) {
 
   const userMessage = `Catalog:${JSON.stringify(catalog)}\nQuery:"${query}"`;
 
+  // Budget guard — check before spending
+  const spent = await getApiSpent();
+  if (spent >= DAILY_BUDGET_USD) {
+    console.warn(`[course-search] daily budget exhausted ($${spent.toFixed(4)} / $${DAILY_BUDGET_USD})`);
+    return NextResponse.json({ error: "Daily AI budget exhausted" }, { status: 429 });
+  }
+
   try {
     const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: "claude-sonnet-4-6",
       max_tokens: 800,
       messages: [{ role: "user", content: userMessage }],
       system: systemPrompt,
     });
+
+    // Track cost against shared daily budget
+    const cost =
+      (message.usage?.input_tokens ?? 0)  * COST_PER_INPUT_TOKEN +
+      (message.usage?.output_tokens ?? 0) * COST_PER_OUTPUT_TOKEN;
+    if (cost > 0) await addApiCost(cost);
 
     const rawText =
       message.content[0]?.type === "text" ? message.content[0].text : "";
