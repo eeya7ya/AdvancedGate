@@ -1,10 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "~/auth";
-import { getCachedCourseLink, setCachedCourseLink, getApiSpent, addApiCost } from "@/lib/db";
-
-// Daily budget cap in USD
-const DAILY_BUDGET_USD = 0.70;
+import { isBudgetExhausted, addRuntimeCost, getCachedLink, setCachedLink, DAILY_BUDGET_USD } from "@/lib/runtime-cache";
 
 // Claude Sonnet 4.6 pricing
 const COST_PER_INPUT_TOKEN  = 3    / 1_000_000; // $3 / MTok
@@ -218,23 +215,22 @@ export async function POST(req: NextRequest) {
 
   // Cache key is based on title + platform (instructor is secondary, skip to maximise hits)
   const cacheKey = `${title.toLowerCase()}|${platform.toLowerCase()}`;
-  const cached = await getCachedCourseLink(cacheKey);
+  const cached = getCachedLink(cacheKey);
   if (cached) {
     console.log(`[course-link] cache hit: "${title}" → ${cached}`);
     return NextResponse.json({ url: cached });
   }
 
   // Budget guard — check before spending
-  const spent = await getApiSpent();
-  if (spent >= DAILY_BUDGET_USD) {
-    console.warn(`[course-link] daily budget exhausted ($${spent.toFixed(4)} / $${DAILY_BUDGET_USD})`);
+  if (isBudgetExhausted()) {
+    console.warn(`[course-link] budget exhausted ($${DAILY_BUDGET_USD} cap)`);
     return NextResponse.json({ url: "", quota_exceeded: true });
   }
 
   const { urls: allUrls, cost } = await findCourseLink(title, platform, instructor);
 
   // Record cost immediately after the call
-  if (cost > 0) await addApiCost(cost);
+  if (cost > 0) addRuntimeCost(cost);
 
   // De-duplicate by normalised URL
   const seen = new Set<string>();
@@ -262,8 +258,8 @@ export async function POST(req: NextRequest) {
   // Fall back to a Google search if nothing was found
   const finalUrl = best || platformSearchUrl(title, platform);
 
-  // Persist to cache so future requests skip Claude entirely
-  if (finalUrl) await setCachedCourseLink(cacheKey, finalUrl);
+  // Persist to in-memory cache so repeat requests within this session skip Claude
+  if (finalUrl) setCachedLink(cacheKey, finalUrl);
 
   console.log(`[course-link] "${title}" → ${best ? best : "(fallback google search)"}`);
   return NextResponse.json({ url: finalUrl });

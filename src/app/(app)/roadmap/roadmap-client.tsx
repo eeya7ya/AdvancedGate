@@ -511,8 +511,9 @@ function CourseRecommendationsSection({
                 const optLabel = OPTION_LABELS[optIdx] ?? String(optIdx + 1);
                 const courseKey = `${c.title}__${c.platform}`;
                 const resolvedUrl = resolvedUrls[courseKey] ?? "";
-                const openUrl = courseLink ? null : (c.url && c.url.length > 0 ? c.url : resolvedUrl || null);
-                const isLoadingUrl = !courseLink && !c.url && loadingKeys.has(courseKey);
+                // Prefer Claude-resolved URL; fall back to AI-generated c.url only if API hasn't run yet
+                const openUrl = courseLink ? null : (resolvedUrl || (c.url && c.url.length > 0 ? c.url : null));
+                const isLoadingUrl = !courseLink && loadingKeys.has(courseKey);
                 const isQuotaExceeded = !courseLink && !c.url && !resolvedUrl && quotaExceededKeys.has(courseKey);
 
                 return (
@@ -877,11 +878,10 @@ export function RoadmapClient({
   const [loadingKeys, setLoadingKeys] = useState<Set<string>>(new Set());
   const [quotaExceededKeys, setQuotaExceededKeys] = useState<Set<string>>(new Set());
 
-  // On mount, fetch links for any course missing a URL
+  // On mount, fetch verified links via Claude for every external course
   useEffect(() => {
     const courses = plan.courseRecommendations ?? [];
     courses.forEach((c: CourseRecommendation) => {
-      if (c.url && c.url.length > 0) return; // already has a URL
       const key = `${c.title}__${c.platform}`;
       setLoadingKeys((prev) => { const n = new Set(prev); n.add(key); return n; });
       fetchCourseLink(c.title, c.platform, c.instructor).then(({ url, quotaExceeded }) => {
@@ -1041,7 +1041,7 @@ export function RoadmapClient({
                         const isSelected = selectedCourses.has(i);
                         const isFree = /youtube|freecodecamp|khan|edx/i.test(c.platform);
                         const courseKey2 = `${c.title}__${c.platform}`;
-                        const effectiveUrl = customUrls[i] || (c.url && c.url.length > 0 ? c.url : resolvedUrls[courseKey2] || null);
+                        const effectiveUrl = customUrls[i] || resolvedUrls[courseKey2] || (c.url && c.url.length > 0 ? c.url : null);
                         const isLoadingCourse = !effectiveUrl && loadingKeys.has(courseKey2);
                         const isQuotaExceededCourse = !effectiveUrl && !isLoadingCourse && quotaExceededKeys.has(courseKey2);
                         const urlInputVisible = showUrlInput.has(i);
