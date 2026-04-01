@@ -4,7 +4,7 @@ import { auth } from "~/auth";
 import { getCachedCourseLink, setCachedCourseLink, getApiSpent, addApiCost } from "@/lib/db";
 
 // Daily budget cap in USD
-const DAILY_BUDGET_USD = 0.70;
+const DAILY_BUDGET_USD = 0.50;
 
 // Claude Sonnet 4.6 pricing
 const COST_PER_INPUT_TOKEN  = 3    / 1_000_000; // $3 / MTok
@@ -144,36 +144,53 @@ function platformSearchUrl(title: string, platform: string): string {
   return `https://www.google.com/search?q=${encodeURIComponent(q)}`;
 }
 
-/* ── Claude Sonnet 4.6 web search ────────────────────────────────────── */
+/* ── Web search via best available model ─────────────────────────────── */
+// Prefer Sonnet 4.5 (lighter, same web-search support); fall back to 4.6.
+const SEARCH_MODELS = ["claude-sonnet-4-5", "claude-sonnet-4-6"] as const;
+
+async function callWithWebSearch(params: {
+  system: string;
+  userMessage: string;
+}): Promise<{ response: Awaited<ReturnType<typeof anthropic.messages.create>>; model: string }> {
+  for (const model of SEARCH_MODELS) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const response = await (anthropic.messages.create as any)({
+        model,
+        max_tokens: 512,
+        tools: [{ type: "web_search_20250305", name: "web_search" }],
+        system: params.system,
+        messages: [{ role: "user", content: params.userMessage }],
+      });
+      return { response, model };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // If this model doesn't support the web_search tool, try the next one
+      if (/tool.*not.*supported|unsupported.*tool|invalid.*tool/i.test(msg)) {
+        console.warn(`[course-link] ${model} doesn't support web_search, trying next model`);
+        continue;
+      }
+      throw err; // re-throw unrelated errors
+    }
+  }
+  throw new Error("No model supports web_search");
+}
+
 async function findCourseLink(title: string, platform: string, instructor: string): Promise<{ urls: string[]; cost: number }> {
   const platformHint = platform
     ? ` on ${platform}`
-    : " on platforms like Udemy, Coursera, edX, YouTube, LinkedIn Learning, freeCodeCamp, Pluralsight, or Cisco NetAcad";
-  const instructorHint = instructor ? ` by instructor "${instructor}"` : "";
+    : " on platforms like Udemy, Coursera, edX, YouTube, LinkedIn Learning, freeCodeCamp, or Cisco NetAcad";
+  const instructorHint = instructor ? ` by "${instructor}"` : "";
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await (anthropic.messages.create as any)({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1024,
-      tools: [{ type: "web_search_20250305", name: "web_search" }],
+    const { response } = await callWithWebSearch({
       system:
-        "You are a course search assistant. Search in this priority order: " +
-        "1) Official documentation or learning pages on the technology's own website (e.g. python.org, react.dev, pytorch.org). " +
-        "2) Paid/accredited platforms: Coursera, edX, Udemy, LinkedIn Learning, Pluralsight, Udacity. " +
-        "3) Free courses: YouTube videos by well-known, trending instructors in that specific field (search for the most-viewed or highest-rated channel). " +
-        "Return only English-language pages. Prefer the most direct enrollment or watch URL.",
-      messages: [
-        {
-          role: "user",
-          content:
-            `Find the best URL for the course titled "${title}"${instructorHint}${platformHint}. ` +
-            `First check if the official technology site has a learning/tutorial page. ` +
-            `Then look for it on Coursera, Udemy, or edX. ` +
-            `Finally, find a free YouTube course by a trending educator in this subject. ` +
-            `Return the direct course page or video URL.`,
-        },
-      ],
+        "Course search assistant. Priority: 1) Official tech site (python.org, react.dev…). " +
+        "2) Coursera, edX, Udemy, LinkedIn Learning. 3) Free YouTube by a top educator. " +
+        "English only. Return the most direct enrollment/watch URL.",
+      userMessage:
+        `Find the best URL for "${title}"${instructorHint}${platformHint}. ` +
+        `Return the direct course or video URL.`,
     });
 
     const urls: string[] = [];
