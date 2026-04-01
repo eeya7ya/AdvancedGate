@@ -151,7 +151,7 @@ const SEARCH_MODELS = ["claude-sonnet-4-5", "claude-sonnet-4-6"] as const;
 async function callWithWebSearch(params: {
   system: string;
   userMessage: string;
-}): Promise<{ response: Awaited<ReturnType<typeof anthropic.messages.create>>; model: string }> {
+}): Promise<{ response: Anthropic.Message; model: string }> {
   for (const model of SEARCH_MODELS) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -161,7 +161,7 @@ async function callWithWebSearch(params: {
         tools: [{ type: "web_search_20250305", name: "web_search" }],
         system: params.system,
         messages: [{ role: "user", content: params.userMessage }],
-      });
+      }) as Anthropic.Message;
       return { response, model };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
