@@ -399,12 +399,12 @@ function MarketInsightsSection({ insights }: { insights: MarketInsights }) {
 }
 
 /* ── Course link resolver — calls our AI model to find real enrollment pages ── */
-async function fetchCourseLink(title: string, platform: string, instructor: string): Promise<{ url: string; quotaExceeded: boolean }> {
+async function fetchCourseLink(title: string, platform: string, instructor: string, country?: string): Promise<{ url: string; quotaExceeded: boolean }> {
   try {
     const res = await fetch("/api/ai/course-link", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, platform, instructor }),
+      body: JSON.stringify({ title, platform, instructor, country }),
     });
     if (!res.ok) return { url: "", quotaExceeded: false };
     const data = await res.json();
@@ -884,7 +884,7 @@ export function RoadmapClient({
     courses.forEach((c: CourseRecommendation) => {
       const key = `${c.title}__${c.platform}`;
       setLoadingKeys((prev) => { const n = new Set(prev); n.add(key); return n; });
-      fetchCourseLink(c.title, c.platform, c.instructor).then(({ url, quotaExceeded }) => {
+      fetchCourseLink(c.title, c.platform, c.instructor, plan.profile.country).then(({ url, quotaExceeded }) => {
         setLoadingKeys((prev) => { const n = new Set(prev); n.delete(key); return n; });
         if (quotaExceeded) {
           setQuotaExceededKeys((prev) => { const n = new Set(prev); n.add(key); return n; });

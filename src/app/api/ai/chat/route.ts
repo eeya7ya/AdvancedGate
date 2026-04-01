@@ -203,7 +203,7 @@ All description fields must be full, meaningful sentences — never 2-word label
       "hours": 4
     }
   ],
-  "courseRecommendations": "IMPORTANT: Include 6-8 courses minimum covering ALL categories: official vendor training, paid platforms (Udemy, Coursera, LinkedIn Learning), AND free resources (YouTube, freeCodeCamp, edX). Users have different budgets — give them options across all price ranges.",
+  "courseRecommendations": "IMPORTANT — THREE MANDATORY RULES: (1) OFFICIAL VENDOR FIRST: The first 1-2 courses MUST be from the official vendor portal (Cisco U. for CCNA/networking, Microsoft Learn for Azure/M365, AWS Skill Builder for AWS, Google Cloud Skills Boost for GCP, CompTIA CertMaster for CompTIA, KNX Association for KNX, etc.). Never bury official courses behind third-party ones. (2) BILINGUAL for Arabic-speaking countries: If the user is from Jordan, Egypt, Saudi Arabia, UAE, Kuwait, Bahrain, Qatar, Oman, Iraq, Syria, Lebanon, Morocco, Algeria, Tunisia, Libya, Sudan, Yemen, or Palestine — include at least 2 Arabic-language courses (Arabic Udemy courses, Arabic YouTube channels like Elzero Web School, محمد الدسوقي, قناة البرمجة العربية, etc.) in addition to the English courses. Label them so users know the language. (3) FULL RANGE: Also include paid platforms (Udemy, Coursera, LinkedIn Learning) and free resources (YouTube, freeCodeCamp, edX) — minimum 6-8 total.",
   "courseRecommendations": [
     {
       "title": "Exact course title as found in your web search — real and currently available",

@@ -145,9 +145,39 @@ function platformSearchUrl(title: string, platform: string): string {
   return `https://www.google.com/search?q=${encodeURIComponent(q)}`;
 }
 
+const ARABIC_COUNTRIES = new Set([
+  "jordan", "egypt", "saudi arabia", "uae", "united arab emirates",
+  "kuwait", "bahrain", "qatar", "oman", "iraq", "syria", "lebanon",
+  "morocco", "algeria", "tunisia", "libya", "sudan", "yemen", "palestine",
+]);
+
+function isArabicCountry(country: string): boolean {
+  return ARABIC_COUNTRIES.has(country.toLowerCase().trim());
+}
+
 /* ── Claude Sonnet 4.6 web search ────────────────────────────────────── */
-async function findCourseLink(title: string, platform: string, instructor: string): Promise<{ urls: string[]; cost: number }> {
+async function findCourseLink(
+  title: string,
+  platform: string,
+  instructor: string,
+  country?: string,
+): Promise<{ urls: string[]; cost: number }> {
+  const isArabic = country ? isArabicCountry(country) : false;
+  const langHint = isArabic ? " Arabic language OR English" : " English";
+
+  // Build query: prefer official vendor site, then language hint
   const query = [title, instructor, platform].filter(Boolean).join(" ");
+
+  const systemPrompt =
+    "You find course enrollment URLs. Do ONE search. " +
+    "Priority order: (1) official vendor website first (cisco.com/learning for Cisco, learn.microsoft.com for Microsoft, aws.amazon.com/training for AWS, cloudskillsboost.google for GCP, etc.), " +
+    "(2) then trusted platforms (Coursera, Udemy, YouTube). " +
+    (isArabic ? "If an Arabic-language version of the course exists on the official site or YouTube, prefer it. " : "") +
+    "Reply with only the single best bare URL, nothing else.";
+
+  const userMessage = `Find the best enrollment or watch URL for: ${query}.` +
+    ` Preferred language: ${langHint}.` +
+    ` Official vendor site takes top priority.`;
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -155,8 +185,8 @@ async function findCourseLink(title: string, platform: string, instructor: strin
       model: "claude-sonnet-4-6",
       max_tokens: 128,
       tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 1 }],
-      system: "You find course URLs. Do ONE search. Reply with only the bare URL, nothing else.",
-      messages: [{ role: "user", content: `Find the enrollment or watch URL for this course: ${query}` }],
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
     }) as Anthropic.Message;
 
     const urls: string[] = [];
@@ -205,12 +235,13 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ url: "" }, { status: 401 });
 
-  let title: string, platform: string, instructor: string;
+  let title: string, platform: string, instructor: string, country: string;
   try {
     const body = await req.json();
     title      = (body.title      ?? "").trim();
     platform   = (body.platform   ?? "").trim();
     instructor = (body.instructor ?? "").trim();
+    country    = (body.country    ?? "").trim();
   } catch {
     return NextResponse.json({ url: "" }, { status: 400 });
   }
@@ -233,7 +264,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url: "", quota_exceeded: true });
   }
 
-  const { urls: allUrls, cost } = await findCourseLink(title, platform, instructor);
+  const { urls: allUrls, cost } = await findCourseLink(title, platform, instructor, country);
 
   // Record cost against this user's budget
   if (cost > 0) await addUserApiCost(userId, cost);
