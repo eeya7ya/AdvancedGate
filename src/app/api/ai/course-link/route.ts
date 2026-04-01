@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "~/auth";
+import { getCachedCourseLink, setCachedCourseLink } from "@/lib/db";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -209,6 +210,14 @@ export async function POST(req: NextRequest) {
 
   if (!title) return NextResponse.json({ url: "" });
 
+  // Cache key is based on title + platform (instructor is secondary, skip to maximise hits)
+  const cacheKey = `${title.toLowerCase()}|${platform.toLowerCase()}`;
+  const cached = await getCachedCourseLink(cacheKey);
+  if (cached) {
+    console.log(`[course-link] cache hit: "${title}" → ${cached}`);
+    return NextResponse.json({ url: cached });
+  }
+
   const allUrls = await findCourseLink(title, platform, instructor);
 
   // De-duplicate by normalised URL
@@ -236,6 +245,9 @@ export async function POST(req: NextRequest) {
 
   // Fall back to a Google search if nothing was found
   const finalUrl = best || platformSearchUrl(title, platform);
+
+  // Persist to cache so future requests skip Claude entirely
+  if (finalUrl) await setCachedCourseLink(cacheKey, finalUrl);
 
   console.log(`[course-link] "${title}" → ${best ? best : "(fallback google search)"}`);
   return NextResponse.json({ url: finalUrl });

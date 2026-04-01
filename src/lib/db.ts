@@ -135,6 +135,14 @@ export async function createTables() {
       visited_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS course_link_cache (
+      cache_key  TEXT PRIMARY KEY,
+      url        TEXT NOT NULL,
+      cached_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
 }
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
@@ -450,6 +458,32 @@ export async function deleteUserRoadmap(userId: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+// ─── Course Link Cache ──────────────────────────────────────────────────────
+
+export async function getCachedCourseLink(cacheKey: string): Promise<string | null> {
+  try {
+    await ensureTables();
+    const { rows } = await sql`
+      SELECT url FROM course_link_cache WHERE cache_key = ${cacheKey}
+    `;
+    return (rows[0] as { url: string })?.url ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedCourseLink(cacheKey: string, url: string): Promise<void> {
+  try {
+    await sql`
+      INSERT INTO course_link_cache (cache_key, url)
+      VALUES (${cacheKey}, ${url})
+      ON CONFLICT (cache_key) DO UPDATE SET url = EXCLUDED.url, cached_at = NOW()
+    `;
+  } catch {
+    // non-fatal
   }
 }
 
