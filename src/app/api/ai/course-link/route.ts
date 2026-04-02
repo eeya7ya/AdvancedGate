@@ -161,58 +161,63 @@ async function findCourseLink(
   platform: string,
   instructor: string,
   country?: string,
-): Promise<{ urls: string[]; cost: number }> {
+): Promise<{ urls: string[]; claudeUrl: string; cost: number }> {
   const isArabic = country ? isArabicCountry(country) : false;
-  const langHint = isArabic ? " Arabic language OR English" : " English";
+  const langHint = isArabic ? "Arabic language (preferred) or English" : "English";
 
-  // Build query: prefer official vendor site, then language hint
   const query = [title, instructor, platform].filter(Boolean).join(" ");
 
   const systemPrompt =
-    "You find course enrollment URLs. Do ONE search. " +
-    "Priority order: (1) official vendor website first (cisco.com/learning for Cisco, learn.microsoft.com for Microsoft, aws.amazon.com/training for AWS, cloudskillsboost.google for GCP, etc.), " +
-    "(2) then trusted platforms (Coursera, Udemy, YouTube). " +
-    (isArabic ? "If an Arabic-language version of the course exists on the official site or YouTube, prefer it. " : "") +
-    "Reply with only the single best bare URL, nothing else.";
+    "You are a course URL finder. Search for the exact enrollment or watch URL for the requested course. " +
+    "Priority: (1) official vendor site (cisco.com/learning, learn.microsoft.com, aws.amazon.com/training, cloudskillsboost.google, netacad.com), " +
+    "(2) trusted platforms (Coursera, Udemy, edX, LinkedIn Learning, YouTube). " +
+    (isArabic ? "Prefer Arabic-language versions when available on official sites or YouTube. " : "") +
+    "After searching, output ONLY the single best URL — one line, no explanation, no markdown, no quotes.";
 
-  const userMessage = `Find the best enrollment or watch URL for: ${query}.` +
-    ` Preferred language: ${langHint}.` +
-    ` Official vendor site takes top priority.`;
+  const userMessage =
+    `Find the direct enrollment or watch URL for this course: "${query}". ` +
+    `Language preference: ${langHint}. ` +
+    `Return only the URL.`;
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const response = await (anthropic.messages.create as any)({
       model: "claude-sonnet-4-6",
-      max_tokens: 128,
+      max_tokens: 300,
       tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 1 }],
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
     }) as Anthropic.Message;
 
-    const urls: string[] = [];
+    // Claude's explicitly chosen URL (text response) — highest confidence
+    let claudeUrl = "";
+    // Fallback pool: URLs extracted from raw search results
+    const searchUrls: string[] = [];
     let webSearchCount = 0;
+
+    const URL_RE = /https?:\/\/[^\s"'<>\])}]+/g;
 
     for (const block of response.content ?? []) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const b = block as any;
 
-      // URLs from web_search_tool_result blocks (Anthropic built-in tool results)
       if (b.type === "web_search_tool_result") {
         webSearchCount++;
         const content = b.content;
         if (Array.isArray(content)) {
           for (const item of content) {
-            if (item.url) urls.push(item.url.replace(/[.,;:!?)]+$/, ""));
+            if (item.url) searchUrls.push(item.url.replace(/[.,;:!?)]+$/, ""));
           }
         }
       }
 
-      // URLs cited inline in Claude's text response
+      // Claude's own text reply — extract the first URL it stated (its selection)
       if (b.type === "text") {
-        const urlRegex = /https?:\/\/[^\s"'<>\])}]+/g;
-        for (const u of (b.text as string).match(urlRegex) ?? []) {
+        const matches = (b.text as string).match(URL_RE) ?? [];
+        for (const u of matches) {
           const clean = u.replace(/[.,;:!?)]+$/, "");
-          if (!urls.includes(clean)) urls.push(clean);
+          if (!claudeUrl) claudeUrl = clean;          // first URL = Claude's pick
+          if (!searchUrls.includes(clean)) searchUrls.push(clean);
         }
       }
     }
@@ -223,10 +228,10 @@ async function findCourseLink(
       webSearchCount,
     );
 
-    return { urls, cost };
+    return { urls: searchUrls, claudeUrl, cost };
   } catch (err) {
     console.error("[course-link] Claude search error:", err);
-    return { urls: [], cost: 0 };
+    return { urls: [], claudeUrl: "", cost: 0 };
   }
 }
 
@@ -264,7 +269,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url: "", quota_exceeded: true });
   }
 
-  const { urls: allUrls, cost } = await findCourseLink(title, platform, instructor, country);
+  const { urls: allUrls, claudeUrl, cost } = await findCourseLink(title, platform, instructor, country);
 
   // Record cost against this user's budget
   if (cost > 0) await addUserApiCost(userId, cost);
@@ -280,9 +285,14 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Claude's explicit text response is its highest-confidence selection —
+  // use it directly if it's a real URL (not a homepage / root path).
+  // Fall back to ranked pool only if Claude's pick looks wrong.
+  const claudeIsGood = claudeUrl && isCoursePage(claudeUrl);
+
   // Priority: official site course page → official site → trusted (non-YT) course page →
   //           trusted course page (incl. YT) → any course page → YT → first URL
-  const best =
+  const rankedBest =
     deduped.find((u) => isOfficial(u) && isCoursePage(u)) ??
     deduped.find((u) => isOfficial(u)) ??
     deduped.find((u) => isTrusted(u) && isCoursePage(u) && !isYouTube(u)) ??
@@ -291,6 +301,8 @@ export async function POST(req: NextRequest) {
     deduped.find((u) => isYouTube(u)) ??
     deduped[0] ??
     "";
+
+  const best = claudeIsGood ? claudeUrl : (rankedBest || claudeUrl);
 
   // Fall back to a Google search if nothing was found
   const finalUrl = best || platformSearchUrl(title, platform);

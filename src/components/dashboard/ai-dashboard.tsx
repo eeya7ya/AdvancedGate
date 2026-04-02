@@ -669,7 +669,7 @@ function IntroOverlay({
             <h2 className="text-3xl lg:text-4xl font-black text-white text-center mb-3">
               {td("introQuestion", ar)}
             </h2>
-            <p className="text-center text-base mb-10" style={{ color: "rgba(255,255,255,0.4)" }}>
+            <p className="text-center text-base mb-10" style={{ color: "rgba(255,255,255,0.72)" }}>
               {ar ? "اختر ما يصف وضعك أفضل" : "Choose what best describes your situation"}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -699,7 +699,7 @@ function IntroOverlay({
                     <div className="text-base font-bold text-white mb-1.5">
                       {ar ? s.ar : s.en}
                     </div>
-                    <div className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>
+                    <div className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.72)" }}>
                       {ar ? s.descAr : s.descEn}
                     </div>
                   </div>
@@ -732,7 +732,7 @@ function IntroOverlay({
                     <div className="text-base font-bold text-white mb-1.5">
                       {ar ? SCENARIOS[4].ar : SCENARIOS[4].en}
                     </div>
-                    <div className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>
+                    <div className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.72)" }}>
                       {ar ? SCENARIOS[4].descAr : SCENARIOS[4].descEn}
                     </div>
                   </div>
@@ -790,7 +790,7 @@ function IntroOverlay({
                     <span className="text-xl flex-shrink-0">{step.icon}</span>
                     <p
                       className={`text-sm ${ar ? "text-right" : "text-left"}`}
-                      style={{ color: active ? "#e2e8f0" : "rgba(255,255,255,0.4)" }}
+                      style={{ color: active ? "#f8fafc" : "rgba(255,255,255,0.65)" }}
                     >
                       {td(`guide${step.keyRef.charAt(0).toUpperCase()}${step.keyRef.slice(1)}`, ar)}
                     </p>
@@ -1307,7 +1307,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
       }
     }
 
-    const introSeen = sessionStorage.getItem("espark-intro-seen");
+    const introSeen = localStorage.getItem("espark-intro-seen");
 
     fetch("/api/user/roadmap")
       .then((r) => r.ok ? r.json() : null)
@@ -1556,7 +1556,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
       setStreamedText("");
       setIsLoading(false);
       localStorage.removeItem("espark-scenario");
-      sessionStorage.removeItem("espark-intro-seen");
+      localStorage.removeItem("espark-intro-seen");
       sessionStorage.removeItem("espark-plan-cache");
       setScenario("");
       setShowIntro(true);
@@ -1574,7 +1574,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
   const handleIntroComplete = useCallback((scenarioId: string, scenarioLabel: string) => {
     void scenarioId;
     localStorage.setItem("espark-scenario", scenarioLabel);
-    sessionStorage.setItem("espark-intro-seen", "1");
+    localStorage.setItem("espark-intro-seen", "1");
     setScenario(scenarioLabel);
     setShowIntro(false);
     void startInterview(scenarioLabel);
