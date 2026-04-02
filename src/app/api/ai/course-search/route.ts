@@ -25,8 +25,16 @@ export interface CourseSearchResult {
   matchReason: string;
 }
 
+export interface OfficialResource {
+  name: string;
+  url: string;
+  description: string;
+  why: string;
+}
+
 export interface CourseSearchResponse {
   results: CourseSearchResult[];
+  officialResources: OfficialResource[];
   summary: string;
 }
 
@@ -64,7 +72,16 @@ export async function POST(req: NextRequest) {
     }))
   );
 
-  const systemPrompt = `Course search assistant for eSpark engineering platform. Given a JSON catalog and a user query, find matching courses using semantic understanding (intent, implied skill level, conceptual relevance — not just keywords). Respond ONLY with valid JSON: {"results":[{"courseId":"...","matchReason":"1-2 sentences why it matches"}],"summary":"1 sentence"} — rank by relevance, omit non-matches, no text outside JSON.`;
+  const systemPrompt = `Course search assistant for eSpark engineering platform covering Power Engineering, Networking, and Software Development. Given a JSON catalog and a user query:
+
+1. Find up to 4 official external resources directly relevant to the query. Only include genuinely official sources: IEEE (ieee.org), NFPA (nfpa.org), EPRI (epri.com) for power engineering; Cisco DevNet (developer.cisco.com), CompTIA (comptia.org), IETF/RFC (rfc-editor.org) for networking; MDN Web Docs (developer.mozilla.org), Python.org, nodejs.org, or specific official framework docs for software. Rank by relevance to the query. Include 1–4 resources max, omit if none are relevant.
+
+2. Find matching courses from the catalog using semantic understanding (intent, implied skill level, conceptual relevance — not just keywords).
+
+Respond ONLY with valid JSON (no text outside):
+{"officialResources":[{"name":"...","url":"https://...","description":"brief description of the site","why":"1 sentence why it matches this query"}],"results":[{"courseId":"...","matchReason":"1-2 sentences why it matches"}],"summary":"1 sentence"}
+
+Omit non-matching courses. officialResources may be an empty array if nothing is relevant.`;
 
   const userMessage = `Catalog:${JSON.stringify(catalog)}\nQuery:"${query}"`;
 
@@ -79,7 +96,7 @@ export async function POST(req: NextRequest) {
   try {
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 800,
+      max_tokens: 1500,
       messages: [{ role: "user", content: userMessage }],
       system: systemPrompt,
     });
@@ -93,7 +110,7 @@ export async function POST(req: NextRequest) {
     const rawText =
       message.content[0]?.type === "text" ? message.content[0].text : "";
 
-    let parsed: { results: { courseId: string; matchReason: string }[]; summary: string };
+    let parsed: { officialResources?: OfficialResource[]; results: { courseId: string; matchReason: string }[]; summary: string };
     try {
       parsed = JSON.parse(rawText);
     } catch {
@@ -119,7 +136,11 @@ export async function POST(req: NextRequest) {
         } satisfies CourseSearchResult];
       });
 
-    return NextResponse.json({ results: hydrated, summary: parsed.summary } satisfies CourseSearchResponse);
+    return NextResponse.json({
+      officialResources: parsed.officialResources ?? [],
+      results: hydrated,
+      summary: parsed.summary,
+    } satisfies CourseSearchResponse);
   } catch (err) {
     console.error("[course-search] Anthropic API error:", err);
     return NextResponse.json({ error: "AI search failed" }, { status: 500 });
