@@ -2,9 +2,9 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { Sparkles, Search, BookOpen, ChevronRight, Clock, Loader2, X } from "lucide-react";
+import { Sparkles, Search, BookOpen, ChevronRight, Clock, Loader2, X, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { CourseSearchResult, CourseSearchResponse } from "@/app/api/ai/course-search/route";
+import type { CourseSearchResult, OfficialResource, CourseSearchResponse } from "@/app/api/ai/course-search/route";
 
 const subjectColors: Record<string, string> = {
   "power-engineering": "#f5a623",
@@ -16,6 +16,7 @@ export default function DeepCourseSearch() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<CourseSearchResult[] | null>(null);
+  const [officialResources, setOfficialResources] = useState<OfficialResource[]>([]);
   const [summary, setSummary] = useState("");
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -28,6 +29,7 @@ export default function DeepCourseSearch() {
     setLoading(true);
     setError("");
     setResults(null);
+    setOfficialResources([]);
     setSummary("");
 
     try {
@@ -44,6 +46,7 @@ export default function DeepCourseSearch() {
       }
 
       const data: CourseSearchResponse = await res.json();
+      setOfficialResources(data.officialResources ?? []);
       setResults(data.results);
       setSummary(data.summary);
     } catch {
@@ -56,6 +59,7 @@ export default function DeepCourseSearch() {
   function handleClear() {
     setQuery("");
     setResults(null);
+    setOfficialResources([]);
     setSummary("");
     setError("");
     inputRef.current?.focus();
@@ -127,7 +131,49 @@ export default function DeepCourseSearch() {
 
       {/* Results */}
       {hasResults && !error && (
-        <div className="space-y-3">
+        <div className="space-y-4">
+          {/* Official Resources — shown first */}
+          {officialResources.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#f5a623" }}>
+                <ExternalLink size={11} />
+                <span>Official Resources</span>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-2">
+                {officialResources.map((res) => (
+                  <a
+                    key={res.url}
+                    href={res.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-start gap-3 p-3.5 rounded-xl border transition-all group"
+                    style={{
+                      background: "rgba(245,166,35,0.05)",
+                      border: "1px solid rgba(245,166,35,0.2)",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLElement).style.borderColor = "rgba(245,166,35,0.45)";
+                      (e.currentTarget as HTMLElement).style.background = "rgba(245,166,35,0.09)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.borderColor = "rgba(245,166,35,0.2)";
+                      (e.currentTarget as HTMLElement).style.background = "rgba(245,166,35,0.05)";
+                    }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="text-sm font-semibold truncate" style={{ color: "#f5a623" }}>{res.name}</span>
+                        <ExternalLink size={11} className="flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity" style={{ color: "#f5a623" }} />
+                      </div>
+                      <p className="text-[#475569] text-xs leading-relaxed line-clamp-1">{res.description}</p>
+                      <p className="text-[#64748b] text-[11px] mt-0.5 leading-relaxed line-clamp-1">{res.why}</p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Summary */}
           {summary && (
             <p className="text-sm text-[#64748b] leading-relaxed">{summary}</p>

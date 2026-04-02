@@ -162,8 +162,8 @@ const D: Record<string, { en: string; ar: string }> = {
   introGo:        { en: "Got it, let's go!", ar: "فهمت، هيا نبدأ!" },
   guideAdvisor:   { en: "This is your AI Advisor — ask it anything about your plan", ar: "هذا هو مستشارك الذكي — اسأله أي شيء عن خطتك" },
   guideSidebar:   { en: "Navigate to Courses, Roadmap, Schedule and more", ar: "تصفح الدورات وخارطة الطريق والجدول وأكثر" },
-  guideLang:      { en: "Switch between English and Arabic anytime", ar: "تبديل بين الإنجليزية والعربية في أي وقت" },
-  guideReady:     { en: "You're all set! Click below to start your session.", ar: "أنت جاهز! انقر أدناه لبدء جلستك." },
+  guideSearch:    { en: "Deep Search finds relevant courses and official docs for any topic", ar: "البحث العميق يجد الدورات والمراجع الرسمية لأي موضوع" },
+  guideReady:     { en: "Your AI advisor is ready to build your personalized learning roadmap", ar: "مستشارك الذكي جاهز لبناء خارطة تعلمك الشخصية" },
 };
 function td(key: string, ar: boolean): string {
   return ar ? (D[key]?.ar ?? key) : (D[key]?.en ?? key);
@@ -454,8 +454,8 @@ const SCENARIOS = [
 const GUIDE_STEPS = [
   { keyRef: "advisor", icon: "🤖" },
   { keyRef: "sidebar", icon: "📂" },
-  { keyRef: "lang",    icon: "🌐" },
-  { keyRef: "ready",   icon: "🚀" },
+  { keyRef: "search",  icon: "🔍" },
+  { keyRef: "ready",   icon: "🎯" },
 ];
 
 function IntroOverlay({
@@ -664,22 +664,22 @@ function IntroOverlay({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="w-full max-w-2xl relative z-10"
+            className="w-full max-w-5xl min-h-[80vh] flex flex-col justify-center relative z-10"
           >
-            <h2 className="text-2xl lg:text-3xl font-black text-white text-center mb-2">
+            <h2 className="text-3xl lg:text-4xl font-black text-white text-center mb-3">
               {td("introQuestion", ar)}
             </h2>
-            <p className="text-center text-sm mb-8" style={{ color: "rgba(255,255,255,0.4)" }}>
+            <p className="text-center text-base mb-10" style={{ color: "rgba(255,255,255,0.4)" }}>
               {ar ? "اختر ما يصف وضعك أفضل" : "Choose what best describes your situation"}
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {SCENARIOS.map((s) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {SCENARIOS.slice(0, 4).map((s) => (
                 <motion.button
                   key={s.id}
                   whileHover={{ scale: 1.02, y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleScenarioSelect(s)}
-                  className="flex items-start gap-4 p-4 rounded-2xl text-left transition-all"
+                  className="flex items-start gap-5 p-6 rounded-2xl text-left transition-all min-h-[110px]"
                   style={{
                     background: "rgba(255,255,255,0.05)",
                     border: "1px solid rgba(255,255,255,0.1)",
@@ -694,17 +694,50 @@ function IntroOverlay({
                     (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
                   }}
                 >
-                  <span className="text-2xl flex-shrink-0 mt-0.5">{s.emoji}</span>
+                  <span className="text-3xl flex-shrink-0 mt-0.5">{s.emoji}</span>
                   <div className={ar ? "text-right" : "text-left"}>
-                    <div className="text-sm font-bold text-white mb-1">
+                    <div className="text-base font-bold text-white mb-1.5">
                       {ar ? s.ar : s.en}
                     </div>
-                    <div className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>
+                    <div className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>
                       {ar ? s.descAr : s.descEn}
                     </div>
                   </div>
                 </motion.button>
               ))}
+              {/* 5th card — full width, centered */}
+              <div className="sm:col-span-2 flex justify-center">
+                <motion.button
+                  key={SCENARIOS[4].id}
+                  whileHover={{ scale: 1.02, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleScenarioSelect(SCENARIOS[4])}
+                  className="w-full max-w-lg flex items-start gap-5 p-6 rounded-2xl text-left transition-all min-h-[110px]"
+                  style={{
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.border = "1px solid rgba(0,212,161,0.4)";
+                    (e.currentTarget as HTMLElement).style.background = "rgba(0,212,161,0.08)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.border = "1px solid rgba(255,255,255,0.1)";
+                    (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
+                  }}
+                >
+                  <span className="text-3xl flex-shrink-0 mt-0.5">{SCENARIOS[4].emoji}</span>
+                  <div className={ar ? "text-right" : "text-left"}>
+                    <div className="text-base font-bold text-white mb-1.5">
+                      {ar ? SCENARIOS[4].ar : SCENARIOS[4].en}
+                    </div>
+                    <div className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>
+                      {ar ? SCENARIOS[4].descAr : SCENARIOS[4].descEn}
+                    </div>
+                  </div>
+                </motion.button>
+              </div>
             </div>
           </motion.div>
         )}
