@@ -253,6 +253,8 @@ export async function POST(req: NextRequest) {
 
   if (!title) return NextResponse.json({ url: "" });
 
+  const userId = session.user.id!;
+
   // Cache key is per-user so each user's links reset independently with their Advisor.
   // Instructor excluded to maximise hit rate across equivalent requests.
   const cacheKey = `${userId}|${title.toLowerCase()}|${platform.toLowerCase()}`;
@@ -273,7 +275,6 @@ export async function POST(req: NextRequest) {
   }
 
   // Per-user budget guard
-  const userId = session.user.id!;
   const spent = await getUserApiSpent(userId);
   if (spent >= USER_BUDGET_USD) {
     console.warn(`[course-link] user ${userId} budget exhausted ($${spent.toFixed(4)} / $${USER_BUDGET_USD})`);
