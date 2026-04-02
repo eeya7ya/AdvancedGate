@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "~/auth";
 import { getCachedLink, setCachedLink } from "@/lib/runtime-cache";
-import { getUserApiSpent, addUserApiCost } from "@/lib/db";
+import { getUserApiSpent, addUserApiCost, getCachedCourseLink, setCachedCourseLink } from "@/lib/db";
 
 // Per-user budget cap in USD
 const USER_BUDGET_USD = 0.70;
@@ -253,12 +253,23 @@ export async function POST(req: NextRequest) {
 
   if (!title) return NextResponse.json({ url: "" });
 
-  // Cache key is based on title + platform (instructor is secondary, skip to maximise hits)
-  const cacheKey = `${title.toLowerCase()}|${platform.toLowerCase()}`;
-  const cached = getCachedLink(cacheKey);
-  if (cached) {
-    console.log(`[course-link] cache hit: "${title}" → ${cached}`);
-    return NextResponse.json({ url: cached });
+  // Cache key is per-user so each user's links reset independently with their Advisor.
+  // Instructor excluded to maximise hit rate across equivalent requests.
+  const cacheKey = `${userId}|${title.toLowerCase()}|${platform.toLowerCase()}`;
+
+  // L1: in-memory (free, instant — survives only until server restart)
+  const memHit = getCachedLink(cacheKey);
+  if (memHit) {
+    console.log(`[course-link] mem-cache hit: "${title}" → ${memHit}`);
+    return NextResponse.json({ url: memHit });
+  }
+
+  // L2: database (persists across restarts, cleared on Advisor reset)
+  const dbHit = await getCachedCourseLink(cacheKey);
+  if (dbHit) {
+    setCachedLink(cacheKey, dbHit); // warm L1
+    console.log(`[course-link] db-cache hit: "${title}" → ${dbHit}`);
+    return NextResponse.json({ url: dbHit });
   }
 
   // Per-user budget guard
@@ -307,8 +318,11 @@ export async function POST(req: NextRequest) {
   // Fall back to a Google search if nothing was found
   const finalUrl = best || platformSearchUrl(title, platform);
 
-  // Persist to in-memory cache so repeat requests within this session skip Claude
-  if (finalUrl) setCachedLink(cacheKey, finalUrl);
+  // Persist to both layers — DB survives restarts, mem avoids DB round-trips
+  if (finalUrl) {
+    setCachedLink(cacheKey, finalUrl);
+    void setCachedCourseLink(cacheKey, finalUrl); // fire-and-forget, non-blocking
+  }
 
   console.log(`[course-link] "${title}" → ${best ? best : "(fallback google search)"}`);
   return NextResponse.json({ url: finalUrl });

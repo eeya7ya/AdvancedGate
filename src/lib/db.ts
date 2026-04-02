@@ -536,6 +536,14 @@ export async function setCachedCourseLink(cacheKey: string, url: string): Promis
   }
 }
 
+export async function deleteUserCourseLinkCache(userId: string): Promise<void> {
+  try {
+    await sql`DELETE FROM course_link_cache WHERE cache_key LIKE ${userId + "|%"}`;
+  } catch {
+    // non-fatal
+  }
+}
+
 export async function updateUserProfile(
   userId: string,
   data: Partial<Pick<UserProfile, "name" | "jobTitle" | "organization" | "location" | "bio" | "phone">>
