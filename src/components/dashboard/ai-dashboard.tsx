@@ -1256,7 +1256,7 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
 }
 
 /* ── Main Dashboard ─────────────────────────────────────────────── */
-export function AIDashboard({ firstName }: { firstName: string }) {
+export function AIDashboard({ firstName, userId }: { firstName: string; userId: string }) {
   const [phase, setPhase] = useState<Phase>("welcome");
   const [messages, setMessages] = useState<Message[]>([]);
   const [plan, setPlan] = useState<LearningPlan | null>(null);
@@ -1273,9 +1273,13 @@ export function AIDashboard({ firstName }: { firstName: string }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const streamBufferRef = useRef("");
 
+  // Per-user localStorage keys — scoped so a new user on the same browser always sees the intro
+  const LS_SCENARIO = `espark-scenario-${userId}`;
+  const LS_INTRO_SEEN = `espark-intro-seen-${userId}`;
+
   // Restore saved plan from DB on mount; show intro whenever there is no plan
   useEffect(() => {
-    const savedScenario = localStorage.getItem("espark-scenario") ?? "";
+    const savedScenario = localStorage.getItem(LS_SCENARIO) ?? "";
     if (savedScenario) setScenario(savedScenario);
 
     // --- sessionStorage plan cache: show saved plan instantly, then re-validate in background ---
@@ -1307,7 +1311,7 @@ export function AIDashboard({ firstName }: { firstName: string }) {
       }
     }
 
-    const introSeen = localStorage.getItem("espark-intro-seen");
+    const introSeen = localStorage.getItem(LS_INTRO_SEEN);
 
     fetch("/api/user/roadmap")
       .then((r) => r.ok ? r.json() : null)
@@ -1555,8 +1559,8 @@ export function AIDashboard({ firstName }: { firstName: string }) {
       setInput("");
       setStreamedText("");
       setIsLoading(false);
-      localStorage.removeItem("espark-scenario");
-      localStorage.removeItem("espark-intro-seen");
+      localStorage.removeItem(LS_SCENARIO);
+      localStorage.removeItem(LS_INTRO_SEEN);
       sessionStorage.removeItem("espark-plan-cache");
       setScenario("");
       setShowIntro(true);
@@ -1573,8 +1577,8 @@ export function AIDashboard({ firstName }: { firstName: string }) {
   // Must be declared before any early returns (Rules of Hooks)
   const handleIntroComplete = useCallback((scenarioId: string, scenarioLabel: string) => {
     void scenarioId;
-    localStorage.setItem("espark-scenario", scenarioLabel);
-    localStorage.setItem("espark-intro-seen", "1");
+    localStorage.setItem(LS_SCENARIO, scenarioLabel);
+    localStorage.setItem(LS_INTRO_SEEN, "1");
     setScenario(scenarioLabel);
     setShowIntro(false);
     void startInterview(scenarioLabel);
