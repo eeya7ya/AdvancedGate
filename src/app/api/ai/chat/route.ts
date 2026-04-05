@@ -308,6 +308,138 @@ All description fields must be full, meaningful sentences — never 2-word label
       "monthly": "One major monthly achievement — a milestone that represents real, meaningful progress toward their dream"
     }
   },
+  "weeklySchedule": [
+    {
+      "week": 1,
+      "month": 1,
+      "theme": "Short weekly theme — 3-5 words describing focus (e.g. 'KNX Foundations & Setup')",
+      "certification": "Target certification or milestone for this week if applicable, e.g. 'KNX Basic Certification' — empty string if none",
+      "days": [
+        {
+          "dayNumber": 1,
+          "label": "2-4 word label, e.g. 'Install & Explore'",
+          "task": "Specific actionable task for day 1 — practical/setup focus, concrete enough to start immediately. Link to a real course from courseRecommendations.",
+          "type": "practice",
+          "hasQuiz": false,
+          "quizTopic": "",
+          "courseRef": "Exact course title from courseRecommendations",
+          "courseUrl": "Copy URL exactly from courseRecommendations — empty string if none",
+          "duration": "Xh"
+        },
+        {
+          "dayNumber": 2,
+          "label": "2-4 word label, e.g. 'Core Concepts'",
+          "task": "Specific study task for day 2 — watching videos or reading first foundational material. No quiz yet (too early).",
+          "type": "study",
+          "hasQuiz": false,
+          "quizTopic": "",
+          "courseRef": "Course title",
+          "courseUrl": "URL or empty string",
+          "duration": "Xh"
+        },
+        {
+          "dayNumber": 3,
+          "label": "2-4 word label, e.g. 'Deep Dive: Theory'",
+          "task": "Deeper study task for day 3 — now they have enough context to be quizzed. Include quiz.",
+          "type": "study",
+          "hasQuiz": true,
+          "quizTopic": "Specific topic string for quiz, e.g. 'KNX bus topology, device addressing, and ETS software basics' — used to generate quiz questions",
+          "courseRef": "Course title",
+          "courseUrl": "URL or empty string",
+          "duration": "Xh"
+        },
+        {
+          "dayNumber": 4,
+          "label": "2-4 word label, e.g. 'Hands-On Practice'",
+          "task": "Practical exercise or project task for day 4. Quiz if it follows study content.",
+          "type": "practice",
+          "hasQuiz": true,
+          "quizTopic": "Topic covered in day 4 practice — specific enough to generate 4-5 good questions",
+          "courseRef": "Course title",
+          "courseUrl": "URL or empty string",
+          "duration": "Xh"
+        },
+        {
+          "dayNumber": 5,
+          "label": "2-4 word label, e.g. 'Build & Apply'",
+          "task": "Project/build task or advanced practice. Quiz optional based on content.",
+          "type": "practice",
+          "hasQuiz": false,
+          "quizTopic": "",
+          "courseRef": "Course title",
+          "courseUrl": "URL or empty string",
+          "duration": "Xh"
+        },
+        {
+          "dayNumber": 6,
+          "label": "Review Day",
+          "task": "Review this week's material: re-read notes, redo exercises, reinforce weak areas.",
+          "type": "review",
+          "hasQuiz": false,
+          "quizTopic": "",
+          "courseRef": "",
+          "courseUrl": "",
+          "duration": "1h"
+        },
+        {
+          "dayNumber": 7,
+          "label": "Rest Day",
+          "task": "Rest or light catch-up — your brain consolidates learning during rest.",
+          "type": "rest",
+          "hasQuiz": false,
+          "quizTopic": "",
+          "courseRef": "",
+          "courseUrl": "",
+          "duration": "0h"
+        }
+      ]
+    },
+    {
+      "week": 2,
+      "month": 1,
+      "theme": "Week 2 theme — what they're building on from week 1",
+      "certification": "",
+      "days": [
+        { "dayNumber": 1, "label": "...", "task": "Week 2, day 1 specific task", "type": "study", "hasQuiz": false, "quizTopic": "", "courseRef": "...", "courseUrl": "...", "duration": "Xh" },
+        { "dayNumber": 2, "label": "...", "task": "Week 2, day 2 specific task", "type": "study", "hasQuiz": false, "quizTopic": "", "courseRef": "...", "courseUrl": "...", "duration": "Xh" },
+        { "dayNumber": 3, "label": "...", "task": "Week 2, day 3 with quiz", "type": "study", "hasQuiz": true, "quizTopic": "Specific topic for quiz questions", "courseRef": "...", "courseUrl": "...", "duration": "Xh" },
+        { "dayNumber": 4, "label": "...", "task": "Week 2, day 4 task", "type": "practice", "hasQuiz": false, "quizTopic": "", "courseRef": "...", "courseUrl": "...", "duration": "Xh" },
+        { "dayNumber": 5, "label": "...", "task": "Week 2, day 5 task", "type": "practice", "hasQuiz": true, "quizTopic": "Topic for quiz", "courseRef": "...", "courseUrl": "...", "duration": "Xh" },
+        { "dayNumber": 6, "label": "Review Day", "task": "Review week 2 material", "type": "review", "hasQuiz": false, "quizTopic": "", "courseRef": "", "courseUrl": "", "duration": "1h" },
+        { "dayNumber": 7, "label": "Rest Day", "task": "Rest or light catch-up", "type": "rest", "hasQuiz": false, "quizTopic": "", "courseRef": "", "courseUrl": "", "duration": "0h" }
+      ]
+    },
+    {
+      "week": 3,
+      "month": 1,
+      "theme": "Week 3 theme",
+      "certification": "",
+      "days": [
+        { "dayNumber": 1, "label": "...", "task": "Week 3, day 1 task", "type": "study", "hasQuiz": false, "quizTopic": "", "courseRef": "...", "courseUrl": "...", "duration": "Xh" },
+        { "dayNumber": 2, "label": "...", "task": "Week 3, day 2 task", "type": "study", "hasQuiz": false, "quizTopic": "", "courseRef": "...", "courseUrl": "...", "duration": "Xh" },
+        { "dayNumber": 3, "label": "...", "task": "Week 3, day 3 with quiz", "type": "study", "hasQuiz": true, "quizTopic": "Quiz topic", "courseRef": "...", "courseUrl": "...", "duration": "Xh" },
+        { "dayNumber": 4, "label": "...", "task": "Week 3, day 4 task", "type": "practice", "hasQuiz": false, "quizTopic": "", "courseRef": "...", "courseUrl": "...", "duration": "Xh" },
+        { "dayNumber": 5, "label": "...", "task": "Week 3, day 5 task", "type": "practice", "hasQuiz": false, "quizTopic": "", "courseRef": "...", "courseUrl": "...", "duration": "Xh" },
+        { "dayNumber": 6, "label": "Review Day", "task": "Review week 3 material", "type": "review", "hasQuiz": false, "quizTopic": "", "courseRef": "", "courseUrl": "", "duration": "1h" },
+        { "dayNumber": 7, "label": "Rest Day", "task": "Rest or catch-up", "type": "rest", "hasQuiz": false, "quizTopic": "", "courseRef": "", "courseUrl": "", "duration": "0h" }
+      ]
+    },
+    {
+      "week": 4,
+      "month": 1,
+      "theme": "Week 4 theme — final push of month 1",
+      "certification": "If month 1 ends with a certification attempt, name it here",
+      "days": [
+        { "dayNumber": 1, "label": "...", "task": "Week 4, day 1 task", "type": "study", "hasQuiz": false, "quizTopic": "", "courseRef": "...", "courseUrl": "...", "duration": "Xh" },
+        { "dayNumber": 2, "label": "...", "task": "Week 4, day 2 task", "type": "study", "hasQuiz": true, "quizTopic": "Quiz topic", "courseRef": "...", "courseUrl": "...", "duration": "Xh" },
+        { "dayNumber": 3, "label": "...", "task": "Week 4, day 3 task", "type": "practice", "hasQuiz": false, "quizTopic": "", "courseRef": "...", "courseUrl": "...", "duration": "Xh" },
+        { "dayNumber": 4, "label": "...", "task": "Week 4, day 4 task", "type": "practice", "hasQuiz": true, "quizTopic": "Quiz topic", "courseRef": "...", "courseUrl": "...", "duration": "Xh" },
+        { "dayNumber": 5, "label": "...", "task": "Month 1 final review + self-assessment", "type": "review", "hasQuiz": true, "quizTopic": "Comprehensive review of all month 1 topics", "courseRef": "...", "courseUrl": "", "duration": "Xh" },
+        { "dayNumber": 6, "label": "Catch-Up Day", "task": "Complete any unfinished tasks from this month", "type": "review", "hasQuiz": false, "quizTopic": "", "courseRef": "", "courseUrl": "", "duration": "1h" },
+        { "dayNumber": 7, "label": "Rest Day", "task": "Rest — you completed month 1!", "type": "rest", "hasQuiz": false, "quizTopic": "", "courseRef": "", "courseUrl": "", "duration": "0h" }
+      ]
+    }
+  ],
   "roadmap": [
     {
       "phase": "Phase 1: Foundation",
@@ -364,6 +496,10 @@ FINAL CRITICAL RULES:
 - salaryRange must be specific to their stated target market (Gulf, Europe, local, etc.) — not just generic USD
 - All descriptions are full meaningful sentences — this is someone's life roadmap, not a keyword list
 - timeAllocation[].subject MUST be 1–3 words maximum, clean and readable, with NO trailing symbols (+, &, ,, -). These names display in a weekly schedule grid. BAD: "KNX + CCNA + Networking Fundamentals". GOOD: "KNX & CCNA", "Hands-On Labs", "Portfolio Work"
+- weeklySchedule MUST contain exactly 4 weeks (the full first month in detail). Every day must have a real, specific task — not placeholder text. Day labels must be 2-4 words. Week themes must align with roadmap phase 1 milestones
+- weeklySchedule day types: "study" for learning/watching, "practice" for hands-on/building, "review" for revisiting material, "rest" for recovery days
+- weeklySchedule hasQuiz rule: NEVER set hasQuiz:true on day 1 of any week (first encounter, no knowledge yet). Set hasQuiz:true on days 3-5 after study sessions. Quizzes on practice days test what was just built/applied. Always include quizTopic when hasQuiz is true — be specific (e.g. "KNX group addresses, telegram structure, and ETS5 project setup" not just "KNX")
+- weeklySchedule courseRef and courseUrl MUST match a real course from courseRecommendations — copy title and URL exactly. Use empty strings for review/rest days
 - This roadmap is real and will be used by real people to change their lives — every number, course, salary, and recommendation must be accurate and specific`;
 
 function getSystemPrompt(timezone?: string): string {
