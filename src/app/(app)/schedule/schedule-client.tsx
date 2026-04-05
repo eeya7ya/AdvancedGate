@@ -133,7 +133,7 @@ function getDailyObjective(
     return {
       title: course.title,
       subject: course.platform,
-      color: slice?.color ?? "#00d4a1",
+      color: slice?.color ?? "#f97316",
       action: milestone || course.focus || (isRTL ? "ادرس الوحدة التالية" : "Study the next module"),
     };
   }
@@ -141,7 +141,7 @@ function getDailyObjective(
   return {
     title: phase?.goal ?? (isRTL ? "تعلم يومي" : "Daily Learning"),
     subject: slice?.subject ?? "",
-    color: slice?.color ?? "#00d4a1",
+    color: slice?.color ?? "#f97316",
     action: isRTL ? "أكمل مهمة اليوم" : "Complete today's task",
   };
 }
@@ -265,20 +265,20 @@ function MonthlyCalendar({ year, month, planStartDate, tracking, plan, onToggle,
           const isSelected = selectedDateKey === toDateKey(date);
 
           const bg =
-            status === "done"    ? "rgba(0,212,161,0.15)" :
-            status === "today"   ? "rgba(34,211,238,0.15)" :
+            status === "done"    ? "rgba(249,115,22,0.15)" :
+            status === "today"   ? "rgba(251,146,60,0.15)" :
             status === "missed"  ? "rgba(239,68,68,0.1)" :
             "var(--bg-base)";
 
           const border =
-            status === "done"    ? "rgba(0,212,161,0.4)" :
-            status === "today"   ? "rgba(34,211,238,0.5)" :
+            status === "done"    ? "rgba(249,115,22,0.4)" :
+            status === "today"   ? "rgba(251,146,60,0.5)" :
             status === "missed"  ? "rgba(239,68,68,0.3)" :
             "var(--border-subtle)";
 
           const textColor =
-            status === "done"   ? "#00d4a1" :
-            status === "today"  ? "#22d3ee" :
+            status === "done"   ? "#f97316" :
+            status === "today"  ? "#fb923c" :
             status === "missed" ? "#ef4444" :
             "var(--text-secondary)";
 
@@ -288,21 +288,21 @@ function MonthlyCalendar({ year, month, planStartDate, tracking, plan, onToggle,
               onClick={() => setSelectedDay(isSelected ? null : date)}
               className="relative aspect-square rounded-xl flex flex-col items-center justify-center text-xs font-semibold transition-all hover:scale-105"
               style={{
-                background: isSelected ? "rgba(0,212,161,0.25)" : bg,
-                border: `1px solid ${isSelected ? "#00d4a1" : border}`,
+                background: isSelected ? "rgba(249,115,22,0.25)" : bg,
+                border: `1px solid ${isSelected ? "#f97316" : border}`,
                 color: textColor,
-                boxShadow: isSelected ? "0 0 10px rgba(0,212,161,0.3)" : undefined,
+                boxShadow: isSelected ? "0 0 10px rgba(249,115,22,0.3)" : undefined,
               }}
             >
               <span>{date.getDate()}</span>
               {status === "done" && (
-                <span className="absolute bottom-0.5 w-1 h-1 rounded-full" style={{ background: "#00d4a1" }} />
+                <span className="absolute bottom-0.5 w-1 h-1 rounded-full" style={{ background: "#f97316" }} />
               )}
               {status === "missed" && (
                 <span className="absolute bottom-0.5 w-1 h-1 rounded-full" style={{ background: "#ef4444" }} />
               )}
               {status === "today" && (
-                <span className="absolute bottom-0.5 w-1 h-1 rounded-full animate-pulse" style={{ background: "#22d3ee" }} />
+                <span className="absolute bottom-0.5 w-1 h-1 rounded-full animate-pulse" style={{ background: "#fb923c" }} />
               )}
             </button>
           );
@@ -351,7 +351,7 @@ function MonthlyCalendar({ year, month, planStartDate, tracking, plan, onToggle,
                     className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all hover:opacity-80"
                     style={
                       selectedDone
-                        ? { background: "rgba(0,212,161,0.15)", color: "#00d4a1", border: "1px solid rgba(0,212,161,0.3)" }
+                        ? { background: "rgba(249,115,22,0.15)", color: "#f97316", border: "1px solid rgba(249,115,22,0.3)" }
                         : { background: "var(--bg-base)", color: "var(--text-muted)", border: "1px solid var(--border-subtle)" }
                     }
                   >
@@ -392,25 +392,25 @@ function StatsRow({ plan, tracking, planStartDate, isRTL }: {
     {
       label: isRTL ? "أيام مكتملة" : "Days Completed",
       value: completedDays,
-      color: "#00d4a1",
+      color: "#f97316",
       icon: CheckCircle,
     },
     {
       label: isRTL ? "أيام متأخرة" : "Days Missed",
       value: missedDays,
-      color: missedDays > 0 ? "#ef4444" : "#00d4a1",
+      color: missedDays > 0 ? "#ef4444" : "#f97316",
       icon: AlertTriangle,
     },
     {
       label: isRTL ? "معدل الالتزام" : "Completion Rate",
       value: `${completionRate}%`,
-      color: completionRate >= 70 ? "#00d4a1" : completionRate >= 40 ? "#f59e0b" : "#ef4444",
+      color: completionRate >= 70 ? "#f97316" : completionRate >= 40 ? "#f59e0b" : "#ef4444",
       icon: TrendingUp,
     },
     {
       label: isRTL ? "ساعات/أسبوع" : "Hours/Week",
       value: `${totalHours}h`,
-      color: "#22d3ee",
+      color: "#fb923c",
       icon: Clock,
     },
   ];
@@ -447,16 +447,16 @@ function CurrentPhaseCard({ plan, planStartDate, isRTL }: { plan: Plan; planStar
   return (
     <Card delay={0.1}>
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(0,212,161,0.15)" }}>
-          <Target size={14} style={{ color: "#00d4a1" }} />
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(249,115,22,0.15)" }}>
+          <Target size={14} style={{ color: "#f97316" }} />
         </div>
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "#00d4a1" }}>
+          <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "#f97316" }}>
             {isRTL ? "مرحلتك الحالية" : "Current Phase"}
           </p>
           <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{phase.phase}</p>
         </div>
-        <span className="ms-auto text-xs px-2 py-1 rounded-lg" style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee" }}>
+        <span className="ms-auto text-xs px-2 py-1 rounded-lg" style={{ background: "rgba(251,146,60,0.1)", color: "#fb923c" }}>
           {phase.duration}
         </span>
       </div>
@@ -467,7 +467,7 @@ function CurrentPhaseCard({ plan, planStartDate, isRTL }: { plan: Plan; planStar
       <div className="space-y-2 mb-4">
         {phase.milestones?.map((m: string, i: number) => (
           <div key={i} className="flex items-start gap-2">
-            <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: "#00d4a1" }} />
+            <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: "#f97316" }} />
             <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{m}</p>
           </div>
         ))}
@@ -490,7 +490,7 @@ function CurrentPhaseCard({ plan, planStartDate, isRTL }: { plan: Plan; planStar
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 mt-2 text-[10px] font-bold px-2.5 py-1 rounded-lg transition-all hover:opacity-80"
-              style={{ background: "linear-gradient(135deg,#00d4a1,#22d3ee)", color: "#0a1628" }}
+              style={{ background: "linear-gradient(135deg,#f97316,#fb923c)", color: "#0f0600" }}
             >
               {isRTL ? "افتح الدورة" : "Open Course"}
             </a>
@@ -529,7 +529,7 @@ function EmailSettings({
   return (
     <Card delay={0.2}>
       <div className="flex items-center gap-2 mb-4">
-        <Mail size={14} style={{ color: "#22d3ee" }} />
+        <Mail size={14} style={{ color: "#fb923c" }} />
         <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
           {isRTL ? "تذكيرات البريد الإلكتروني" : "Email Reminders"}
         </h3>
@@ -537,7 +537,7 @@ function EmailSettings({
 
       <div className="flex items-center justify-between mb-4 p-3 rounded-xl" style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}>
         <div className="flex items-center gap-2">
-          {enabled ? <Bell size={14} style={{ color: "#00d4a1" }} /> : <BellOff size={14} style={{ color: "var(--text-muted)" }} />}
+          {enabled ? <Bell size={14} style={{ color: "#f97316" }} /> : <BellOff size={14} style={{ color: "var(--text-muted)" }} />}
           <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
             {isRTL ? "تفعيل التذكيرات" : "Enable Reminders"}
           </span>
@@ -545,7 +545,7 @@ function EmailSettings({
         <button
           onClick={() => setEnabled((v) => !v)}
           className="relative w-11 h-6 rounded-full transition-colors"
-          style={{ background: enabled ? "#00d4a1" : "var(--border-subtle)" }}
+          style={{ background: enabled ? "#f97316" : "var(--border-subtle)" }}
         >
           <span
             className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform"
@@ -579,7 +579,7 @@ function EmailSettings({
               onClick={save}
               disabled={saving || !email}
               className="w-full py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
-              style={{ background: saved ? "rgba(0,212,161,0.15)" : "linear-gradient(135deg,#00d4a1,#22d3ee)", color: saved ? "#00d4a1" : "#0a1628" }}
+              style={{ background: saved ? "rgba(249,115,22,0.15)" : "linear-gradient(135deg,#f97316,#fb923c)", color: saved ? "#f97316" : "#0f0600" }}
             >
               {saving ? (isRTL ? "جارٍ الحفظ..." : "Saving...") : saved ? (isRTL ? "✓ تم الحفظ" : "✓ Saved") : (isRTL ? "حفظ الإعدادات" : "Save Settings")}
             </button>
@@ -727,8 +727,8 @@ export function ScheduleClient({
             {/* Legend */}
             <div className="flex items-center gap-4 mt-4 flex-wrap">
               {[
-                { color: "#00d4a1", label: isRTL ? "مكتمل" : "Done" },
-                { color: "#22d3ee", label: isRTL ? "اليوم" : "Today" },
+                { color: "#f97316", label: isRTL ? "مكتمل" : "Done" },
+                { color: "#fb923c", label: isRTL ? "اليوم" : "Today" },
                 { color: "#ef4444", label: isRTL ? "فائت" : "Missed" },
                 { color: "var(--border-subtle)", label: isRTL ? "قادم" : "Upcoming" },
               ].map(({ color, label }) => (

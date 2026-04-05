@@ -17,7 +17,7 @@ export function getLevelTitle(level: number): string {
 export function getLevelColor(level: number): string {
   if (level < 5) return "#94a3b8";
   if (level < 10) return "#4ade80";
-  if (level < 20) return "#4f9eff";
+  if (level < 20) return "#f97316";
   if (level < 35) return "#a78bfa";
   if (level < 50) return "#f5a623";
   return "#ef4444";

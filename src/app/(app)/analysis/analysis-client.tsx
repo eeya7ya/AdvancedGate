@@ -87,7 +87,7 @@ function MarketInsightsSection({ insights }: { insights: MarketInsights }) {
   const isRTL = useRTL();
   return (
     <SectionCard delay={0.15}>
-      <SectionTitle icon={Globe} label={t("market", isRTL)} color="#22d3ee" />
+      <SectionTitle icon={Globe} label={t("market", isRTL)} color="#fb923c" />
       {insights.notice && (
         <div className="mb-5 px-4 py-3 rounded-xl"
           style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)" }}>
@@ -102,16 +102,16 @@ function MarketInsightsSection({ insights }: { insights: MarketInsights }) {
       )}
       <div className="grid sm:grid-cols-2 gap-4 mb-4">
         <div className="rounded-xl p-4" style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}>
-          <p className="text-xs font-bold mb-1.5" style={{ color: "#00d4a1" }}>{isRTL ? "الطلب المحلي" : "Local Demand"}</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "#f97316" }}>{isRTL ? "الطلب المحلي" : "Local Demand"}</p>
           <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{insights.localDemand}</p>
         </div>
         <div className="rounded-xl p-4" style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}>
-          <p className="text-xs font-bold mb-1.5" style={{ color: "#22d3ee" }}>{isRTL ? "الطلب العالمي" : "Global Demand"}</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "#fb923c" }}>{isRTL ? "الطلب العالمي" : "Global Demand"}</p>
           <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{insights.globalDemand}</p>
         </div>
       </div>
-      <div className="rounded-xl p-4 mb-4" style={{ background: "rgba(0,212,161,0.06)", border: "1px solid rgba(0,212,161,0.18)" }}>
-        <p className="text-xs font-bold mb-1" style={{ color: "#00d4a1" }}>{isRTL ? "نطاق الدخل المتوقع" : "Expected Income Range"}</p>
+      <div className="rounded-xl p-4 mb-4" style={{ background: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.18)" }}>
+        <p className="text-xs font-bold mb-1" style={{ color: "#f97316" }}>{isRTL ? "نطاق الدخل المتوقع" : "Expected Income Range"}</p>
         <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{insights.salaryRange}</p>
       </div>
       <div className="rounded-xl p-4" style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}>
@@ -169,7 +169,7 @@ function DonutChart({ slices }: { slices: TimeSlice[] }) {
 
   return (
     <SectionCard delay={0.3}>
-      <SectionTitle icon={Clock} label={t("timeAlloc", isRTL)} color="#22d3ee" />
+      <SectionTitle icon={Clock} label={t("timeAlloc", isRTL)} color="#fb923c" />
       <div className="flex items-center gap-6">
         <div className="relative flex-shrink-0">
           <svg width="200" height="200" viewBox="0 0 200 200">
@@ -239,8 +239,8 @@ function WeeklySchedule({ slices }: { slices: TimeSlice[] }) {
           const isWeekend = day === "Sat" || day === "Sun";
           return (
             <div key={`h-${day}`} className="rounded-lg py-2 text-center"
-              style={{ background: isWeekend ? "rgba(167,139,250,0.1)" : "rgba(34,211,238,0.08)", border: `1px solid ${isWeekend ? "rgba(167,139,250,0.25)" : "rgba(34,211,238,0.2)"}` }}>
-              <p className="text-xs font-bold" style={{ color: isWeekend ? "#a78bfa" : "#22d3ee" }}>{day}</p>
+              style={{ background: isWeekend ? "rgba(167,139,250,0.1)" : "rgba(251,146,60,0.08)", border: `1px solid ${isWeekend ? "rgba(167,139,250,0.25)" : "rgba(251,146,60,0.2)"}` }}>
+              <p className="text-xs font-bold" style={{ color: isWeekend ? "#a78bfa" : "#fb923c" }}>{day}</p>
             </div>
           );
         })}
@@ -290,9 +290,9 @@ function TopicConnections({ links }: { links: TopicLink[] }) {
             style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}>
             <div className="flex flex-col gap-2 min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-2.5 py-1 rounded-lg text-xs font-semibold" style={{ background: "rgba(0,212,161,0.12)", color: "#00d4a1" }}>{link.from}</span>
+                <span className="px-2.5 py-1 rounded-lg text-xs font-semibold" style={{ background: "rgba(249,115,22,0.12)", color: "#f97316" }}>{link.from}</span>
                 <ChevronRight size={13} style={{ color: "var(--text-muted)" }} />
-                <span className="px-2.5 py-1 rounded-lg text-xs font-semibold" style={{ background: "rgba(34,211,238,0.12)", color: "#22d3ee" }}>{link.to}</span>
+                <span className="px-2.5 py-1 rounded-lg text-xs font-semibold" style={{ background: "rgba(251,146,60,0.12)", color: "#fb923c" }}>{link.to}</span>
               </div>
               <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{link.bridge}</p>
             </div>
@@ -324,14 +324,14 @@ export function AnalysisClient({ plan }: { plan: LearningPlan }) {
           <div className="flex flex-wrap gap-2 mt-3">
             {plan.profile.country && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
-                style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee", border: "1px solid rgba(34,211,238,0.2)" }}>
+                style={{ background: "rgba(251,146,60,0.1)", color: "#fb923c", border: "1px solid rgba(251,146,60,0.2)" }}>
                 <Globe size={10} />
                 {plan.profile.country}
               </span>
             )}
             {plan.profile.targetMarket && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
-                style={{ background: "rgba(0,212,161,0.1)", color: "#00d4a1", border: "1px solid rgba(0,212,161,0.2)" }}>
+                style={{ background: "rgba(249,115,22,0.1)", color: "#f97316", border: "1px solid rgba(249,115,22,0.2)" }}>
                 {plan.profile.targetMarket}
               </span>
             )}
@@ -369,7 +369,7 @@ export function AnalysisClient({ plan }: { plan: LearningPlan }) {
           <Link
             href="/roadmap"
             className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90"
-            style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)", boxShadow: "0 0 32px rgba(0,212,161,0.35)" }}
+            style={{ background: "linear-gradient(135deg, #f97316, #fb923c)", boxShadow: "0 0 32px rgba(249,115,22,0.35)" }}
           >
             {t("continueRoadmap", isRTL)}
             <ArrowRight size={16} />

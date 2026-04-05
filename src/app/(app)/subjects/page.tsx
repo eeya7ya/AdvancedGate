@@ -34,7 +34,7 @@ export default function SubjectsPage() {
           return (
             <div
               key={subject.id}
-              className="rounded-3xl border border-[rgba(255,255,255,0.06)] overflow-hidden bg-[#0d1424]"
+              className="rounded-3xl border border-[rgba(255,255,255,0.06)] overflow-hidden bg-[#0d0700]"
               style={isLive ? { borderColor: `${subject.color}18` } : {}}
             >
               {/* Subject header */}
@@ -81,7 +81,7 @@ export default function SubjectsPage() {
                       key={course.id}
                       className={`relative flex flex-col gap-3 p-4 rounded-2xl border transition-all ${
                         available
-                          ? "bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.07)] hover:border-[rgba(79,158,255,0.25)] group cursor-pointer"
+                          ? "bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.07)] hover:border-[rgba(249,115,22,0.25)] group cursor-pointer"
                           : "bg-[rgba(255,255,255,0.01)] border-[rgba(255,255,255,0.04)] opacity-50"
                       }`}
                     >
@@ -106,7 +106,7 @@ export default function SubjectsPage() {
 
                       {/* Info */}
                       <div className="flex-1">
-                        <h3 className={`font-semibold text-sm leading-snug mb-1 ${available ? "text-[#f1f5f9] group-hover:text-[#4f9eff] transition-colors" : "text-[#334155]"}`}>
+                        <h3 className={`font-semibold text-sm leading-snug mb-1 ${available ? "text-[#f1f5f9] group-hover:text-[#f97316] transition-colors" : "text-[#334155]"}`}>
                           {course.title}
                         </h3>
                         <p className="text-[#334155] text-xs leading-relaxed line-clamp-2">
@@ -129,7 +129,7 @@ export default function SubjectsPage() {
                           <span className="text-[#1e293b] text-[10px]">{course.duration}</span>
                         </div>
                         {available ? (
-                          <ChevronRight size={14} className="text-[#475569] group-hover:text-[#4f9eff] transition-colors flex-shrink-0" />
+                          <ChevronRight size={14} className="text-[#475569] group-hover:text-[#f97316] transition-colors flex-shrink-0" />
                         ) : (
                           <div className="inline-flex items-center gap-1 text-[#1e293b] text-[10px]">
                             <Clock size={9} />

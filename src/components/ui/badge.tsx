@@ -14,7 +14,7 @@ export function Badge({
   const variants = {
     default: "bg-[rgba(255,255,255,0.08)] text-[#94a3b8]",
     gold: "bg-[rgba(245,166,35,0.15)] text-[#f5a623] border border-[rgba(245,166,35,0.3)]",
-    blue: "bg-[rgba(79,158,255,0.15)] text-[#4f9eff] border border-[rgba(79,158,255,0.3)]",
+    blue: "bg-[rgba(249,115,22,0.15)] text-[#f97316] border border-[rgba(249,115,22,0.3)]",
     green:
       "bg-[rgba(74,222,128,0.15)] text-[#4ade80] border border-[rgba(74,222,128,0.3)]",
     purple:

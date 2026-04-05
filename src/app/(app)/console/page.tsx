@@ -165,8 +165,8 @@ export default function ConsolePage() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Eye} label="Total Page Visits" value={stats?.totalVisits ?? 0} color="#00d4a1" delay={0.05} />
-        <StatCard icon={Users} label="Unique Visitors" value={stats?.uniqueVisitors ?? 0} color="#22d3ee" delay={0.1} />
+        <StatCard icon={Eye} label="Total Page Visits" value={stats?.totalVisits ?? 0} color="#f97316" delay={0.05} />
+        <StatCard icon={Users} label="Unique Visitors" value={stats?.uniqueVisitors ?? 0} color="#fb923c" delay={0.1} />
         <StatCard icon={Globe} label="Registered Users" value={stats?.totalUsers ?? 0} color="#a78bfa" delay={0.15} />
         <StatCard icon={Map} label="Plans Generated" value={stats?.totalPlans ?? 0} color="#f59e0b" delay={0.2} />
       </div>
@@ -181,7 +181,7 @@ export default function ConsolePage() {
           style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
         >
           <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-            <TrendingUp size={15} style={{ color: "#00d4a1" }} />
+            <TrendingUp size={15} style={{ color: "#f97316" }} />
             Top Pages
           </h3>
           {!stats || stats.topPages.length === 0 ? (
@@ -199,14 +199,14 @@ export default function ConsolePage() {
                       <span className="text-xs font-medium truncate" style={{ color: "var(--text-primary)" }}>
                         {p.page}
                       </span>
-                      <span className="text-xs font-bold ml-2 flex-shrink-0" style={{ color: "#00d4a1" }}>
+                      <span className="text-xs font-bold ml-2 flex-shrink-0" style={{ color: "#f97316" }}>
                         {p.count}
                       </span>
                     </div>
                     <div className="h-1.5 rounded-full" style={{ background: "var(--bg-base)" }}>
                       <div
                         className="h-full rounded-full transition-all duration-700"
-                        style={{ width: `${pct}%`, background: "linear-gradient(90deg, #00d4a1, #22d3ee)" }}
+                        style={{ width: `${pct}%`, background: "linear-gradient(90deg, #f97316, #fb923c)" }}
                       />
                     </div>
                   </div>
@@ -225,7 +225,7 @@ export default function ConsolePage() {
           style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
         >
           <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-            <Activity size={15} style={{ color: "#22d3ee" }} />
+            <Activity size={15} style={{ color: "#fb923c" }} />
             Platform Status
           </h3>
           <div className="space-y-3">
@@ -322,7 +322,7 @@ export default function ConsolePage() {
                       {v.userId ? (
                         <span
                           className="px-2 py-0.5 rounded-md font-mono text-[10px]"
-                          style={{ background: "rgba(0,212,161,0.1)", color: "#00d4a1" }}
+                          style={{ background: "rgba(249,115,22,0.1)", color: "#f97316" }}
                         >
                           {v.userId.slice(0, 8)}…
                         </span>

@@ -20,7 +20,7 @@ export function DashboardGreeting() {
       </div>
       <Link
         href="/subjects"
-        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#4f9eff] hover:bg-[#2d7dd2] text-white text-sm font-semibold transition-all hover:shadow-[0_0_24px_rgba(79,158,255,0.4)]"
+        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#f97316] hover:bg-[#ea580c] text-white text-sm font-semibold transition-all hover:shadow-[0_0_24px_rgba(249,115,22,0.4)]"
       >
         Browse Courses
         <ArrowRight size={15} />

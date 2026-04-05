@@ -101,9 +101,9 @@ const PLANS: Plan[] = [
     priceNote: "/month",
     priceNoteAr: "/شهر",
     icon: <Zap size={20} fill="currentColor" />,
-    color: "#6366f1",
-    glow: "rgba(99,102,241,0.3)",
-    border: "rgba(99,102,241,0.35)",
+    color: "#f97316",
+    glow: "rgba(249,115,22,0.3)",
+    border: "rgba(249,115,22,0.35)",
     envKey: "NEXT_PUBLIC_STRIPE_PRICE_PRO",
     features: PLAN_FEATURES.pro,
     highlight: true,
@@ -193,9 +193,9 @@ export function PricingClient({ userEmail }: { userEmail: string | null }) {
         <div
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold mb-5"
           style={{
-            background: "rgba(99,102,241,0.1)",
-            border: "1px solid rgba(99,102,241,0.25)",
-            color: "#818cf8",
+            background: "rgba(249,115,22,0.1)",
+            border: "1px solid rgba(249,115,22,0.25)",
+            color: "#fb923c",
           }}
         >
           <Crown size={14} />
@@ -228,7 +228,7 @@ export function PricingClient({ userEmail }: { userEmail: string | null }) {
               className="relative flex flex-col rounded-2xl p-6"
               style={{
                 background: plan.highlight
-                  ? `linear-gradient(160deg, rgba(99,102,241,0.12) 0%, rgba(139,92,246,0.08) 100%)`
+                  ? `linear-gradient(160deg, rgba(249,115,22,0.12) 0%, rgba(139,92,246,0.08) 100%)`
                   : "var(--bg-card)",
                 border: `1px solid ${plan.border}`,
                 boxShadow: plan.highlight ? `0 0 40px ${plan.glow}` : "none",
@@ -237,7 +237,7 @@ export function PricingClient({ userEmail }: { userEmail: string | null }) {
               {plan.highlight && (
                 <div
                   className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-bold text-white"
-                  style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+                  style={{ background: "linear-gradient(135deg, #f97316, #ea580c)" }}
                 >
                   {ar ? "الأكثر شعبية" : "Most Popular"}
                 </div>
@@ -324,13 +324,13 @@ export function PricingClient({ userEmail }: { userEmail: string | null }) {
         className="rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-5"
         style={{
           background: "var(--bg-card)",
-          border: "1px solid rgba(0,212,161,0.2)",
+          border: "1px solid rgba(249,115,22,0.2)",
         }}
       >
         <div className="flex items-center gap-4">
           <div
             className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "rgba(0,212,161,0.12)", color: "#00d4a1" }}
+            style={{ background: "rgba(249,115,22,0.12)", color: "#f97316" }}
           >
             <CreditCard size={22} />
           </div>
@@ -350,8 +350,8 @@ export function PricingClient({ userEmail }: { userEmail: string | null }) {
           disabled={loadingTopup}
           className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white flex-shrink-0 transition-all hover:opacity-90 disabled:opacity-50"
           style={{
-            background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
-            boxShadow: "0 0 20px rgba(0,212,161,0.35)",
+            background: "linear-gradient(135deg, #f97316, #fb923c)",
+            boxShadow: "0 0 20px rgba(249,115,22,0.35)",
           }}
         >
           <Zap size={15} fill="currentColor" />
