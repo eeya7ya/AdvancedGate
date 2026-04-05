@@ -26,7 +26,6 @@ async function CourseContent({
 }: {
   found: NonNullable<ReturnType<typeof getCourseById>>;
 }) {
-  "use cache";
   const { course, subject } = found;
   const lessons = generateLessons(course.lessons, course.title);
 
