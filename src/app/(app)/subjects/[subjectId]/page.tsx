@@ -1,12 +1,13 @@
+import { Suspense } from "react";
 import { getSubjectById, subjects } from "@/lib/data";
-
-export async function generateStaticParams() {
-  return subjects.map((s) => ({ subjectId: s.id }));
-}
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Zap, Network, Code2, BookOpen, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+
+export async function generateStaticParams() {
+  return subjects.map((s) => ({ subjectId: s.id }));
+}
 
 const subjectIcons: Record<string, React.ReactNode> = {
   "power-engineering": <Zap size={26} />,
@@ -14,7 +15,19 @@ const subjectIcons: Record<string, React.ReactNode> = {
   coding: <Code2 size={26} />,
 };
 
-export default async function SubjectPage({
+export default function SubjectPage({
+  params,
+}: {
+  params: Promise<{ subjectId: string }>;
+}) {
+  return (
+    <Suspense>
+      <SubjectContent params={params} />
+    </Suspense>
+  );
+}
+
+async function SubjectContent({
   params,
 }: {
   params: Promise<{ subjectId: string }>;
