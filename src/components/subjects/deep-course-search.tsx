@@ -8,7 +8,7 @@ import type { CourseSearchResult, OfficialResource, CourseSearchResponse } from 
 
 const subjectColors: Record<string, string> = {
   "power-engineering": "#f5a623",
-  networking: "#4f9eff",
+  networking: "#f97316",
   coding: "#a78bfa",
 };
 
@@ -83,7 +83,7 @@ export default function DeepCourseSearch() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="e.g. I want to learn how solar panels work…"
-              className="w-full bg-[#0d1424] border border-[rgba(255,255,255,0.07)] rounded-xl pl-10 pr-10 py-3 text-sm text-[#f1f5f9] placeholder-[#334155] outline-none focus:border-[rgba(167,139,250,0.4)] transition-colors"
+              className="w-full bg-[#0d0700] border border-[rgba(255,255,255,0.07)] rounded-xl pl-10 pr-10 py-3 text-sm text-[#f1f5f9] placeholder-[#334155] outline-none focus:border-[rgba(167,139,250,0.4)] transition-colors"
             />
             {query && (
               <button
@@ -102,7 +102,7 @@ export default function DeepCourseSearch() {
             disabled={!query.trim() || loading}
             className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             style={{
-              background: "linear-gradient(135deg, #a78bfa 0%, #4f9eff 100%)",
+              background: "linear-gradient(135deg, #a78bfa 0%, #f97316 100%)",
               color: "#fff",
             }}
           >
@@ -180,13 +180,13 @@ export default function DeepCourseSearch() {
           )}
 
           {results!.length === 0 ? (
-            <div className="rounded-xl border border-[rgba(255,255,255,0.06)] bg-[#0d1424] px-4 py-6 text-center text-sm text-[#475569]">
+            <div className="rounded-xl border border-[rgba(255,255,255,0.06)] bg-[#0d0700] px-4 py-6 text-center text-sm text-[#475569]">
               No matching courses found. Try rephrasing your query.
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {results!.map((course) => {
-                const color = subjectColors[course.subjectId] ?? "#4f9eff";
+                const color = subjectColors[course.subjectId] ?? "#f97316";
                 const available = !course.comingSoon;
                 return (
                   <div

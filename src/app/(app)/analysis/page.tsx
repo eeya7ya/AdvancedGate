@@ -17,7 +17,7 @@ export default async function AnalysisPage() {
       <div className="max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
         <div
           className="w-20 h-20 rounded-3xl flex items-center justify-center mb-6"
-          style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)", boxShadow: "0 0 40px rgba(0,212,161,0.3)" }}
+          style={{ background: "linear-gradient(135deg, #f97316, #fb923c)", boxShadow: "0 0 40px rgba(249,115,22,0.3)" }}
         >
           <Brain size={36} className="text-white" strokeWidth={1.5} />
         </div>
@@ -30,7 +30,7 @@ export default async function AnalysisPage() {
         <Link
           href="/dashboard"
           className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-2xl text-sm font-bold text-white"
-          style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)", boxShadow: "0 0 32px rgba(0,212,161,0.35)" }}
+          style={{ background: "linear-gradient(135deg, #f97316, #fb923c)", boxShadow: "0 0 32px rgba(249,115,22,0.35)" }}
         >
           <Brain size={16} />
           Start AI Session

@@ -175,7 +175,7 @@ function AIAvatar() {
   return (
     <div
       className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 animate-pulse-ring"
-      style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)" }}
+      style={{ background: "linear-gradient(135deg, #f97316, #fb923c)" }}
     >
       <Brain size={14} className="text-white" />
     </div>
@@ -298,9 +298,9 @@ function ConfirmDialog({
 
 /* Map Q-number to a distinct accent color so each question feels unique */
 const Q_COLORS: Record<string, { bg: string; text: string; glow: string; border: string }> = {
-  Q1: { bg: "linear-gradient(135deg, #00d4a1, #22d3ee)", text: "#fff", glow: "rgba(0,212,161,0.35)", border: "rgba(0,212,161,0.3)" },
-  Q2: { bg: "linear-gradient(135deg, #6366f1, #818cf8)", text: "#fff", glow: "rgba(99,102,241,0.3)",  border: "rgba(99,102,241,0.3)" },
-  Q3: { bg: "linear-gradient(135deg, #f59e0b, #fbbf24)", text: "#0a1628", glow: "rgba(245,158,11,0.3)", border: "rgba(245,158,11,0.3)" },
+  Q1: { bg: "linear-gradient(135deg, #f97316, #fb923c)", text: "#fff", glow: "rgba(249,115,22,0.35)", border: "rgba(249,115,22,0.3)" },
+  Q2: { bg: "linear-gradient(135deg, #f97316, #fb923c)", text: "#fff", glow: "rgba(249,115,22,0.3)",  border: "rgba(249,115,22,0.3)" },
+  Q3: { bg: "linear-gradient(135deg, #f59e0b, #fbbf24)", text: "#0f0600", glow: "rgba(245,158,11,0.3)", border: "rgba(245,158,11,0.3)" },
   Q4: { bg: "linear-gradient(135deg, #ec4899, #f472b6)", text: "#fff", glow: "rgba(236,72,153,0.3)",  border: "rgba(236,72,153,0.3)" },
   Q5: { bg: "linear-gradient(135deg, #14b8a6, #06b6d4)", text: "#fff", glow: "rgba(20,184,166,0.3)",  border: "rgba(20,184,166,0.3)" },
 };
@@ -408,7 +408,7 @@ function ChatBubble({ msg, isStreaming }: { msg: Message; isStreaming?: boolean 
       ) : (
         <div
           className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-xs font-bold"
-          style={{ background: "linear-gradient(135deg, #4f9eff, #7c3aed)" }}
+          style={{ background: "linear-gradient(135deg, #f97316, #ea580c)" }}
         >
           U
         </div>
@@ -427,8 +427,8 @@ function ChatBubble({ msg, isStreaming }: { msg: Message; isStreaming?: boolean 
                 textAlign: dir === "rtl" ? "right" : "left",
               }
             : {
-                background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
-                color: "#0a1628",
+                background: "linear-gradient(135deg, #f97316, #fb923c)",
+                color: "#0f0600",
                 borderBottomRightRadius: "6px",
                 lineHeight: "1.6",
                 fontWeight: 500,
@@ -538,7 +538,7 @@ function IntroOverlay({
       transition={{ duration: 0.4 }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden"
       style={{
-        background: "radial-gradient(ellipse 90% 70% at 50% 38%, rgba(0,212,161,0.09) 0%, rgba(5,8,22,0.97) 65%)",
+        background: "radial-gradient(ellipse 90% 70% at 50% 38%, rgba(249,115,22,0.09) 0%, rgba(5,8,22,0.97) 65%)",
         backdropFilter: "blur(20px)",
       }}
       dir={ar ? "rtl" : "ltr"}
@@ -567,7 +567,7 @@ function IntroOverlay({
         style={{
           width: "60%",
           height: "1px",
-          background: "linear-gradient(90deg, transparent, rgba(0,212,161,0.25), transparent)",
+          background: "linear-gradient(90deg, transparent, rgba(249,115,22,0.25), transparent)",
         }}
       />
       <AnimatePresence mode="wait">
@@ -585,13 +585,13 @@ function IntroOverlay({
             <div className="relative mb-10">
               <div
                 className="absolute inset-0 rounded-full blur-3xl scale-[2] opacity-20"
-                style={{ background: "radial-gradient(circle, #00d4a1, #22d3ee)" }}
+                style={{ background: "radial-gradient(circle, #f97316, #fb923c)" }}
               />
               <div
                 className="relative w-20 h-20 rounded-3xl flex items-center justify-center mx-auto animate-printer-flicker"
                 style={{
-                  background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
-                  boxShadow: "0 0 40px rgba(0,212,161,0.5), 0 0 80px rgba(0,212,161,0.15)",
+                  background: "linear-gradient(135deg, #f97316, #fb923c)",
+                  boxShadow: "0 0 40px rgba(249,115,22,0.5), 0 0 80px rgba(249,115,22,0.15)",
                 }}
               >
                 <Brain size={40} className="text-white" />
@@ -603,7 +603,7 @@ function IntroOverlay({
               className="inline-block px-6 py-4 rounded-xl mb-6"
               style={{
                 background: "rgba(0,0,0,0.35)",
-                border: "1px solid rgba(0,212,161,0.2)",
+                border: "1px solid rgba(249,115,22,0.2)",
                 boxShadow: "inset 0 0 30px rgba(0,0,0,0.3)",
               }}
             >
@@ -613,7 +613,7 @@ function IntroOverlay({
                   fontFamily: "'Courier New', Courier, monospace",
                   fontVariantNumeric: "tabular-nums",
                   letterSpacing: "0.04em",
-                  textShadow: "0 0 8px rgba(0,212,161,0.7), 0 0 20px rgba(0,212,161,0.25)",
+                  textShadow: "0 0 8px rgba(249,115,22,0.7), 0 0 20px rgba(249,115,22,0.25)",
                 }}
               >
                 {typed}
@@ -623,8 +623,8 @@ function IntroOverlay({
                 <span
                   className="animate-blink-cursor inline-block w-[0.55em] h-[1.1em] ml-0.5 align-text-bottom"
                   style={{
-                    background: "#00d4a1",
-                    boxShadow: "0 0 6px rgba(0,212,161,0.8)",
+                    background: "#f97316",
+                    boxShadow: "0 0 6px rgba(249,115,22,0.8)",
                     verticalAlign: "text-bottom",
                   }}
                 />
@@ -686,8 +686,8 @@ function IntroOverlay({
                     boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
                   }}
                   onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.border = "1px solid rgba(0,212,161,0.4)";
-                    (e.currentTarget as HTMLElement).style.background = "rgba(0,212,161,0.08)";
+                    (e.currentTarget as HTMLElement).style.border = "1px solid rgba(249,115,22,0.4)";
+                    (e.currentTarget as HTMLElement).style.background = "rgba(249,115,22,0.08)";
                   }}
                   onMouseLeave={(e) => {
                     (e.currentTarget as HTMLElement).style.border = "1px solid rgba(255,255,255,0.1)";
@@ -719,8 +719,8 @@ function IntroOverlay({
                     boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
                   }}
                   onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.border = "1px solid rgba(0,212,161,0.4)";
-                    (e.currentTarget as HTMLElement).style.background = "rgba(0,212,161,0.08)";
+                    (e.currentTarget as HTMLElement).style.border = "1px solid rgba(249,115,22,0.4)";
+                    (e.currentTarget as HTMLElement).style.background = "rgba(249,115,22,0.08)";
                   }}
                   onMouseLeave={(e) => {
                     (e.currentTarget as HTMLElement).style.border = "1px solid rgba(255,255,255,0.1)";
@@ -755,9 +755,9 @@ function IntroOverlay({
               <div
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold mb-8"
                 style={{
-                  background: "rgba(0,212,161,0.12)",
-                  border: "1px solid rgba(0,212,161,0.3)",
-                  color: "#00d4a1",
+                  background: "rgba(249,115,22,0.12)",
+                  border: "1px solid rgba(249,115,22,0.3)",
+                  color: "#f97316",
                 }}
               >
                 <span>{selectedScenario.emoji}</span>
@@ -778,12 +778,12 @@ function IntroOverlay({
                     className="flex items-center gap-3 p-4 rounded-2xl"
                     style={{
                       background: active
-                        ? "rgba(0,212,161,0.1)"
+                        ? "rgba(249,115,22,0.1)"
                         : passed
                         ? "rgba(255,255,255,0.03)"
                         : "transparent",
                       border: active
-                        ? "1px solid rgba(0,212,161,0.3)"
+                        ? "1px solid rgba(249,115,22,0.3)"
                         : "1px solid rgba(255,255,255,0.06)",
                     }}
                   >
@@ -795,7 +795,7 @@ function IntroOverlay({
                       {td(`guide${step.keyRef.charAt(0).toUpperCase()}${step.keyRef.slice(1)}`, ar)}
                     </p>
                     {passed && (
-                      <span className="ms-auto text-[#00d4a1] flex-shrink-0">✓</span>
+                      <span className="ms-auto text-[#f97316] flex-shrink-0">✓</span>
                     )}
                   </motion.div>
                 );
@@ -821,8 +821,8 @@ function IntroOverlay({
                 onClick={handleFinish}
                 className="px-8 py-3.5 rounded-2xl text-sm font-bold text-white transition-all"
                 style={{
-                  background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
-                  boxShadow: "0 0 32px rgba(0,212,161,0.4)",
+                  background: "linear-gradient(135deg, #f97316, #fb923c)",
+                  boxShadow: "0 0 32px rgba(249,115,22,0.4)",
                 }}
               >
                 {td("introGo", ar)}
@@ -864,11 +864,11 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
       >
         <div
           className="absolute inset-0 rounded-full blur-2xl scale-150 opacity-30"
-          style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)" }}
+          style={{ background: "linear-gradient(135deg, #f97316, #fb923c)" }}
         />
         <div
           className="relative w-20 h-20 rounded-2xl flex items-center justify-center animate-float"
-          style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)" }}
+          style={{ background: "linear-gradient(135deg, #f97316, #fb923c)" }}
         >
           <Brain size={38} className="text-white" strokeWidth={1.5} />
         </div>
@@ -911,8 +911,8 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
           onClick={onStart}
           className="relative inline-flex items-center gap-2.5 px-7 py-3.5 rounded-2xl text-sm font-bold text-white overflow-hidden group"
           style={{
-            background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
-            boxShadow: "0 0 32px rgba(0,212,161,0.3)",
+            background: "linear-gradient(135deg, #f97316, #fb923c)",
+            boxShadow: "0 0 32px rgba(249,115,22,0.3)",
           }}
         >
           <span
@@ -1023,8 +1023,8 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
           <div
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-3"
             style={{
-              background: "rgba(0,212,161,0.1)",
-              border: "1px solid rgba(0,212,161,0.2)",
+              background: "rgba(249,115,22,0.1)",
+              border: "1px solid rgba(249,115,22,0.2)",
               color: "var(--brand-teal)",
             }}
           >
@@ -1037,14 +1037,14 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
           <div className="flex flex-wrap gap-2 mt-3">
             {plan.profile.country && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
-                style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee", border: "1px solid rgba(34,211,238,0.2)" }}>
+                style={{ background: "rgba(251,146,60,0.1)", color: "#fb923c", border: "1px solid rgba(251,146,60,0.2)" }}>
                 <Globe size={10} />
                 {plan.profile.country}
               </span>
             )}
             {plan.profile.targetMarket && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
-                style={{ background: "rgba(0,212,161,0.1)", color: "#00d4a1", border: "1px solid rgba(0,212,161,0.2)" }}>
+                style={{ background: "rgba(249,115,22,0.1)", color: "#f97316", border: "1px solid rgba(249,115,22,0.2)" }}>
                 {plan.profile.targetMarket}
               </span>
             )}
@@ -1073,8 +1073,8 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
             href="/roadmap"
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-90"
             style={{
-              background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
-              color: "#0a1628",
+              background: "linear-gradient(135deg, #f97316, #fb923c)",
+              color: "#0f0600",
             }}
           >
             <Map size={12} />
@@ -1102,15 +1102,15 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
         transition={{ delay: 0.1 }}
         className="relative overflow-hidden rounded-2xl p-5"
         style={{
-          background: "linear-gradient(135deg, rgba(0,212,161,0.08) 0%, rgba(34,211,238,0.06) 100%)",
-          border: "1px solid rgba(0,212,161,0.2)",
+          background: "linear-gradient(135deg, rgba(249,115,22,0.08) 0%, rgba(251,146,60,0.06) 100%)",
+          border: "1px solid rgba(249,115,22,0.2)",
         }}
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             <div
               className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-semibold mb-2"
-              style={{ background: "rgba(0,212,161,0.12)", color: "#00d4a1" }}
+              style={{ background: "rgba(249,115,22,0.12)", color: "#f97316" }}
             >
               <Target size={11} />
               {td("todayFocus", ar)}
@@ -1125,9 +1125,9 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
           <div
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold flex-shrink-0"
             style={{
-              background: "rgba(0,212,161,0.1)",
-              border: "1px solid rgba(0,212,161,0.2)",
-              color: "#00d4a1",
+              background: "rgba(249,115,22,0.1)",
+              border: "1px solid rgba(249,115,22,0.2)",
+              color: "#f97316",
             }}
           >
             <Clock size={11} />
@@ -1156,7 +1156,7 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
         >
           <div
             className="w-7 h-7 rounded-lg flex items-center justify-center"
-            style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)" }}
+            style={{ background: "linear-gradient(135deg, #f97316, #fb923c)" }}
           >
             <MessageCircle size={13} className="text-white" />
           </div>
@@ -1228,7 +1228,7 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
               minHeight: "36px",
               maxHeight: "160px",
               overflowY: "auto",
-              caretColor: "#00d4a1",
+              caretColor: "#f97316",
               height: "36px",
               textAlign: isArabic(chatInput) ? "right" : "left",
               wordBreak: "break-word",
@@ -1241,10 +1241,10 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
             className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
             style={{
               background: chatInput.trim() && !chatLoading
-                ? "linear-gradient(135deg, #00d4a1, #22d3ee)"
+                ? "linear-gradient(135deg, #f97316, #fb923c)"
                 : "var(--bg-base)",
-              boxShadow: chatInput.trim() && !chatLoading ? "0 0 16px rgba(0,212,161,0.4)" : "none",
-              border: "1px solid rgba(0,212,161,0.2)",
+              boxShadow: chatInput.trim() && !chatLoading ? "0 0 16px rgba(249,115,22,0.4)" : "none",
+              border: "1px solid rgba(249,115,22,0.2)",
             }}
           >
             <Send size={15} className="text-white" />
@@ -1590,14 +1590,14 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
         <div className="flex flex-col items-center gap-4">
           <div
             className="w-14 h-14 rounded-2xl animate-pulse"
-            style={{ background: "linear-gradient(135deg, rgba(0,212,161,0.3), rgba(34,211,238,0.3))" }}
+            style={{ background: "linear-gradient(135deg, rgba(249,115,22,0.3), rgba(251,146,60,0.3))" }}
           />
           <div className="flex gap-1.5">
             {[0, 1, 2].map((i) => (
               <div
                 key={i}
                 className="w-2 h-2 rounded-full animate-bounce"
-                style={{ background: "#00d4a1", animationDelay: `${i * 0.15}s`, opacity: 0.7 }}
+                style={{ background: "#f97316", animationDelay: `${i * 0.15}s`, opacity: 0.7 }}
               />
             ))}
           </div>
@@ -1669,7 +1669,7 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
               style={{
                 background: "var(--bg-card)",
                 border: "1px solid var(--border-subtle)",
-                boxShadow: "inset 0 1px 0 rgba(0,212,161,0.04)",
+                boxShadow: "inset 0 1px 0 rgba(249,115,22,0.04)",
               }}
             >
 
@@ -1695,8 +1695,8 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
               className="flex items-end gap-3 p-3 rounded-2xl"
               style={{
                 background: "var(--bg-card)",
-                border: "2px solid rgba(0,212,161,0.25)",
-                boxShadow: "0 0 0 1px rgba(0,212,161,0.08)",
+                border: "2px solid rgba(249,115,22,0.25)",
+                boxShadow: "0 0 0 1px rgba(249,115,22,0.08)",
               }}
             >
               <textarea
@@ -1719,7 +1719,7 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
                   minHeight: "36px",
                   maxHeight: "160px",
                   overflowY: "auto",
-                  caretColor: "#00d4a1",
+                  caretColor: "#f97316",
                   height: "36px",
                   textAlign: isArabic(input) ? "right" : "left",
                   wordBreak: "break-word",
@@ -1732,10 +1732,10 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
                 className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
                 style={{
                   background: input.trim() && !isLoading
-                    ? "linear-gradient(135deg, #00d4a1, #22d3ee)"
+                    ? "linear-gradient(135deg, #f97316, #fb923c)"
                     : "var(--bg-base)",
-                  boxShadow: input.trim() && !isLoading ? "0 0 16px rgba(0,212,161,0.4)" : "none",
-                  border: "1px solid rgba(0,212,161,0.2)",
+                  boxShadow: input.trim() && !isLoading ? "0 0 16px rgba(249,115,22,0.4)" : "none",
+                  border: "1px solid rgba(249,115,22,0.2)",
                 }}
               >
                 <Send size={15} className="text-white" />

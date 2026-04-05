@@ -51,7 +51,7 @@ async function SubjectContent({
       <div
         className="relative overflow-hidden rounded-3xl p-7 lg:p-9 border"
         style={{
-          background: `linear-gradient(135deg, ${subject.color}08 0%, #0d1424 70%)`,
+          background: `linear-gradient(135deg, ${subject.color}08 0%, #0d0700 70%)`,
           borderColor: `${subject.color}20`,
         }}
       >
@@ -93,8 +93,8 @@ async function SubjectContent({
                 key={course.id}
                 className={`relative group flex flex-col gap-4 p-5 rounded-2xl border transition-all ${
                   available
-                    ? "bg-[#0d1424] border-[rgba(255,255,255,0.07)] hover:border-[rgba(79,158,255,0.25)] cursor-pointer"
-                    : "bg-[#080c14] border-[rgba(255,255,255,0.04)] opacity-50"
+                    ? "bg-[#0d0700] border-[rgba(255,255,255,0.07)] hover:border-[rgba(249,115,22,0.25)] cursor-pointer"
+                    : "bg-[#080400] border-[rgba(255,255,255,0.04)] opacity-50"
                 }`}
               >
                 {available && (
@@ -111,7 +111,7 @@ async function SubjectContent({
                     <BookOpen size={17} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className={`font-bold text-sm leading-snug ${available ? "text-[#f1f5f9] group-hover:text-[#4f9eff] transition-colors" : "text-[#334155]"}`}>
+                    <h3 className={`font-bold text-sm leading-snug ${available ? "text-[#f1f5f9] group-hover:text-[#f97316] transition-colors" : "text-[#334155]"}`}>
                       {course.title}
                     </h3>
                     <p className="text-[#334155] text-xs mt-0.5">
@@ -119,7 +119,7 @@ async function SubjectContent({
                     </p>
                   </div>
                   {available ? (
-                    <ChevronRight size={16} className="text-[#475569] group-hover:text-[#4f9eff] transition-colors flex-shrink-0" />
+                    <ChevronRight size={16} className="text-[#475569] group-hover:text-[#f97316] transition-colors flex-shrink-0" />
                   ) : (
                     <div className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] text-[#334155] text-[10px] font-medium flex-shrink-0">
                       <Clock size={9} />

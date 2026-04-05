@@ -85,8 +85,8 @@ export const subjects: Subject[] = [
     description:
       "Build expertise in network architecture, protocols, security, and cloud infrastructure design.",
     iconName: "Network",
-    color: "#4f9eff",
-    gradient: "linear-gradient(135deg, #4f9eff 0%, #7c3aed 100%)",
+    color: "#f97316",
+    gradient: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
     category: "networking",
     courses: [
       {
@@ -135,7 +135,7 @@ export const subjects: Subject[] = [
       "From programming fundamentals to professional software development with industry-standard languages.",
     iconName: "Code2",
     color: "#a78bfa",
-    gradient: "linear-gradient(135deg, #a78bfa 0%, #4f9eff 100%)",
+    gradient: "linear-gradient(135deg, #a78bfa 0%, #f97316 100%)",
     category: "coding",
     courses: [
       {

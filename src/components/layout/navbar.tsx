@@ -84,9 +84,9 @@ export function Navbar() {
             href="/pricing"
             className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all hover:opacity-90"
             style={{
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              background: "linear-gradient(135deg, #f97316, #ea580c)",
               color: "#fff",
-              boxShadow: "0 0 14px rgba(99,102,241,0.35)",
+              boxShadow: "0 0 14px rgba(249,115,22,0.35)",
             }}
           >
             <Zap size={12} fill="currentColor" />
@@ -100,8 +100,8 @@ export function Navbar() {
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all hover:opacity-80"
             style={{
               background: "var(--bg-card)",
-              border: "1px solid rgba(0,212,161,0.3)",
-              color: "#00d4a1",
+              border: "1px solid rgba(249,115,22,0.3)",
+              color: "#f97316",
               letterSpacing: "0.04em",
             }}
           >
@@ -123,7 +123,7 @@ export function Navbar() {
             >
               <div
                 className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)" }}
+                style={{ background: "linear-gradient(135deg, #f97316, #fb923c)" }}
               >
                 {user?.image ? (
                   <Image src={user.image} alt={user.name ?? "User"} width={28} height={28} className="object-cover w-full h-full" />
@@ -229,7 +229,7 @@ export function Navbar() {
                     )}
                     style={
                       active
-                        ? { background: "rgba(0,212,161,0.1)", color: "#00d4a1", border: "1px solid rgba(0,212,161,0.15)" }
+                        ? { background: "rgba(249,115,22,0.1)", color: "#f97316", border: "1px solid rgba(249,115,22,0.15)" }
                         : { color: "var(--text-muted)" }
                     }
                   >

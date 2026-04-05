@@ -27,11 +27,11 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
     const variants = {
       primary:
-        "bg-[#4f9eff] hover:bg-[#2d7dd2] text-white shadow-lg hover:shadow-[0_0_20px_rgba(79,158,255,0.4)] focus-visible:ring-[#4f9eff]",
+        "bg-[#f97316] hover:bg-[#ea580c] text-white shadow-lg hover:shadow-[0_0_20px_rgba(249,115,22,0.4)] focus-visible:ring-[#f97316]",
       secondary:
-        "bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] text-[#f1f5f9] border border-[rgba(255,255,255,0.12)] hover:border-[rgba(79,158,255,0.4)] focus-visible:ring-[#4f9eff]",
+        "bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] text-[#f1f5f9] border border-[rgba(255,255,255,0.12)] hover:border-[rgba(249,115,22,0.4)] focus-visible:ring-[#f97316]",
       ghost:
-        "bg-transparent hover:bg-[rgba(255,255,255,0.06)] text-[#94a3b8] hover:text-[#f1f5f9] focus-visible:ring-[#4f9eff]",
+        "bg-transparent hover:bg-[rgba(255,255,255,0.06)] text-[#94a3b8] hover:text-[#f1f5f9] focus-visible:ring-[#f97316]",
       google:
         "bg-white hover:bg-gray-50 text-gray-800 shadow-lg hover:shadow-xl border border-gray-200 focus-visible:ring-gray-400",
       danger:

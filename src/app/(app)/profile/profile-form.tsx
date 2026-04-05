@@ -47,13 +47,13 @@ export function ProfileForm({ profile }: ProfileFormProps) {
   };
 
   const inputClass =
-    "w-full px-4 py-3 rounded-xl bg-[#080c14] border border-[rgba(255,255,255,0.07)] text-[#f1f5f9] text-sm placeholder:text-[#334155] focus:outline-none focus:border-[rgba(79,158,255,0.4)] focus:ring-1 focus:ring-[rgba(79,158,255,0.2)] transition-all";
+    "w-full px-4 py-3 rounded-xl bg-[#080400] border border-[rgba(255,255,255,0.07)] text-[#f1f5f9] text-sm placeholder:text-[#334155] focus:outline-none focus:border-[rgba(249,115,22,0.4)] focus:ring-1 focus:ring-[rgba(249,115,22,0.2)] transition-all";
 
   const labelClass = "block text-[#64748b] text-xs font-semibold uppercase tracking-wider mb-2";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="p-6 rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[#0d1424] space-y-5">
+      <div className="p-6 rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[#0d0700] space-y-5">
         <h2 className="text-sm font-bold text-[#f1f5f9] border-b border-[rgba(255,255,255,0.05)] pb-4">
           Personal Information
         </h2>
@@ -142,7 +142,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
         <button
           type="submit"
           disabled={saving}
-          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#4f9eff] hover:bg-[#2d7dd2] disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold transition-all hover:shadow-[0_0_20px_rgba(79,158,255,0.35)]"
+          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#f97316] hover:bg-[#ea580c] disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold transition-all hover:shadow-[0_0_20px_rgba(249,115,22,0.35)]"
         >
           {saving && <Loader2 size={14} className="animate-spin" />}
           {saving ? "Saving..." : "Save Changes"}

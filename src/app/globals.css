@@ -1,69 +1,73 @@
 @import "tailwindcss";
 
 :root {
-  /* Brand blues (existing) */
-  --brand-blue: #4f9eff;
-  --brand-blue-dark: #2d7dd2;
-  --brand-blue-glow: rgba(79, 158, 255, 0.3);
+  /* Brand orange palette */
+  --brand-orange: #f97316;
+  --brand-orange-dark: #ea580c;
+  --brand-orange-glow: rgba(249, 115, 22, 0.3);
   --brand-gold: #f5a623;
   --brand-gold-glow: rgba(245, 166, 35, 0.3);
 
-  /* AI / teal-green palette (from the video sphere) */
-  --brand-teal: #00d4a1;
-  --brand-teal-dark: #00a882;
-  --brand-teal-glow: rgba(0, 212, 161, 0.3);
-  --brand-cyan: #22d3ee;
-  --brand-cyan-glow: rgba(34, 211, 238, 0.3);
-  --gradient-ai: linear-gradient(135deg, #00d4a1 0%, #22d3ee 100%);
+  /* Legacy aliases kept for compatibility */
+  --brand-blue: #f97316;
+  --brand-blue-dark: #ea580c;
+  --brand-blue-glow: rgba(249, 115, 22, 0.3);
+  --brand-teal: #f97316;
+  --brand-teal-dark: #ea580c;
+  --brand-teal-glow: rgba(249, 115, 22, 0.3);
+  --brand-cyan: #fb923c;
+  --brand-cyan-glow: rgba(251, 146, 60, 0.3);
+  --gradient-ai: linear-gradient(135deg, #f97316 0%, #fb923c 100%);
 
-  /* Dark theme (default) */
-  --bg-base: #080c14;
-  --bg-surface: #0d1424;
-  --bg-card: #111827;
-  --bg-card-hover: #1a2540;
-  --bg-glass: rgba(17, 24, 39, 0.8);
-  --bg-glass-light: rgba(255, 255, 255, 0.05);
+  /* Dark theme (default) — orange + black */
+  --bg-base: #080400;
+  --bg-surface: #0d0700;
+  --bg-card: #140900;
+  --bg-card-hover: #1e0e00;
+  --bg-glass: rgba(13, 7, 0, 0.85);
+  --bg-glass-light: rgba(249, 115, 22, 0.05);
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
-  --text-muted: #475569;
+  --text-muted: #6b6560;
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-medium: rgba(255, 255, 255, 0.12);
-  --border-accent: rgba(0, 212, 161, 0.4);
-  --gradient-brand: linear-gradient(135deg, #4f9eff 0%, #7c3aed 100%);
+  --border-accent: rgba(249, 115, 22, 0.4);
+  --gradient-brand: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
   --gradient-gold: linear-gradient(135deg, #f5a623 0%, #ef4444 100%);
-  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.3);
-  --shadow-glow-blue: 0 0 30px rgba(79, 158, 255, 0.2);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0, 0, 0, 0.4);
+  --shadow-glow-blue: 0 0 30px rgba(249, 115, 22, 0.2);
   --shadow-glow-gold: 0 0 30px rgba(245, 166, 35, 0.2);
-  --shadow-glow-teal: 0 0 30px rgba(0, 212, 161, 0.2);
-  --scrollbar-track: #0d1424;
-  --scrollbar-thumb: #1e3a5f;
+  --shadow-glow-teal: 0 0 30px rgba(249, 115, 22, 0.2);
+  --scrollbar-track: #0d0700;
+  --scrollbar-thumb: #3d1800;
 }
 
 /* ── Light theme ─────────────────────────────────────────────── */
 [data-theme="light"] {
-  --bg-base: #f0fdfc;
+  --bg-base: #fffbf5;
   --bg-surface: #ffffff;
   --bg-card: #ffffff;
-  --bg-card-hover: #f0fdfc;
-  --bg-glass: rgba(255, 255, 255, 0.88);
-  --bg-glass-light: rgba(0, 212, 161, 0.05);
-  --text-primary: #0f172a;
-  --text-secondary: #334155;
-  --text-muted: #64748b;
+  --bg-card-hover: #fff7ed;
+  --bg-glass: rgba(255, 255, 255, 0.92);
+  --bg-glass-light: rgba(249, 115, 22, 0.05);
+  --text-primary: #1a0a00;
+  --text-secondary: #4a3728;
+  --text-muted: #6b5b4e;
   --border-subtle: rgba(0, 0, 0, 0.07);
   --border-medium: rgba(0, 0, 0, 0.12);
-  --border-accent: rgba(0, 212, 161, 0.45);
+  --border-accent: rgba(249, 115, 22, 0.45);
   --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.07), 0 1px 4px rgba(0, 0, 0, 0.04);
-  --shadow-glow-blue: 0 0 30px rgba(34, 211, 238, 0.15);
-  --shadow-glow-teal: 0 0 30px rgba(0, 212, 161, 0.2);
-  --scrollbar-track: #e0f7f4;
-  --scrollbar-thumb: #00a882;
+  --shadow-glow-blue: 0 0 30px rgba(249, 115, 22, 0.15);
+  --shadow-glow-teal: 0 0 30px rgba(249, 115, 22, 0.2);
+  --scrollbar-track: #fff7ed;
+  --scrollbar-thumb: #ea580c;
 }
 
 @theme inline {
-  --color-brand-blue: var(--brand-blue);
+  --color-brand-orange: var(--brand-orange);
+  --color-brand-blue: var(--brand-orange);
   --color-brand-gold: var(--brand-gold);
-  --color-brand-teal: var(--brand-teal);
+  --color-brand-teal: var(--brand-orange);
   --color-brand-cyan: var(--brand-cyan);
   --color-bg-base: var(--bg-base);
   --color-bg-surface: var(--bg-surface);
@@ -91,7 +95,7 @@ body {
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
 ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--brand-teal); }
+::-webkit-scrollbar-thumb:hover { background: var(--brand-orange); }
 
 .glass {
   background: var(--bg-glass);
@@ -128,8 +132,8 @@ body {
 }
 
 .bg-grid-teal {
-  background-image: linear-gradient(rgba(0,212,161,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,212,161,0.04) 1px, transparent 1px);
+  background-image: linear-gradient(rgba(249,115,22,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(249,115,22,0.04) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
@@ -191,9 +195,9 @@ body {
 }
 
 @keyframes pulse-ring {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 212, 161, 0.4); }
-  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(0, 212, 161, 0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 212, 161, 0); }
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4); }
+  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(249, 115, 22, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
 }
 .animate-pulse-ring { animation: pulse-ring 2s infinite; }
 
@@ -233,7 +237,7 @@ button, a { transition: background-color 0.25s ease, border-color 0.25s ease, co
   }
 
   /* Force light colors from CSS vars */
-  * { --bg-card: #f9fafb; --bg-base: #f1f3f5; --text-primary: #111827; --text-secondary: #374151; --text-muted: #6b7280; --border-subtle: #e5e7eb; --border-medium: #d1d5db; }
+  * { --bg-card: #f9fafb; --bg-base: #f1f3f5; --text-primary: #140900; --text-secondary: #374151; --text-muted: #6b7280; --border-subtle: #e5e7eb; --border-medium: #d1d5db; }
 
   /* Ensure colored text prints */
   [style*="color"] { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

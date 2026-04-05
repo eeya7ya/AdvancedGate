@@ -22,7 +22,7 @@ export function Progress({
   const pct = Math.min(100, Math.max(0, (value / max) * 100));
 
   const colors = {
-    blue: "bg-[#4f9eff]",
+    blue: "bg-[#f97316]",
     gold: "bg-[#f5a623]",
     green: "bg-[#4ade80]",
     purple: "bg-[#a78bfa]",

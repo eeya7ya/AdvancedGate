@@ -54,7 +54,7 @@ async function CourseContent({
           <div
             className="relative overflow-hidden rounded-3xl p-6 lg:p-8 border"
             style={{
-              background: `linear-gradient(135deg, ${subject.color}08 0%, #0d1424 70%)`,
+              background: `linear-gradient(135deg, ${subject.color}08 0%, #0d0700 70%)`,
               borderColor: `${subject.color}20`,
             }}
           >
@@ -87,8 +87,8 @@ async function CourseContent({
           </div>
 
           {/* Lesson player placeholder */}
-          <div className="rounded-2xl bg-[#0d1424] border border-[rgba(255,255,255,0.06)] overflow-hidden">
-            <div className="aspect-video flex flex-col items-center justify-center relative bg-[#080c14]">
+          <div className="rounded-2xl bg-[#0d0700] border border-[rgba(255,255,255,0.06)] overflow-hidden">
+            <div className="aspect-video flex flex-col items-center justify-center relative bg-[#080400]">
               <div className="absolute inset-0 bg-grid opacity-15 pointer-events-none" />
               <div className="relative z-10 text-center">
                 <div
@@ -103,7 +103,7 @@ async function CourseContent({
             </div>
             <div className="p-4 flex items-center justify-between border-t border-[rgba(255,255,255,0.06)]">
               <span className="text-[#475569] text-sm">Lesson 1 of {course.lessons}</span>
-              <button className="px-5 py-2 rounded-xl bg-[#4f9eff] hover:bg-[#2d7dd2] text-white text-sm font-semibold transition-all hover:shadow-[0_0_20px_rgba(79,158,255,0.35)]">
+              <button className="px-5 py-2 rounded-xl bg-[#f97316] hover:bg-[#ea580c] text-white text-sm font-semibold transition-all hover:shadow-[0_0_20px_rgba(249,115,22,0.35)]">
                 Start Course
               </button>
             </div>
@@ -113,18 +113,18 @@ async function CourseContent({
         {/* Sidebar: lessons */}
         <div className="space-y-4">
           {/* Enroll CTA */}
-          <div className="p-4 rounded-2xl bg-[rgba(79,158,255,0.05)] border border-[rgba(79,158,255,0.15)]">
+          <div className="p-4 rounded-2xl bg-[rgba(249,115,22,0.05)] border border-[rgba(249,115,22,0.15)]">
             <p className="text-[#f1f5f9] font-semibold text-sm mb-1">Not yet enrolled</p>
             <p className="text-[#475569] text-xs mb-3 leading-relaxed">
               Enroll to track progress, earn XP, and unlock the next courses in this discipline.
             </p>
-            <button className="w-full py-2.5 rounded-xl bg-[#4f9eff] hover:bg-[#2d7dd2] text-white text-sm font-semibold transition-all">
+            <button className="w-full py-2.5 rounded-xl bg-[#f97316] hover:bg-[#ea580c] text-white text-sm font-semibold transition-all">
               Enroll — Free
             </button>
           </div>
 
           {/* Progress placeholder */}
-          <div className="p-4 rounded-2xl bg-[#0d1424] border border-[rgba(255,255,255,0.06)]">
+          <div className="p-4 rounded-2xl bg-[#0d0700] border border-[rgba(255,255,255,0.06)]">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[#f1f5f9] font-semibold text-sm">Progress</span>
               <span className="text-[#475569] text-sm font-bold">0%</span>
@@ -134,7 +134,7 @@ async function CourseContent({
           </div>
 
           {/* Lesson list */}
-          <div className="rounded-2xl bg-[#0d1424] border border-[rgba(255,255,255,0.06)] overflow-hidden">
+          <div className="rounded-2xl bg-[#0d0700] border border-[rgba(255,255,255,0.06)] overflow-hidden">
             <div className="p-4 border-b border-[rgba(255,255,255,0.06)]">
               <h3 className="text-[#f1f5f9] font-bold text-sm">Course Content</h3>
             </div>
@@ -154,7 +154,7 @@ async function CourseContent({
                     ) : lesson.locked ? (
                       <Lock size={14} className="text-[#334155]" />
                     ) : (
-                      <PlayCircle size={16} className="text-[#4f9eff]" />
+                      <PlayCircle size={16} className="text-[#f97316]" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -179,8 +179,8 @@ async function CourseContent({
 function CourseSkeleton() {
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-pulse pt-2">
-      <div className="h-4 w-24 rounded bg-[#1a2540]" />
-      <div className="h-48 rounded-3xl bg-[#0d1424]" />
+      <div className="h-4 w-24 rounded bg-[#1e0e00]" />
+      <div className="h-48 rounded-3xl bg-[#0d0700]" />
     </div>
   );
 }
