@@ -648,7 +648,7 @@ function IntroOverlay({
               )}
             </AnimatePresence>
             <button
-              onClick={() => setPhase("scenarios")}
+              onClick={() => onComplete("general", ar ? "مساعدة عامة" : "General assistance")}
               className="mt-10 text-xs font-medium hover:opacity-70 transition-opacity"
               style={{ color: "rgba(255,255,255,0.25)", fontFamily: "'Courier New', Courier, monospace" }}
             >
