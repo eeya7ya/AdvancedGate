@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLang } from "@/lib/language";
 import {
   CalendarDays, Clock, Target, CheckCircle, Circle,
   AlertTriangle, Mail, ChevronLeft, ChevronRight,
   BookOpen, TrendingUp, Bell, BellOff, Info,
+  Zap, Play, X, Star, RotateCcw, ExternalLink,
 } from "lucide-react";
 
 /* ── Types ─────────────────────────────────────────── */
@@ -42,6 +43,34 @@ interface TimeSlice {
   percentage: number;
   color: string;
   hours: number;
+}
+
+interface WeekDay {
+  dayNumber: number;
+  label: string;
+  task: string;
+  type: "study" | "practice" | "review" | "rest";
+  hasQuiz: boolean;
+  quizTopic: string;
+  courseRef: string;
+  courseUrl: string;
+  duration: string;
+}
+
+interface WeekSchedule {
+  week: number;
+  month: number;
+  theme: string;
+  certification: string;
+  days: WeekDay[];
+}
+
+interface QuizQuestion {
+  id: number;
+  question: string;
+  options: [string, string, string, string];
+  correctIndex: number;
+  explanation: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -590,6 +619,523 @@ function EmailSettings({
   );
 }
 
+/* ── Quiz Modal ────────────────────────────────────── */
+interface QuizModalProps {
+  topic: string;
+  dayTask: string;
+  courseTitle: string;
+  isRTL: boolean;
+  onClose: () => void;
+  onComplete: () => void;
+}
+
+function QuizModal({ topic, dayTask, courseTitle, isRTL, onClose, onComplete }: QuizModalProps) {
+  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [answered, setAnswered] = useState(false);
+  const [score, setScore] = useState(0);
+  const [finished, setFinished] = useState(false);
+
+  // Fetch questions on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/ai/quiz", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            topic,
+            dayTask,
+            courseTitle,
+            language: isRTL ? "ar" : "en",
+          }),
+        });
+        if (!res.ok) throw new Error("Failed");
+        const data = await res.json();
+        setQuestions(data.questions ?? []);
+      } catch {
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const currentQ = questions[currentIdx];
+  const totalQ = questions.length;
+
+  function handleSelect(idx: number) {
+    if (answered) return;
+    setSelected(idx);
+    setAnswered(true);
+    if (idx === currentQ.correctIndex) setScore((s) => s + 1);
+  }
+
+  function handleNext() {
+    if (currentIdx + 1 >= totalQ) {
+      setFinished(true);
+    } else {
+      setCurrentIdx((i) => i + 1);
+      setSelected(null);
+      setAnswered(false);
+    }
+  }
+
+  const optionColors = (idx: number) => {
+    if (!answered) return { bg: "var(--bg-base)", border: "var(--border-subtle)", color: "var(--text-primary)" };
+    if (idx === currentQ.correctIndex) return { bg: "rgba(74,222,128,0.12)", border: "rgba(74,222,128,0.5)", color: "#4ade80" };
+    if (idx === selected) return { bg: "rgba(239,68,68,0.1)", border: "rgba(239,68,68,0.4)", color: "#ef4444" };
+    return { bg: "var(--bg-base)", border: "var(--border-subtle)", color: "var(--text-muted)" };
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 40, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 40, scale: 0.97 }}
+        className="w-full max-w-lg rounded-3xl overflow-hidden"
+        style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)", maxHeight: "90vh", overflowY: "auto" }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg,#f97316,#fb923c)" }}>
+              <Zap size={13} className="text-white" />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "#f97316" }}>
+                {isRTL ? "اختبار اليوم" : "Daily Quiz"}
+              </p>
+              <p className="text-xs truncate max-w-[220px]" style={{ color: "var(--text-muted)" }}>{topic}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:opacity-70"
+            style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        <div className="p-5">
+          {/* Loading */}
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <div className="w-10 h-10 rounded-full border-2 border-transparent animate-spin" style={{ borderTopColor: "#f97316" }} />
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                {isRTL ? "يتم توليد الأسئلة..." : "Generating questions..."}
+              </p>
+            </div>
+          )}
+
+          {/* Error */}
+          {!loading && error && (
+            <div className="text-center py-8">
+              <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
+                {isRTL ? "تعذّر توليد الأسئلة. حاول مرة أخرى." : "Could not generate questions. Please try again."}
+              </p>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 rounded-xl text-sm font-bold"
+                style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+              >
+                {isRTL ? "إغلاق" : "Close"}
+              </button>
+            </div>
+          )}
+
+          {/* Finished */}
+          {!loading && !error && finished && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-center py-6"
+            >
+              <div
+                className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+                style={{ background: score >= totalQ * 0.8 ? "linear-gradient(135deg,#f97316,#fb923c)" : score >= totalQ * 0.5 ? "linear-gradient(135deg,#f59e0b,#fbbf24)" : "linear-gradient(135deg,#6366f1,#a78bfa)" }}
+              >
+                <Star size={28} className="text-white" />
+              </div>
+              <h3 className="text-xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>
+                {isRTL ? `${score} / ${totalQ}` : `${score} / ${totalQ}`}
+              </h3>
+              <p className="text-sm mb-1 font-semibold" style={{ color: score >= totalQ * 0.8 ? "#f97316" : score >= totalQ * 0.5 ? "#f59e0b" : "#a78bfa" }}>
+                {score >= totalQ * 0.8
+                  ? (isRTL ? "ممتاز! أنت تتقن هذا الموضوع 🔥" : "Excellent! You've mastered this topic 🔥")
+                  : score >= totalQ * 0.5
+                    ? (isRTL ? "جيد! راجع النقاط الضعيفة 💪" : "Good! Review the weak spots 💪")
+                    : (isRTL ? "راجع الموضوع مرة أخرى 📚" : "Review this topic again 📚")}
+              </p>
+              <p className="text-xs mb-6" style={{ color: "var(--text-muted)" }}>
+                {isRTL ? `أجبت بشكل صحيح على ${score} من ${totalQ} أسئلة` : `You answered ${score} out of ${totalQ} correctly`}
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => { setCurrentIdx(0); setSelected(null); setAnswered(false); setScore(0); setFinished(false); }}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-80"
+                  style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+                >
+                  <RotateCcw size={13} />
+                  {isRTL ? "إعادة" : "Retry"}
+                </button>
+                <button
+                  onClick={() => { onComplete(); onClose(); }}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-80"
+                  style={{ background: "linear-gradient(135deg,#f97316,#fb923c)", color: "#0f0600" }}
+                >
+                  <CheckCircle size={13} />
+                  {isRTL ? "إتمام اليوم" : "Mark Day Done"}
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Question */}
+          {!loading && !error && !finished && currentQ && (
+            <div>
+              {/* Progress */}
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-bold" style={{ color: "var(--text-muted)" }}>
+                  {isRTL ? `${currentIdx + 1} / ${totalQ}` : `${currentIdx + 1} / ${totalQ}`}
+                </span>
+                <div className="flex-1 mx-3 h-1.5 rounded-full" style={{ background: "var(--bg-base)" }}>
+                  <div
+                    className="h-1.5 rounded-full transition-all"
+                    style={{ width: `${((currentIdx + 1) / totalQ) * 100}%`, background: "linear-gradient(90deg,#f97316,#fb923c)" }}
+                  />
+                </div>
+                <div className="flex gap-1">
+                  {Array.from({ length: totalQ }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{ background: i < currentIdx ? "#f97316" : i === currentIdx ? "#fb923c" : "var(--border-subtle)" }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Question text */}
+              <motion.p
+                key={currentIdx}
+                initial={{ opacity: 0, x: isRTL ? -10 : 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="text-sm font-semibold leading-relaxed mb-4"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {currentQ.question}
+              </motion.p>
+
+              {/* Options */}
+              <div className="space-y-2.5 mb-4">
+                {currentQ.options.map((opt, idx) => {
+                  const c = optionColors(idx);
+                  return (
+                    <motion.button
+                      key={idx}
+                      whileTap={answered ? {} : { scale: 0.98 }}
+                      onClick={() => handleSelect(idx)}
+                      className="w-full text-start px-4 py-3 rounded-2xl text-sm font-medium transition-all"
+                      style={{ background: c.bg, border: `1px solid ${c.border}`, color: c.color, cursor: answered ? "default" : "pointer" }}
+                    >
+                      <span className="font-bold me-2" style={{ color: c.color }}>
+                        {["A", "B", "C", "D"][idx]}.
+                      </span>
+                      {opt}
+                    </motion.button>
+                  );
+                })}
+              </div>
+
+              {/* Explanation */}
+              <AnimatePresence>
+                {answered && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div
+                      className="p-3 rounded-2xl mb-4 text-xs leading-relaxed"
+                      style={{
+                        background: selected === currentQ.correctIndex ? "rgba(74,222,128,0.08)" : "rgba(167,139,250,0.08)",
+                        border: `1px solid ${selected === currentQ.correctIndex ? "rgba(74,222,128,0.3)" : "rgba(167,139,250,0.25)"}`,
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      <span className="font-bold" style={{ color: selected === currentQ.correctIndex ? "#4ade80" : "#a78bfa" }}>
+                        {selected === currentQ.correctIndex
+                          ? (isRTL ? "✓ صحيح! " : "✓ Correct! ")
+                          : (isRTL ? "✗ خطأ. " : "✗ Incorrect. ")}
+                      </span>
+                      {currentQ.explanation}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {answered && (
+                <button
+                  onClick={handleNext}
+                  className="w-full py-3 rounded-2xl text-sm font-bold transition-all hover:opacity-80"
+                  style={{ background: "linear-gradient(135deg,#f97316,#fb923c)", color: "#0f0600" }}
+                >
+                  {currentIdx + 1 >= totalQ
+                    ? (isRTL ? "عرض النتيجة" : "See Results")
+                    : (isRTL ? "السؤال التالي" : "Next Question")}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+/* ── Weekly Schedule View ──────────────────────────── */
+function WeeklyScheduleView({
+  plan,
+  tracking,
+  planStartDate,
+  onToggle,
+  isRTL,
+}: {
+  plan: Plan;
+  tracking: Map<string, boolean>;
+  planStartDate: Date;
+  onToggle: (dateKey: string, taskKey: string, completed: boolean) => void;
+  isRTL: boolean;
+}) {
+  const weeks: WeekSchedule[] = plan.weeklySchedule ?? [];
+  const [activeWeek, setActiveWeek] = useState(0);
+  const [quizDay, setQuizDay] = useState<WeekDay | null>(null);
+
+  if (weeks.length === 0) return null;
+
+  const week = weeks[activeWeek];
+  if (!week) return null;
+
+  const TYPE_COLORS: Record<string, string> = {
+    study: "#4f9eff",
+    practice: "#f97316",
+    review: "#a78bfa",
+    rest: "#6b7280",
+  };
+
+  const TYPE_LABELS_EN: Record<string, string> = {
+    study: "Study",
+    practice: "Practice",
+    review: "Review",
+    rest: "Rest",
+  };
+
+  const TYPE_LABELS_AR: Record<string, string> = {
+    study: "دراسة",
+    practice: "تطبيق",
+    review: "مراجعة",
+    rest: "راحة",
+  };
+
+  // Map week+day to actual calendar date key
+  function getDateKeyForDay(weekIndex: number, dayNumber: number): string {
+    const dayOffset = weekIndex * 7 + (dayNumber - 1);
+    const d = new Date(planStartDate);
+    d.setDate(d.getDate() + dayOffset);
+    return toDateKey(d);
+  }
+
+  function isDayDone(weekIndex: number, dayNumber: number): boolean {
+    const key = getDateKeyForDay(weekIndex, dayNumber);
+    return tracking.get(key) ?? false;
+  }
+
+  function handleMarkDone(day: WeekDay) {
+    const key = getDateKeyForDay(activeWeek, day.dayNumber);
+    const taskKey = `${key}-daily`;
+    const current = tracking.get(key) ?? false;
+    onToggle(key, taskKey, !current);
+  }
+
+  return (
+    <div>
+      <AnimatePresence>
+        {quizDay && (
+          <QuizModal
+            topic={quizDay.quizTopic}
+            dayTask={quizDay.task}
+            courseTitle={quizDay.courseRef}
+            isRTL={isRTL}
+            onClose={() => setQuizDay(null)}
+            onComplete={() => {
+              handleMarkDone(quizDay);
+              setQuizDay(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <Card delay={0.2}>
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(79,158,255,0.15)" }}>
+            <CalendarDays size={14} style={{ color: "#4f9eff" }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "#4f9eff" }}>
+              {isRTL ? "الجدول التفصيلي أسبوع بأسبوع" : "Week-by-Week Schedule"}
+            </p>
+            <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
+              {week.theme}
+            </p>
+          </div>
+          {week.certification && (
+            <span
+              className="text-[10px] font-bold px-2 py-0.5 rounded-lg flex-shrink-0"
+              style={{ background: "rgba(245,166,35,0.1)", color: "#f5a623", border: "1px solid rgba(245,166,35,0.3)" }}
+            >
+              🏆 {week.certification}
+            </span>
+          )}
+        </div>
+
+        {/* Week tabs */}
+        <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1">
+          {weeks.map((w, i) => (
+            <button
+              key={i}
+              onClick={() => setActiveWeek(i)}
+              className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+              style={
+                activeWeek === i
+                  ? { background: "linear-gradient(135deg,#4f9eff22,#4f9eff11)", border: "1px solid rgba(79,158,255,0.5)", color: "#4f9eff" }
+                  : { background: "var(--bg-base)", border: "1px solid var(--border-subtle)", color: "var(--text-muted)" }
+              }
+            >
+              {isRTL ? `أسبوع ${w.week}` : `Week ${w.week}`}
+            </button>
+          ))}
+        </div>
+
+        {/* Days */}
+        <div className="space-y-2">
+          {week.days.map((day) => {
+            const done = isDayDone(activeWeek, day.dayNumber);
+            const typeColor = TYPE_COLORS[day.type] ?? "#6b7280";
+            const typeLabel = isRTL ? TYPE_LABELS_AR[day.type] : TYPE_LABELS_EN[day.type];
+            const isRest = day.type === "rest";
+
+            return (
+              <motion.div
+                key={day.dayNumber}
+                initial={{ opacity: 0, x: isRTL ? -6 : 6 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: day.dayNumber * 0.04 }}
+                className="flex items-start gap-3 p-3 rounded-2xl"
+                style={{
+                  background: done ? `${typeColor}10` : "var(--bg-base)",
+                  border: `1px solid ${done ? `${typeColor}30` : "var(--border-subtle)"}`,
+                  opacity: isRest ? 0.55 : 1,
+                }}
+              >
+                {/* Day number */}
+                <div
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0"
+                  style={{ background: done ? typeColor : `${typeColor}18`, color: done ? "#fff" : typeColor }}
+                >
+                  {done ? <CheckCircle size={14} /> : day.dayNumber}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                    <span
+                      className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
+                      style={{ background: `${typeColor}18`, color: typeColor }}
+                    >
+                      {typeLabel}
+                    </span>
+                    <span className="text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>
+                      {day.label}
+                    </span>
+                    {day.duration && day.duration !== "0h" && (
+                      <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                        · {day.duration}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs leading-relaxed" style={{ color: done ? "var(--text-muted)" : "var(--text-secondary)" }}>
+                    {day.task}
+                  </p>
+                  {day.courseRef && (
+                    <div className="flex items-center gap-1 mt-1.5">
+                      <BookOpen size={10} style={{ color: "#a78bfa", flexShrink: 0 }} />
+                      {day.courseUrl ? (
+                        <a
+                          href={day.courseUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] font-medium hover:underline truncate flex items-center gap-0.5"
+                          style={{ color: "#a78bfa" }}
+                        >
+                          {day.courseRef}
+                          <ExternalLink size={8} />
+                        </a>
+                      ) : (
+                        <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>{day.courseRef}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                {!isRest && (
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {day.hasQuiz && !done && (
+                      <button
+                        onClick={() => setQuizDay(day)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold transition-all hover:opacity-80"
+                        style={{ background: "linear-gradient(135deg,#f97316,#fb923c)", color: "#0f0600" }}
+                      >
+                        <Play size={9} />
+                        {isRTL ? "اختبار" : "Quiz"}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleMarkDone(day)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold transition-all hover:opacity-80"
+                      style={
+                        done
+                          ? { background: "rgba(249,115,22,0.15)", color: "#f97316", border: "1px solid rgba(249,115,22,0.3)" }
+                          : { background: "var(--bg-card)", color: "var(--text-muted)", border: "1px solid var(--border-subtle)" }
+                      }
+                    >
+                      {done
+                        ? <><CheckCircle size={9} /> {isRTL ? "تم" : "Done"}</>
+                        : <><Circle size={9} /> {isRTL ? "إتمام" : "Mark"}</>}
+                    </button>
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 /* ── Main Export ───────────────────────────────────── */
 export function ScheduleClient({
   plan,
@@ -747,6 +1293,17 @@ export function ScheduleClient({
           <EmailSettings emailSettings={emailSettings} isRTL={isRTL} />
         </div>
       </div>
+
+      {/* Week-by-Week Schedule */}
+      {plan.weeklySchedule && plan.weeklySchedule.length > 0 && (
+        <WeeklyScheduleView
+          plan={plan}
+          tracking={trackingMap}
+          planStartDate={planStartDate}
+          onToggle={handleToggle}
+          isRTL={isRTL}
+        />
+      )}
     </div>
   );
 }
