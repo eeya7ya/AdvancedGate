@@ -1,4 +1,8 @@
-import { getSubjectById } from "@/lib/data";
+import { getSubjectById, subjects } from "@/lib/data";
+
+export async function generateStaticParams() {
+  return subjects.map((s) => ({ subjectId: s.id }));
+}
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { notFound } from "next/navigation";

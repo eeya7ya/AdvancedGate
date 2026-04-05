@@ -1,6 +1,10 @@
 import { Suspense } from "react";
-import { getCourseById } from "@/lib/data";
+import { getCourseById, subjects } from "@/lib/data";
 import { Badge } from "@/components/ui/badge";
+
+export async function generateStaticParams() {
+  return subjects.flatMap((s) => s.courses.map((c) => ({ courseId: c.id })));
+}
 import { Progress } from "@/components/ui/progress";
 import Link from "next/link";
 import { notFound } from "next/navigation";
