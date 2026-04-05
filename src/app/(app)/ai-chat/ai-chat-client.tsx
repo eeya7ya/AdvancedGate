@@ -131,7 +131,7 @@ function NotesPanel({
             }}
             disabled={!newNote.trim()}
             className="px-3 py-2 rounded-lg text-[11px] font-semibold transition-all disabled:opacity-40"
-            style={{ background: "rgba(0,212,161,0.15)", color: "#00d4a1", border: "1px solid rgba(0,212,161,0.2)" }}
+            style={{ background: "rgba(249,115,22,0.15)", color: "#f97316", border: "1px solid rgba(249,115,22,0.2)" }}
           >
             <Plus size={12} />
           </button>
@@ -153,12 +153,12 @@ function NotesPanel({
                   onChange={(e) => setEditText(e.target.value)}
                   dir={getTextDir(editText)}
                   className="flex-1 text-xs px-2 py-1 rounded-lg bg-transparent outline-none"
-                  style={{ border: "1px solid rgba(0,212,161,0.3)", color: "var(--text-primary)" }}
+                  style={{ border: "1px solid rgba(249,115,22,0.3)", color: "var(--text-primary)" }}
                   autoFocus
                 />
                 <button
                   onClick={() => { onUpdate(note.id, editText); setEditingId(null); }}
-                  className="p-1 rounded-lg hover:opacity-80" style={{ color: "#00d4a1" }}
+                  className="p-1 rounded-lg hover:opacity-80" style={{ color: "#f97316" }}
                 >
                   <Save size={12} />
                 </button>
@@ -225,7 +225,7 @@ function PlanContext({ plan, isRTL }: { plan: any; isRTL: boolean }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Target size={14} style={{ color: "#00d4a1" }} />
+        <Target size={14} style={{ color: "#f97316" }} />
         <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
           {t("context", isRTL)}
         </h3>
@@ -233,13 +233,13 @@ function PlanContext({ plan, isRTL }: { plan: any; isRTL: boolean }) {
 
       {/* Today's Focus */}
       {plan.todaysFocus && (
-        <div className="p-3 rounded-xl" style={{ background: "rgba(0,212,161,0.06)", border: "1px solid rgba(0,212,161,0.15)" }}>
-          <p className="text-[10px] font-bold uppercase mb-1" style={{ color: "#00d4a1" }}>
+        <div className="p-3 rounded-xl" style={{ background: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.15)" }}>
+          <p className="text-[10px] font-bold uppercase mb-1" style={{ color: "#f97316" }}>
             {isRTL ? "تركيز اليوم" : "Today's Focus"}
           </p>
           <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{plan.todaysFocus.topic}</p>
           <div className="flex items-center gap-1 mt-1">
-            <Clock size={10} style={{ color: "#00d4a1" }} />
+            <Clock size={10} style={{ color: "#f97316" }} />
             <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>{plan.todaysFocus.duration}</span>
           </div>
         </div>
@@ -267,7 +267,7 @@ function PlanContext({ plan, isRTL }: { plan: any; isRTL: boolean }) {
       {/* Courses */}
       {plan.courseRecommendations && (
         <div>
-          <p className="text-[10px] font-bold uppercase mb-2 flex items-center gap-1.5" style={{ color: "#22d3ee" }}>
+          <p className="text-[10px] font-bold uppercase mb-2 flex items-center gap-1.5" style={{ color: "#fb923c" }}>
             <BookOpen size={10} />
             {t("courses", isRTL)}
           </p>
@@ -408,7 +408,7 @@ export function AIChatClient({ plan, notes: initialNotes, userName }: AIChatClie
 
     if (streaming) {
       elements.push(
-        <span key="cursor" className="inline-block w-0.5 h-4 ml-0.5 align-middle animate-pulse" style={{ background: "#00d4a1" }} />
+        <span key="cursor" className="inline-block w-0.5 h-4 ml-0.5 align-middle animate-pulse" style={{ background: "#f97316" }} />
       );
     }
     return elements;
@@ -424,7 +424,7 @@ export function AIChatClient({ plan, notes: initialNotes, userName }: AIChatClie
       >
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-1"
-            style={{ background: "rgba(0,212,161,0.1)", border: "1px solid rgba(0,212,161,0.2)", color: "#00d4a1" }}>
+            style={{ background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.2)", color: "#f97316" }}>
             <MessageSquare size={11} />
             {t("title", isRTL)}
           </div>
@@ -459,12 +459,12 @@ export function AIChatClient({ plan, notes: initialNotes, userName }: AIChatClie
               >
                 {msg.role === "assistant" ? (
                   <div className="w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)" }}>
+                    style={{ background: "linear-gradient(135deg, #f97316, #fb923c)" }}>
                     <Brain size={13} className="text-white" />
                   </div>
                 ) : (
                   <div className="w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-xs font-bold"
-                    style={{ background: "linear-gradient(135deg, #4f9eff, #7c3aed)" }}>
+                    style={{ background: "linear-gradient(135deg, #f97316, #ea580c)" }}>
                     {userName[0]?.toUpperCase() ?? "U"}
                   </div>
                 )}
@@ -473,7 +473,7 @@ export function AIChatClient({ plan, notes: initialNotes, userName }: AIChatClie
                   className={`px-4 py-3 rounded-2xl ${msg.role === "assistant" ? "max-w-[85%]" : "max-w-[75%]"}`}
                   style={msg.role === "assistant"
                     ? { background: "var(--bg-base)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)", borderBottomLeftRadius: "6px" }
-                    : { background: "linear-gradient(135deg, #00d4a1, #22d3ee)", color: "#0a1628", borderBottomRightRadius: "6px", fontWeight: 500 }
+                    : { background: "linear-gradient(135deg, #f97316, #fb923c)", color: "#0f0600", borderBottomRightRadius: "6px", fontWeight: 500 }
                   }
                 >
                   {msg.role === "assistant" ? formatMessage(msg.content) : <p className="text-sm leading-relaxed">{msg.content}</p>}
@@ -485,7 +485,7 @@ export function AIChatClient({ plan, notes: initialNotes, userName }: AIChatClie
             {isLoading && streamedText && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-end gap-3">
                 <div className="w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)" }}>
+                  style={{ background: "linear-gradient(135deg, #f97316, #fb923c)" }}>
                   <Brain size={13} className="text-white" />
                 </div>
                 <div className="px-4 py-3 rounded-2xl max-w-[85%]"
@@ -500,13 +500,13 @@ export function AIChatClient({ plan, notes: initialNotes, userName }: AIChatClie
             {isLoading && !streamedText && (
               <div className="flex items-end gap-3">
                 <div className="w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 animate-pulse"
-                  style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)" }}>
+                  style={{ background: "linear-gradient(135deg, #f97316, #fb923c)" }}>
                   <Brain size={13} className="text-white" />
                 </div>
                 <div className="px-4 py-3 rounded-2xl" style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}>
                   <div className="flex gap-1.5">
                     {[0, 1, 2].map((i) => (
-                      <div key={i} className="w-2 h-2 rounded-full animate-bounce" style={{ background: "#00d4a1", animationDelay: `${i * 0.15}s` }} />
+                      <div key={i} className="w-2 h-2 rounded-full animate-bounce" style={{ background: "#f97316", animationDelay: `${i * 0.15}s` }} />
                     ))}
                   </div>
                 </div>
@@ -519,7 +519,7 @@ export function AIChatClient({ plan, notes: initialNotes, userName }: AIChatClie
           {/* Input */}
           <div
             className="flex items-end gap-3 p-3 rounded-2xl"
-            style={{ background: "var(--bg-card)", border: "2px solid rgba(0,212,161,0.25)" }}
+            style={{ background: "var(--bg-card)", border: "2px solid rgba(249,115,22,0.25)" }}
           >
             <textarea
               value={input}
@@ -534,16 +534,16 @@ export function AIChatClient({ plan, notes: initialNotes, userName }: AIChatClie
               disabled={isLoading}
               dir={getTextDir(input)}
               className="flex-1 resize-none bg-transparent outline-none text-sm leading-relaxed py-1 disabled:opacity-40"
-              style={{ color: "var(--text-primary)", maxHeight: "120px", caretColor: "#00d4a1", textAlign: isArabic(input) ? "right" : "left" }}
+              style={{ color: "var(--text-primary)", maxHeight: "120px", caretColor: "#f97316", textAlign: isArabic(input) ? "right" : "left" }}
             />
             <button
               onClick={() => sendMessage(input)}
               disabled={!input.trim() || isLoading}
               className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all disabled:opacity-40 hover:scale-105 active:scale-95"
               style={{
-                background: input.trim() && !isLoading ? "linear-gradient(135deg, #00d4a1, #22d3ee)" : "var(--bg-base)",
-                boxShadow: input.trim() && !isLoading ? "0 0 16px rgba(0,212,161,0.4)" : "none",
-                border: "1px solid rgba(0,212,161,0.2)",
+                background: input.trim() && !isLoading ? "linear-gradient(135deg, #f97316, #fb923c)" : "var(--bg-base)",
+                boxShadow: input.trim() && !isLoading ? "0 0 16px rgba(249,115,22,0.4)" : "none",
+                border: "1px solid rgba(249,115,22,0.2)",
               }}
             >
               <Send size={15} className="text-white" />

@@ -37,20 +37,20 @@ export function Sidebar() {
       dir={lang === "ar" ? "rtl" : "ltr"}
       className="hidden lg:flex flex-col w-60 h-screen sticky top-0 flex-shrink-0 overflow-y-auto"
       style={{
-        background: "linear-gradient(180deg, #0a1628 0%, #0d2a1e 100%)",
-        borderInlineEnd: "1px solid rgba(0,212,161,0.12)",
+        background: "linear-gradient(180deg, #0d0700 0%, #150900 100%)",
+        borderInlineEnd: "1px solid rgba(249,115,22,0.12)",
       }}
     >
       {/* Logo */}
       <div
         className="flex items-center gap-3 px-5 py-5"
-        style={{ borderBottom: "1px solid rgba(0,212,161,0.1)" }}
+        style={{ borderBottom: "1px solid rgba(249,115,22,0.1)" }}
       >
         <div
           className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{
-            background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
-            boxShadow: "0 0 16px rgba(0,212,161,0.35)",
+            background: "linear-gradient(135deg, #f97316, #fb923c)",
+            boxShadow: "0 0 16px rgba(249,115,22,0.35)",
           }}
         >
           <Brain size={18} className="text-white" strokeWidth={2} />
@@ -59,7 +59,7 @@ export function Sidebar() {
           <div className="font-bold text-sm leading-tight text-white">
             eSpark AI
           </div>
-          <div className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#00d4a1" }}>
+          <div className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#f97316" }}>
             Workspace
           </div>
         </div>
@@ -70,17 +70,17 @@ export function Sidebar() {
         <div
           className="flex items-center gap-2 px-3 py-2 rounded-xl"
           style={{
-            background: "rgba(0,212,161,0.08)",
-            border: "1px solid rgba(0,212,161,0.2)",
+            background: "rgba(249,115,22,0.08)",
+            border: "1px solid rgba(249,115,22,0.2)",
           }}
         >
           <div
             className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
-            style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)" }}
+            style={{ background: "linear-gradient(135deg, #f97316, #fb923c)" }}
           >
             <Sparkles size={11} className="text-white" />
           </div>
-          <span className="text-xs font-semibold" style={{ color: "#00d4a1" }}>
+          <span className="text-xs font-semibold" style={{ color: "#f97316" }}>
             eSpark AI
           </span>
         </div>
@@ -109,10 +109,10 @@ export function Sidebar() {
               style={
                 active
                   ? {
-                      background: "rgba(0,212,161,0.15)",
+                      background: "rgba(249,115,22,0.15)",
                       color: "#ffffff",
-                      border: "1px solid rgba(0,212,161,0.3)",
-                      boxShadow: "0 2px 12px rgba(0,212,161,0.15)",
+                      border: "1px solid rgba(249,115,22,0.3)",
+                      boxShadow: "0 2px 12px rgba(249,115,22,0.15)",
                     }
                   : {
                       color: "rgba(255,255,255,0.55)",
@@ -123,13 +123,13 @@ export function Sidebar() {
               <Icon
                 size={16}
                 strokeWidth={active ? 2.2 : 1.8}
-                style={{ color: active ? "#00d4a1" : "rgba(255,255,255,0.45)" }}
+                style={{ color: active ? "#f97316" : "rgba(255,255,255,0.45)" }}
               />
               {lang === "ar" ? item.ar : item.en}
               {active && (
                 <span
                   className="ms-auto w-1.5 h-1.5 rounded-full flex-shrink-0"
-                  style={{ background: "#00d4a1", boxShadow: "0 0 6px #00d4a1" }}
+                  style={{ background: "#f97316", boxShadow: "0 0 6px #f97316" }}
                 />
               )}
             </Link>
@@ -138,21 +138,21 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 space-y-3" style={{ borderTop: "1px solid rgba(0,212,161,0.08)" }}>
+      <div className="p-4 space-y-3" style={{ borderTop: "1px solid rgba(249,115,22,0.08)" }}>
         {/* Language toggle */}
         <button
           onClick={toggleLang}
           title={lang === "en" ? "Switch to Arabic" : "التبديل إلى الإنجليزية"}
           className="w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all hover:opacity-80"
           style={{
-            background: "rgba(0,212,161,0.08)",
-            border: "1px solid rgba(0,212,161,0.2)",
+            background: "rgba(249,115,22,0.08)",
+            border: "1px solid rgba(249,115,22,0.2)",
           }}
         >
           <span className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.5)" }}>
             {lang === "en" ? "Language" : "اللغة"}
           </span>
-          <span className="text-xs font-bold px-2 py-0.5 rounded-lg" style={{ background: "rgba(0,212,161,0.15)", color: "#00d4a1" }}>
+          <span className="text-xs font-bold px-2 py-0.5 rounded-lg" style={{ background: "rgba(249,115,22,0.15)", color: "#f97316" }}>
             {lang === "en" ? "عربي" : "EN"}
           </span>
         </button>
@@ -160,7 +160,7 @@ export function Sidebar() {
         <div className="flex items-center gap-2 px-2 py-1.5">
           <div
             className="w-1.5 h-1.5 rounded-full animate-pulse"
-            style={{ background: "#00d4a1", boxShadow: "0 0 6px #00d4a1" }}
+            style={{ background: "#f97316", boxShadow: "0 0 6px #f97316" }}
           />
           <span className="text-[10px] font-medium" style={{ color: "rgba(255,255,255,0.3)" }}>
             Beta v1.0A

@@ -162,13 +162,13 @@ All description fields must be full, meaningful sentences — never 2-word label
       "topic": "Descriptive priority label that clearly names the skill or knowledge area",
       "score": 92,
       "description": "Full sentence explaining why this is the highest priority specifically for their goal, background, and target market",
-      "color": "#00d4a1"
+      "color": "#f97316"
     },
     {
       "topic": "Second priority area — descriptive label",
       "score": 75,
       "description": "Full sentence on how developing this skill directly supports and accelerates their specific path",
-      "color": "#22d3ee"
+      "color": "#fb923c"
     },
     {
       "topic": "Third priority area — descriptive label",
@@ -187,13 +187,13 @@ All description fields must be full, meaningful sentences — never 2-word label
     {
       "subject": "CRITICAL: 1-3 word max, no trailing +/&/,. Good: 'KNX & CCNA', 'Hands-On Labs', 'Portfolio Building'. BAD: 'KNX + CCNA + Networking'",
       "percentage": 50,
-      "color": "#00d4a1",
+      "color": "#f97316",
       "hours": 10
     },
     {
       "subject": "CRITICAL: 1-3 word max, no trailing symbols. Example: 'Networking Tools', 'Cloud Skills', 'Python Basics'",
       "percentage": 30,
-      "color": "#22d3ee",
+      "color": "#fb923c",
       "hours": 6
     },
     {

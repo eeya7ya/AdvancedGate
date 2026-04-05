@@ -72,7 +72,7 @@ export function ProfileClient({ profile, sessionUser, aiSummary, aiPriorities }:
     border: "1px solid var(--border-subtle)",
     color: "var(--text-primary)",
   };
-  const inputFocusStyle = { borderColor: "rgba(0,212,161,0.4)", boxShadow: "0 0 0 2px rgba(0,212,161,0.1)" };
+  const inputFocusStyle = { borderColor: "rgba(249,115,22,0.4)", boxShadow: "0 0 0 2px rgba(249,115,22,0.1)" };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pt-2">
@@ -90,7 +90,7 @@ export function ProfileClient({ profile, sessionUser, aiSummary, aiPriorities }:
         style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
       >
         <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center text-white text-xl font-bold"
-          style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)" }}>
+          style={{ background: "linear-gradient(135deg, #f97316, #fb923c)" }}>
           {sessionUser.image ? (
             <Image src={sessionUser.image} alt={displayName} width={64} height={64} className="object-cover w-full h-full" />
           ) : (
@@ -116,16 +116,16 @@ export function ProfileClient({ profile, sessionUser, aiSummary, aiPriorities }:
           transition={{ delay: 0.1 }}
           className="relative overflow-hidden rounded-2xl p-6"
           style={{
-            background: "linear-gradient(135deg, rgba(0,212,161,0.08) 0%, rgba(34,211,238,0.06) 100%)",
-            border: "1px solid rgba(0,212,161,0.2)",
+            background: "linear-gradient(135deg, rgba(249,115,22,0.08) 0%, rgba(251,146,60,0.06) 100%)",
+            border: "1px solid rgba(249,115,22,0.2)",
           }}
         >
           <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full blur-3xl opacity-20 pointer-events-none"
-            style={{ background: "radial-gradient(circle, #00d4a1, #22d3ee)" }} />
+            style={{ background: "radial-gradient(circle, #f97316, #fb923c)" }} />
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-3">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold"
-                style={{ background: "rgba(0,212,161,0.12)", color: "#00d4a1" }}>
+                style={{ background: "rgba(249,115,22,0.12)", color: "#f97316" }}>
                 <Sparkles size={11} />
                 AI-Generated Summary
               </div>
@@ -163,7 +163,7 @@ export function ProfileClient({ profile, sessionUser, aiSummary, aiPriorities }:
           </div>
           <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--border-subtle)" }}>
             <Link href="/roadmap" className="inline-flex items-center gap-1.5 text-xs font-semibold transition-all hover:opacity-80"
-              style={{ color: "#00d4a1" }}>
+              style={{ color: "#f97316" }}>
               <Map size={12} />
               View Full Roadmap
             </Link>
@@ -224,7 +224,7 @@ export function ProfileClient({ profile, sessionUser, aiSummary, aiPriorities }:
           style={{ background: "var(--bg-card)", border: "1px dashed var(--border-medium)" }}
         >
           <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "linear-gradient(135deg,#00d4a1,#22d3ee)" }}>
+            style={{ background: "linear-gradient(135deg,#f97316,#fb923c)" }}>
             <Brain size={18} className="text-white" />
           </div>
           <div className="flex-1">
@@ -232,7 +232,7 @@ export function ProfileClient({ profile, sessionUser, aiSummary, aiPriorities }:
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>Start an AI session to generate your personalized summary and learning plan.</p>
           </div>
           <Link href="/dashboard" className="flex-shrink-0 px-4 py-2 rounded-xl text-xs font-semibold text-white"
-            style={{ background: "linear-gradient(135deg,#00d4a1,#22d3ee)" }}>
+            style={{ background: "linear-gradient(135deg,#f97316,#fb923c)" }}>
             Start Now
           </Link>
         </motion.div>
@@ -322,7 +322,7 @@ export function ProfileClient({ profile, sessionUser, aiSummary, aiPriorities }:
                     type="submit"
                     disabled={saving}
                     className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-60"
-                    style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)", boxShadow: "0 0 20px rgba(0,212,161,0.25)" }}
+                    style={{ background: "linear-gradient(135deg, #f97316, #fb923c)", boxShadow: "0 0 20px rgba(249,115,22,0.25)" }}
                   >
                     {saving && <Loader2 size={14} className="animate-spin" />}
                     {saving ? "Saving..." : "Save Changes"}

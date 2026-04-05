@@ -13,12 +13,12 @@ export function ThemeToggle() {
       className="relative flex items-center justify-center w-9 h-9 rounded-xl border transition-all duration-300 hover:scale-105"
       style={{
         background: theme === "dark"
-          ? "rgba(0, 212, 161, 0.08)"
-          : "rgba(0, 168, 130, 0.1)",
+          ? "rgba(249, 115, 22, 0.08)"
+          : "rgba(249, 115, 22, 0.1)",
         borderColor: theme === "dark"
-          ? "rgba(0, 212, 161, 0.2)"
-          : "rgba(0, 168, 130, 0.25)",
-        color: theme === "dark" ? "#00d4a1" : "#00a882",
+          ? "rgba(249, 115, 22, 0.2)"
+          : "rgba(249, 115, 22, 0.25)",
+        color: theme === "dark" ? "#f97316" : "#ea580c",
       }}
     >
       <span

@@ -190,7 +190,7 @@ function DonutChart({ slices }: { slices: TimeSlice[] }) {
 
   return (
     <SectionCard delay={0.3}>
-      <SectionTitle icon={Clock} label={t("timeAlloc", isRTL)} color="#22d3ee" />
+      <SectionTitle icon={Clock} label={t("timeAlloc", isRTL)} color="#fb923c" />
       <div className="flex items-center gap-6">
         <div className="relative flex-shrink-0">
           <svg width="200" height="200" viewBox="0 0 200 200">
@@ -259,11 +259,11 @@ function WeeklySchedule({ slices }: { slices: TimeSlice[] }) {
               key={`h-${day}`}
               className="rounded-lg py-2 text-center"
               style={{
-                background: isWeekend ? "rgba(167,139,250,0.1)" : "rgba(34,211,238,0.08)",
-                border: `1px solid ${isWeekend ? "rgba(167,139,250,0.25)" : "rgba(34,211,238,0.2)"}`,
+                background: isWeekend ? "rgba(167,139,250,0.1)" : "rgba(251,146,60,0.08)",
+                border: `1px solid ${isWeekend ? "rgba(167,139,250,0.25)" : "rgba(251,146,60,0.2)"}`,
               }}
             >
-              <p className="text-xs font-bold" style={{ color: isWeekend ? "#a78bfa" : "#22d3ee" }}>{day}</p>
+              <p className="text-xs font-bold" style={{ color: isWeekend ? "#a78bfa" : "#fb923c" }}>{day}</p>
             </div>
           );
         })}
@@ -344,10 +344,10 @@ function TopicConnections({ links }: { links: TopicLink[] }) {
             <div className="flex flex-col gap-2 min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="px-2.5 py-1 rounded-lg text-xs font-semibold"
-                  style={{ background: "rgba(0,212,161,0.12)", color: "#00d4a1" }}>{link.from}</span>
+                  style={{ background: "rgba(249,115,22,0.12)", color: "#f97316" }}>{link.from}</span>
                 <ChevronRight size={13} style={{ color: "var(--text-muted)" }} />
                 <span className="px-2.5 py-1 rounded-lg text-xs font-semibold"
-                  style={{ background: "rgba(34,211,238,0.12)", color: "#22d3ee" }}>{link.to}</span>
+                  style={{ background: "rgba(251,146,60,0.12)", color: "#fb923c" }}>{link.to}</span>
               </div>
               <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{link.bridge}</p>
             </div>
@@ -363,7 +363,7 @@ function MarketInsightsSection({ insights }: { insights: MarketInsights }) {
   const isRTL = useRTL();
   return (
     <SectionCard delay={0.35}>
-      <SectionTitle icon={Globe} label={t("market", isRTL)} color="#22d3ee" />
+      <SectionTitle icon={Globe} label={t("market", isRTL)} color="#fb923c" />
       {insights.notice && (
         <div className="mb-5 px-4 py-3 rounded-xl"
           style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)" }}>
@@ -378,16 +378,16 @@ function MarketInsightsSection({ insights }: { insights: MarketInsights }) {
       )}
       <div className="grid sm:grid-cols-2 gap-4 mb-4">
         <div className="rounded-xl p-4" style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}>
-          <p className="text-xs font-bold mb-1.5" style={{ color: "#00d4a1" }}>{isRTL ? "الطلب المحلي" : "Local Demand"}</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "#f97316" }}>{isRTL ? "الطلب المحلي" : "Local Demand"}</p>
           <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{insights.localDemand}</p>
         </div>
         <div className="rounded-xl p-4" style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}>
-          <p className="text-xs font-bold mb-1.5" style={{ color: "#22d3ee" }}>{isRTL ? "الطلب العالمي" : "Global Demand"}</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: "#fb923c" }}>{isRTL ? "الطلب العالمي" : "Global Demand"}</p>
           <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{insights.globalDemand}</p>
         </div>
       </div>
-      <div className="rounded-xl p-4 mb-4" style={{ background: "rgba(0,212,161,0.06)", border: "1px solid rgba(0,212,161,0.18)" }}>
-        <p className="text-xs font-bold mb-1" style={{ color: "#00d4a1" }}>{isRTL ? "نطاق الدخل المتوقع" : "Expected Income Range"}</p>
+      <div className="rounded-xl p-4 mb-4" style={{ background: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.18)" }}>
+        <p className="text-xs font-bold mb-1" style={{ color: "#f97316" }}>{isRTL ? "نطاق الدخل المتوقع" : "Expected Income Range"}</p>
         <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{insights.salaryRange}</p>
       </div>
       <div className="rounded-xl p-4" style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}>
@@ -446,7 +446,7 @@ function findInternalCourse(title: string): { id: string; subjectId: string } | 
 
 /* ── Course Recommendations ────────────────────────────────── */
 const OPTION_LABELS = ["A", "B", "C", "D", "E", "F"];
-const OPTION_COLORS = ["#00d4a1", "#4f9eff", "#a78bfa", "#f59e0b", "#f87171", "#22d3ee"];
+const OPTION_COLORS = ["#f97316", "#f97316", "#a78bfa", "#f59e0b", "#f87171", "#fb923c"];
 
 function CourseRecommendationsSection({
   courses,
@@ -461,8 +461,8 @@ function CourseRecommendationsSection({
 }) {
   const isRTL = useRTL();
   const levelColor: Record<string, string> = {
-    Beginner: "#00d4a1",
-    "Beginner to Intermediate": "#22d3ee",
+    Beginner: "#f97316",
+    "Beginner to Intermediate": "#fb923c",
     Intermediate: "#a78bfa",
     "Intermediate to Advanced": "#f59e0b",
     Advanced: "#f87171",
@@ -506,7 +506,7 @@ function CourseRecommendationsSection({
                 const isFree = /youtube|freecodecamp|khan|edx/i.test(c.platform);
                 const isOfficial = /cisco|microsoft|aws|comptia|google cloud|vmware|palo alto/i.test(c.platform);
                 const tierLabel = isOfficial ? (isRTL ? "رسمي" : "Official") : isFree ? (isRTL ? "مجاني" : "Free") : (isRTL ? "مدفوع" : "Paid");
-                const tierColor = isOfficial ? "#f59e0b" : isFree ? "#00d4a1" : "#a78bfa";
+                const tierColor = isOfficial ? "#f59e0b" : isFree ? "#f97316" : "#a78bfa";
                 const optColor = OPTION_COLORS[optIdx % OPTION_COLORS.length];
                 const optLabel = OPTION_LABELS[optIdx] ?? String(optIdx + 1);
                 const courseKey = `${c.title}__${c.platform}`;
@@ -542,7 +542,7 @@ function CourseRecommendationsSection({
                               {tierLabel}
                             </span>
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg"
-                              style={{ background: `${levelColor[c.level] ?? "#00d4a1"}18`, color: levelColor[c.level] ?? "#00d4a1" }}>
+                              style={{ background: `${levelColor[c.level] ?? "#f97316"}18`, color: levelColor[c.level] ?? "#f97316" }}>
                               {c.level}
                             </span>
                           </div>
@@ -553,7 +553,7 @@ function CourseRecommendationsSection({
                         <p className="text-xs leading-relaxed mb-3" style={{ color: "var(--text-secondary)" }}>{c.focus}</p>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md"
-                            style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee" }}>
+                            style={{ background: "rgba(251,146,60,0.1)", color: "#fb923c" }}>
                             <Clock size={9} />
                             {c.estimatedHours}h
                           </span>
@@ -561,7 +561,7 @@ function CourseRecommendationsSection({
                             <Link
                               href={courseLink}
                               className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-md transition-all hover:scale-105"
-                              style={{ background: "linear-gradient(135deg, rgba(0,212,161,0.15), rgba(34,211,238,0.15))", color: "#00d4a1", border: "1px solid rgba(0,212,161,0.25)" }}
+                              style={{ background: "linear-gradient(135deg, rgba(249,115,22,0.15), rgba(251,146,60,0.15))", color: "#f97316", border: "1px solid rgba(249,115,22,0.25)" }}
                             >
                               <PlayCircle size={10} />
                               {isRTL ? "ابدأ الدورة" : "Start Course"}
@@ -591,10 +591,10 @@ function CourseRecommendationsSection({
                               className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all hover:scale-105 hover:opacity-90"
                               style={{
                                 background: c.url && c.url.length > 0
-                                  ? "linear-gradient(135deg, rgba(79,158,255,0.15), rgba(79,158,255,0.08))"
+                                  ? "linear-gradient(135deg, rgba(249,115,22,0.15), rgba(249,115,22,0.08))"
                                   : `linear-gradient(135deg, ${optColor}22, ${optColor}10)`,
-                                color: c.url && c.url.length > 0 ? "#4f9eff" : optColor,
-                                border: `1px solid ${c.url && c.url.length > 0 ? "rgba(79,158,255,0.3)" : optColor + "44"}`,
+                                color: c.url && c.url.length > 0 ? "#f97316" : optColor,
+                                border: `1px solid ${c.url && c.url.length > 0 ? "rgba(249,115,22,0.3)" : optColor + "44"}`,
                               }}
                             >
                               <ExternalLink size={10} />
@@ -626,11 +626,11 @@ function CourseRecommendationsSection({
 /* ── Roadmap Phases ────────────────────────────────────────── */
 function RoadmapPhasesSection({ phases }: { phases: RoadmapPhase[] }) {
   const isRTL = useRTL();
-  const phaseColors = ["#00d4a1", "#22d3ee", "#a78bfa", "#f59e0b", "#f87171", "#34d399", "#60a5fa", "#e879f9"];
+  const phaseColors = ["#f97316", "#fb923c", "#a78bfa", "#f59e0b", "#f87171", "#34d399", "#60a5fa", "#e879f9"];
 
   return (
     <SectionCard delay={0.45}>
-      <SectionTitle icon={Layers} label={t("roadmap", isRTL)} color="#00d4a1" />
+      <SectionTitle icon={Layers} label={t("roadmap", isRTL)} color="#f97316" />
       <div className="relative">
         {/* vertical line */}
         <div className="absolute left-4 top-0 bottom-0 w-0.5" style={{ background: "var(--border-subtle)" }} />
@@ -703,14 +703,14 @@ function PrintableScheduleSection({ schedule }: { schedule: ScheduleData }) {
     <SectionCard delay={0.5}>
       <div className="flex items-center justify-between mb-5">
         <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-          <Printer size={15} style={{ color: "#22d3ee" }} />
+          <Printer size={15} style={{ color: "#fb923c" }} />
           Your Study Schedule
         </h3>
       </div>
 
       {/* Daily structure */}
       <div className="mb-5">
-        <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: "#00d4a1" }}>
+        <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: "#f97316" }}>
           Daily Routine · {schedule.daily.duration}
         </p>
         <div className="space-y-2">
@@ -718,7 +718,7 @@ function PrintableScheduleSection({ schedule }: { schedule: ScheduleData }) {
             <div key={i} className="flex items-start gap-3 rounded-xl px-4 py-3"
               style={{ background: "var(--bg-base)", border: "1px solid var(--border-subtle)" }}>
               <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold mt-0.5"
-                style={{ background: "rgba(0,212,161,0.15)", color: "#00d4a1" }}>
+                style={{ background: "rgba(249,115,22,0.15)", color: "#f97316" }}>
                 {i + 1}
               </span>
               <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>{item}</p>
@@ -729,8 +729,8 @@ function PrintableScheduleSection({ schedule }: { schedule: ScheduleData }) {
 
       {/* Weekly pattern */}
       <div className="mb-5 rounded-xl px-4 py-3"
-        style={{ background: "rgba(34,211,238,0.06)", border: "1px solid rgba(34,211,238,0.18)" }}>
-        <p className="text-xs font-bold mb-1" style={{ color: "#22d3ee" }}>Weekly Pattern</p>
+        style={{ background: "rgba(251,146,60,0.06)", border: "1px solid rgba(251,146,60,0.18)" }}>
+        <p className="text-xs font-bold mb-1" style={{ color: "#fb923c" }}>Weekly Pattern</p>
         <p className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>{schedule.weekly.pattern}</p>
         <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{schedule.weekly.weeklyGoal}</p>
       </div>
@@ -740,8 +740,8 @@ function PrintableScheduleSection({ schedule }: { schedule: ScheduleData }) {
         <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: "#a78bfa" }}>Printable Targets</p>
         <div className="grid sm:grid-cols-3 gap-3">
           {[
-            { label: "Daily", value: schedule.printableTargets.daily, color: "#00d4a1" },
-            { label: "Weekly", value: schedule.printableTargets.weekly, color: "#22d3ee" },
+            { label: "Daily", value: schedule.printableTargets.daily, color: "#f97316" },
+            { label: "Weekly", value: schedule.printableTargets.weekly, color: "#fb923c" },
             { label: "Monthly", value: schedule.printableTargets.monthly, color: "#a78bfa" },
           ].map(({ label, value, color }) => (
             <div key={label} className="rounded-xl p-4"
@@ -794,14 +794,14 @@ function EmailReminders({
     <SectionCard delay={0.65}>
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex items-center gap-2">
-          {enabled ? <Bell size={15} style={{ color: "#00d4a1" }} /> : <BellOff size={15} style={{ color: "var(--text-muted)" }} />}
+          {enabled ? <Bell size={15} style={{ color: "#f97316" }} /> : <BellOff size={15} style={{ color: "var(--text-muted)" }} />}
           <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Email Reminders</h3>
         </div>
         <button
           onClick={toggle}
           disabled={saving}
           className="relative w-11 h-6 rounded-full transition-all duration-300 flex-shrink-0"
-          style={{ background: enabled ? "linear-gradient(135deg,#00d4a1,#22d3ee)" : "var(--bg-base)", border: "1px solid var(--border-medium)" }}
+          style={{ background: enabled ? "linear-gradient(135deg,#f97316,#fb923c)" : "var(--bg-base)", border: "1px solid var(--border-medium)" }}
         >
           <span
             className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-300"
@@ -829,7 +829,7 @@ function EmailReminders({
             onClick={() => save(enabled, email)}
             disabled={saving}
             className="px-4 py-2.5 rounded-xl text-xs font-semibold text-white transition-all disabled:opacity-50"
-            style={{ background: "linear-gradient(135deg,#00d4a1,#22d3ee)" }}
+            style={{ background: "linear-gradient(135deg,#f97316,#fb923c)" }}
           >
             {saving ? <Loader2 size={13} className="animate-spin" /> : saved ? <CheckCircle size={13} /> : "Save"}
           </button>
@@ -962,15 +962,15 @@ export function RoadmapClient({
         transition={{ delay: 0.05 }}
         className="relative overflow-hidden rounded-2xl p-6"
         style={{
-          background: "linear-gradient(135deg, rgba(0,212,161,0.08) 0%, rgba(34,211,238,0.06) 100%)",
-          border: "1px solid rgba(0,212,161,0.2)",
+          background: "linear-gradient(135deg, rgba(249,115,22,0.08) 0%, rgba(251,146,60,0.06) 100%)",
+          border: "1px solid rgba(249,115,22,0.2)",
         }}
       >
         <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full blur-3xl opacity-20 pointer-events-none"
-          style={{ background: "radial-gradient(circle, #00d4a1, #22d3ee)" }} />
+          style={{ background: "radial-gradient(circle, #f97316, #fb923c)" }} />
         <div className="relative z-10">
           <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-semibold mb-3"
-            style={{ background: "rgba(0,212,161,0.12)", color: "#00d4a1" }}>
+            style={{ background: "rgba(249,115,22,0.12)", color: "#f97316" }}>
             <Brain size={11} />
             {t("personalPlan", isRTL)}
           </div>
@@ -1004,8 +1004,8 @@ export function RoadmapClient({
           {/* Group courses by phase */}
           {(() => {
             const levelColor: Record<string, string> = {
-              Beginner: "#00d4a1",
-              "Beginner to Intermediate": "#22d3ee",
+              Beginner: "#f97316",
+              "Beginner to Intermediate": "#fb923c",
               Intermediate: "#a78bfa",
               "Intermediate to Advanced": "#f59e0b",
               Advanced: "#f87171",
@@ -1017,7 +1017,7 @@ export function RoadmapClient({
               if (!phaseMap[key]) { phaseMap[key] = []; phaseOrder.push(key); }
               phaseMap[key].push(i);
             });
-            const phaseColors = ["#00d4a1", "#4f9eff", "#a78bfa", "#f59e0b", "#f87171", "#22d3ee"];
+            const phaseColors = ["#f97316", "#f97316", "#a78bfa", "#f59e0b", "#f87171", "#fb923c"];
 
             return (
               <div className="space-y-5">
@@ -1054,7 +1054,7 @@ export function RoadmapClient({
                             transition={{ delay: 0.4 + i * 0.05, duration: 0.3 }}
                             className="p-4 cursor-pointer transition-all"
                             style={{
-                              background: isSelected ? "rgba(0,212,161,0.04)" : "transparent",
+                              background: isSelected ? "rgba(249,115,22,0.04)" : "transparent",
                             }}
                             onClick={() => toggleCourse(i)}
                           >
@@ -1063,7 +1063,7 @@ export function RoadmapClient({
                               <div
                                 className="flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center mt-0.5 transition-all"
                                 style={{
-                                  background: isSelected ? "linear-gradient(135deg, #00d4a1, #22d3ee)" : "var(--bg-card)",
+                                  background: isSelected ? "linear-gradient(135deg, #f97316, #fb923c)" : "var(--bg-card)",
                                   border: isSelected ? "none" : "2px solid var(--border-medium)",
                                 }}
                               >
@@ -1075,13 +1075,13 @@ export function RoadmapClient({
                                   <div className="flex items-center gap-1.5 flex-shrink-0">
                                     <span
                                       className="text-[10px] font-bold px-2 py-0.5 rounded-lg"
-                                      style={{ background: isFree ? "rgba(0,212,161,0.12)" : "rgba(167,139,250,0.12)", color: isFree ? "#00d4a1" : "#a78bfa" }}
+                                      style={{ background: isFree ? "rgba(249,115,22,0.12)" : "rgba(167,139,250,0.12)", color: isFree ? "#f97316" : "#a78bfa" }}
                                     >
                                       {isFree ? (isRTL ? "مجاني" : "Free") : (isRTL ? "مدفوع" : "Paid")}
                                     </span>
                                     <span
                                       className="text-[10px] font-bold px-2 py-0.5 rounded-lg"
-                                      style={{ background: `${levelColor[c.level] ?? "#00d4a1"}18`, color: levelColor[c.level] ?? "#00d4a1" }}
+                                      style={{ background: `${levelColor[c.level] ?? "#f97316"}18`, color: levelColor[c.level] ?? "#f97316" }}
                                     >
                                       {c.level}
                                     </span>
@@ -1093,13 +1093,13 @@ export function RoadmapClient({
                                 <p className="text-xs leading-relaxed mb-2" style={{ color: "var(--text-secondary)" }}>{c.focus}</p>
                                 <div className="flex items-center gap-3 flex-wrap">
                                   <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md"
-                                    style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee" }}>
+                                    style={{ background: "rgba(251,146,60,0.1)", color: "#fb923c" }}>
                                     <Clock size={9} /> {c.estimatedHours}h
                                   </span>
                                   {isLoadingCourse ? (
                                     <span
                                       className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg"
-                                      style={{ background: "linear-gradient(135deg, rgba(0,212,161,0.15), rgba(0,212,161,0.08))", color: "#00d4a1", border: "1px solid rgba(0,212,161,0.3)" }}
+                                      style={{ background: "linear-gradient(135deg, rgba(249,115,22,0.15), rgba(249,115,22,0.08))", color: "#f97316", border: "1px solid rgba(249,115,22,0.3)" }}
                                     >
                                       <Loader2 size={10} className="animate-spin" />
                                       {isRTL ? "جارٍ البحث..." : "Finding link..."}
@@ -1121,9 +1121,9 @@ export function RoadmapClient({
                                       onClick={(e) => e.stopPropagation()}
                                       className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all hover:scale-105 hover:opacity-90"
                                       style={{
-                                        background: "linear-gradient(135deg, rgba(79,158,255,0.15), rgba(79,158,255,0.08))",
-                                        color: "#4f9eff",
-                                        border: "1px solid rgba(79,158,255,0.3)",
+                                        background: "linear-gradient(135deg, rgba(249,115,22,0.15), rgba(249,115,22,0.08))",
+                                        color: "#f97316",
+                                        border: "1px solid rgba(249,115,22,0.3)",
                                       }}
                                     >
                                       <ExternalLink size={10} />
@@ -1132,7 +1132,7 @@ export function RoadmapClient({
                                   ) : (
                                     <span
                                       className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg opacity-40 cursor-not-allowed"
-                                      style={{ background: "linear-gradient(135deg, rgba(0,212,161,0.12), rgba(0,212,161,0.06))", color: "#00d4a1", border: "1px solid rgba(0,212,161,0.2)" }}
+                                      style={{ background: "linear-gradient(135deg, rgba(249,115,22,0.12), rgba(249,115,22,0.06))", color: "#f97316", border: "1px solid rgba(249,115,22,0.2)" }}
                                     >
                                       <ExternalLink size={10} />
                                       {isRTL ? "لا يوجد رابط" : "No link found"}
@@ -1155,9 +1155,9 @@ export function RoadmapClient({
                                       dir="ltr"
                                       className="flex-1 text-xs bg-transparent outline-none px-2.5 py-1.5 rounded-lg"
                                       style={{
-                                        border: "1px solid rgba(0,212,161,0.3)",
+                                        border: "1px solid rgba(249,115,22,0.3)",
                                         color: "var(--text-primary)",
-                                        caretColor: "#00d4a1",
+                                        caretColor: "#f97316",
                                       }}
                                     />
                                     {customUrls[i] && (
@@ -1166,7 +1166,7 @@ export function RoadmapClient({
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0 hover:opacity-80"
-                                        style={{ background: "rgba(0,212,161,0.1)", color: "#00d4a1", border: "1px solid rgba(0,212,161,0.2)" }}
+                                        style={{ background: "rgba(249,115,22,0.1)", color: "#f97316", border: "1px solid rgba(249,115,22,0.2)" }}
                                       >
                                         <ExternalLink size={11} />
                                       </a>
@@ -1208,7 +1208,7 @@ export function RoadmapClient({
               onClick={saveSelections}
               disabled={saving || selectedCourses.size === 0}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50"
-              style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)", boxShadow: "0 0 16px rgba(0,212,161,0.3)" }}
+              style={{ background: "linear-gradient(135deg, #f97316, #fb923c)", boxShadow: "0 0 16px rgba(249,115,22,0.3)" }}
             >
               {saving ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -1230,9 +1230,9 @@ export function RoadmapClient({
               <span
                 className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
                 style={{
-                  background: "linear-gradient(135deg, #00d4a1, #22d3ee)",
-                  color: "#0a1628",
-                  boxShadow: "0 0 10px rgba(0,212,161,0.4)",
+                  background: "linear-gradient(135deg, #f97316, #fb923c)",
+                  color: "#0f0600",
+                  boxShadow: "0 0 10px rgba(249,115,22,0.4)",
                   minWidth: "28px",
                 }}
               >
@@ -1257,7 +1257,7 @@ export function RoadmapClient({
         <Link
           href="/schedule"
           className="inline-flex items-center gap-2 px-7 py-3.5 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90"
-          style={{ background: "linear-gradient(135deg, #00d4a1, #22d3ee)", boxShadow: "0 0 32px rgba(0,212,161,0.35)" }}
+          style={{ background: "linear-gradient(135deg, #f97316, #fb923c)", boxShadow: "0 0 32px rgba(249,115,22,0.35)" }}
         >
           <CalendarDays size={16} />
           {isRTL ? "المتابعة إلى الجدول" : "Continue to Schedule"}
