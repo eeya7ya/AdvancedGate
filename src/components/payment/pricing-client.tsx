@@ -133,6 +133,7 @@ export function PricingClient({ userEmail }: { userEmail: string | null }) {
   const ar = lang === "ar";
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [loadingTopup, setLoadingTopup] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
 
   async function handleUpgrade(priceId: string, planId: string) {
     if (!priceId || planId === "free") return;
@@ -184,6 +185,52 @@ export function PricingClient({ userEmail }: { userEmail: string | null }) {
       className="max-w-5xl mx-auto"
       dir={ar ? "rtl" : "ltr"}
     >
+      {/* Welcome / Coming Soon Modal */}
+      {showWelcome && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }}
+          onClick={() => setShowWelcome(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0, y: 16 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 260, damping: 20 }}
+            className="rounded-3xl p-8 max-w-sm w-full text-center"
+            style={{
+              background: "linear-gradient(160deg, #1a0e00 0%, #0d0800 100%)",
+              border: "1px solid rgba(249,115,22,0.35)",
+              boxShadow: "0 0 60px rgba(249,115,22,0.2)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
+              style={{ background: "linear-gradient(135deg, #f97316, #fb923c)", boxShadow: "0 0 32px rgba(249,115,22,0.45)" }}
+            >
+              <Crown size={28} className="text-white" />
+            </div>
+            <h2 className="text-xl font-black mb-2" style={{ color: "#fff" }}>
+              {ar ? "قريباً!" : "Coming Soon!"}
+            </h2>
+            <p className="text-sm leading-relaxed mb-6" style={{ color: "rgba(255,255,255,0.7)" }}>
+              {ar
+                ? "المدفوعات ستكون متاحة قريباً. في الوقت الحالي، جميع الميزات مجانية تماماً لمستخدمينا المميزين."
+                : "Payment will be available soon. For now, all plans are completely free for our best users!"}
+            </p>
+            <button
+              onClick={() => setShowWelcome(false)}
+              className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
+              style={{ background: "linear-gradient(135deg, #f97316, #fb923c)", boxShadow: "0 0 20px rgba(249,115,22,0.35)" }}
+            >
+              {ar ? "رائع، شكراً!" : "Awesome, thanks!"}
+            </button>
+          </motion.div>
+        </motion.div>
+      )}
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -292,23 +339,14 @@ export function PricingClient({ userEmail }: { userEmail: string | null }) {
                 </div>
               ) : (
                 <button
-                  onClick={() => {
-                    // Read price ID from env at click time
-                    const pid = plan.id === "pro"
-                      ? (process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO ?? "")
-                      : (process.env.NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE ?? "");
-                    void handleUpgrade(pid, plan.id);
-                  }}
-                  disabled={isLoading || !plan.envKey}
-                  className="w-full py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => setShowWelcome(true)}
+                  className="w-full py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
                   style={{
                     background: `linear-gradient(135deg, ${plan.color}, ${plan.color}cc)`,
                     boxShadow: `0 0 16px ${plan.glow}`,
                   }}
                 >
-                  {isLoading
-                    ? (ar ? "جارٍ التوجيه..." : "Redirecting...")
-                    : (ar ? plan.ctaAr : plan.ctaEn)}
+                  {ar ? plan.ctaAr : plan.ctaEn}
                 </button>
               )}
             </motion.div>
@@ -346,18 +384,15 @@ export function PricingClient({ userEmail }: { userEmail: string | null }) {
           </div>
         </div>
         <button
-          onClick={handleTopUp}
-          disabled={loadingTopup}
-          className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white flex-shrink-0 transition-all hover:opacity-90 disabled:opacity-50"
+          onClick={() => setShowWelcome(true)}
+          className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white flex-shrink-0 transition-all hover:opacity-90"
           style={{
             background: "linear-gradient(135deg, #f97316, #fb923c)",
             boxShadow: "0 0 20px rgba(249,115,22,0.35)",
           }}
         >
           <Zap size={15} fill="currentColor" />
-          {loadingTopup
-            ? (ar ? "جارٍ التوجيه..." : "Redirecting...")
-            : (ar ? "50 جلسة — $4.99" : "50 Sessions — $4.99")}
+          {ar ? "50 جلسة — $4.99" : "50 Sessions — $4.99"}
         </button>
       </motion.div>
 
