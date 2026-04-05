@@ -6,7 +6,7 @@ import { useLang } from "@/lib/language";
 import {
   CalendarDays, Clock, Target, CheckCircle, Circle,
   AlertTriangle, Mail, ChevronLeft, ChevronRight,
-  BookOpen, TrendingUp, Bell, BellOff, Info,
+  BookOpen, TrendingUp, Bell, BellOff, Info, RotateCcw,
 } from "lucide-react";
 
 /* ── Types ─────────────────────────────────────────── */
@@ -106,35 +106,57 @@ function getCourseForDay(courses: CourseRec[], dayIndex: number): CourseRec | nu
   return courses[courses.length - 1] ?? null;
 }
 
+interface WeeklyTasks {
+  weekday?: string;
+  practice?: string;
+  review?: string;
+  rest?: string;
+}
+
 function getDailyObjective(
   dayIndex: number,
   phase: RoadmapPhase | null,
   course: CourseRec | null,
   slices: TimeSlice[],
   isRTL: boolean,
+  weeklyTasks?: WeeklyTasks,
 ): { title: string; subject: string; color: string; action: string } {
   const dayOfWeek = dayIndex % 7;
   const weekInPhase = Math.floor((dayIndex % 30) / 7);
   const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
+  const isPracticeDay = dayOfWeek === 4; // 5th weekday = practice/deep-work
+  const isRestDay = dayOfWeek === 6;
   const subjectIndex = dayIndex % slices.length;
   const slice = slices[subjectIndex] ?? slices[0];
+
+  if (isRestDay && weeklyTasks?.rest) {
+    return {
+      title: isRTL ? "راحة واستعداد" : "Rest & Prep",
+      subject: slice?.subject ?? "",
+      color: "#a78bfa",
+      action: weeklyTasks.rest,
+    };
+  }
 
   if (isWeekend) {
     return {
       title: isRTL ? "مراجعة وتعزيز" : "Review & Reinforce",
       subject: slice?.subject ?? "",
       color: "#a78bfa",
-      action: isRTL ? "راجع ملاحظاتك وحل تمريناً" : "Review notes and solve a practice exercise",
+      action: weeklyTasks?.review ?? (isRTL ? "راجع ملاحظاتك وحل تمريناً" : "Review notes and solve a practice exercise"),
     };
   }
 
   if (course) {
     const milestone = phase?.milestones?.[weekInPhase % (phase.milestones.length || 1)] ?? "";
+    const groqAction = isPracticeDay
+      ? (weeklyTasks?.practice ?? null)
+      : (weeklyTasks?.weekday ?? null);
     return {
       title: course.title,
       subject: course.platform,
       color: slice?.color ?? "#f97316",
-      action: milestone || course.focus || (isRTL ? "ادرس الوحدة التالية" : "Study the next module"),
+      action: groqAction ?? milestone ?? course.focus ?? (isRTL ? "ادرس الوحدة التالية" : "Study the next module"),
     };
   }
 
@@ -142,7 +164,7 @@ function getDailyObjective(
     title: phase?.goal ?? (isRTL ? "تعلم يومي" : "Daily Learning"),
     subject: slice?.subject ?? "",
     color: slice?.color ?? "#f97316",
-    action: isRTL ? "أكمل مهمة اليوم" : "Complete today's task",
+    action: weeklyTasks?.weekday ?? (isRTL ? "أكمل مهمة اليوم" : "Complete today's task"),
   };
 }
 
@@ -198,9 +220,10 @@ interface CalendarProps {
   plan: Plan;
   onToggle: (dateKey: string, taskKey: string, completed: boolean) => void;
   isRTL: boolean;
+  weeklyTasks?: WeeklyTasks;
 }
 
-function MonthlyCalendar({ year, month, planStartDate, tracking, plan, onToggle, isRTL }: CalendarProps) {
+function MonthlyCalendar({ year, month, planStartDate, tracking, plan, onToggle, isRTL, weeklyTasks }: CalendarProps) {
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -240,6 +263,7 @@ function MonthlyCalendar({ year, month, planStartDate, tracking, plan, onToggle,
           getCourseForDay(getSelectedCourses(plan.courseRecommendations ?? []), selectedDayIndex),
           plan.timeAllocation ?? [],
           isRTL,
+          weeklyTasks,
         )
       : null;
 
@@ -598,6 +622,7 @@ export function ScheduleClient({
 }: ScheduleClientProps) {
   const { lang } = useLang();
   const isRTL = lang === "ar";
+  const weeklyTasks: WeeklyTasks | undefined = plan.weeklyTasks;
 
   // Determine plan start date — use created_at or today's date as fallback
   const planStartDate = useMemo(() => {
@@ -664,7 +689,7 @@ export function ScheduleClient({
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-5" dir={isRTL ? "rtl" : "ltr"}>
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between gap-4">
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-2"
@@ -681,7 +706,27 @@ export function ScheduleClient({
           <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
             {isRTL ? "تتبع تقدمك يوماً بيوم — كل يوم تفوته يؤخر خطتك بالكامل" : "Track your progress day by day — every missed day delays your full plan"}
           </p>
+          {plan.weeklyGoal && (
+            <p className="text-xs mt-1 font-semibold" style={{ color: "#f97316" }}>
+              {isRTL ? "هدف الأسبوع: " : "Weekly goal: "}{plan.weeklyGoal}
+            </p>
+          )}
         </div>
+        {/* Regenerate schedule button */}
+        <a
+          href="/schedule"
+          onClick={async (e) => {
+            e.preventDefault();
+            // Reset scheduleGenerated flag via API, then navigate back to selection
+            await fetch("/api/user/roadmap/reset-schedule", { method: "POST" });
+            window.location.href = "/schedule";
+          }}
+          className="flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-70"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}
+        >
+          <RotateCcw size={12} />
+          {isRTL ? "إعادة اختيار الدورات" : "Change Courses"}
+        </a>
       </motion.div>
 
       {/* Delay Banner */}
@@ -722,6 +767,7 @@ export function ScheduleClient({
               plan={plan}
               onToggle={handleToggle}
               isRTL={isRTL}
+              weeklyTasks={weeklyTasks}
             />
 
             {/* Legend */}

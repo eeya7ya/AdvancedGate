@@ -1,6 +1,7 @@
 import { auth } from "~/auth";
 import { getUserRoadmap, getScheduleTracking } from "@/lib/db";
 import { ScheduleClient } from "./schedule-client";
+import { CourseSelectionClient } from "./course-selection-client";
 import Link from "next/link";
 import { Brain, ArrowRight } from "lucide-react";
 
@@ -12,6 +13,7 @@ export default async function SchedulePage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const plan = roadmapData?.planJson as any ?? null;
 
+  // No plan at all → prompt to start AI session
   if (!plan) {
     return (
       <div className="max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
@@ -40,7 +42,12 @@ export default async function SchedulePage() {
     );
   }
 
-  // Fetch tracking data for the current month range
+  // Plan exists but schedule not generated yet → show course selection step
+  if (!plan.scheduleGenerated) {
+    return <CourseSelectionClient plan={plan} />;
+  }
+
+  // Schedule is ready → show the full calendar view
   const now = new Date();
   const startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
   const endDate = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString().split("T")[0];
