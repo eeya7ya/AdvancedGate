@@ -26,10 +26,13 @@ function generateLessons(count: number, baseTitle: string) {
 }
 
 async function CourseContent({
-  found,
+  params,
 }: {
-  found: NonNullable<ReturnType<typeof getCourseById>>;
+  params: Promise<{ courseId: string }>;
 }) {
+  const { courseId } = await params;
+  const found = getCourseById(courseId);
+  if (!found) notFound();
   const { course, subject } = found;
   const lessons = generateLessons(course.lessons, course.title);
 
@@ -182,18 +185,14 @@ function CourseSkeleton() {
   );
 }
 
-export default async function LearnPage({
+export default function LearnPage({
   params,
 }: {
   params: Promise<{ courseId: string }>;
 }) {
-  const { courseId } = await params;
-  const found = getCourseById(courseId);
-  if (!found) notFound();
-
   return (
     <Suspense fallback={<CourseSkeleton />}>
-      <CourseContent found={found} />
+      <CourseContent params={params} />
     </Suspense>
   );
 }
