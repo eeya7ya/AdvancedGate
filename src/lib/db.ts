@@ -1,5 +1,13 @@
 import { neon } from "@neondatabase/serverless";
-import type { UserStats, EnrolledCourse, UserProfile } from "@/types";
+import type {
+  UserStats,
+  EnrolledCourse,
+  UserProfile,
+  Quotation,
+  QuotationLineItem,
+  QuotationStatus,
+  Client,
+} from "@/types";
 
 const sql = neon(process.env.DATABASE_URL!, { fullResults: true });
 
@@ -148,6 +156,53 @@ export async function createTables() {
     CREATE TABLE IF NOT EXISTS user_api_budget (
       user_id  TEXT PRIMARY KEY,
       spent    NUMERIC(10,6) NOT NULL DEFAULT 0
+    );
+  `;
+
+  // ─── Quotations ───────────────────────────────────────────────────────────
+  // `clients` is a simple directory of customers a quotation can be assigned
+  // to. Kept lightweight on purpose — additional fields can be layered in
+  // later without migration pain.
+  await sql`
+    CREATE TABLE IF NOT EXISTS clients (
+      id         SERIAL PRIMARY KEY,
+      name       TEXT NOT NULL,
+      company    TEXT,
+      email      TEXT,
+      phone      TEXT,
+      address    TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS quotations (
+      id                         SERIAL PRIMARY KEY,
+      status                     TEXT NOT NULL DEFAULT 'waiting_to_assign',
+      source                     TEXT NOT NULL DEFAULT 'manual',
+      source_project_id          INTEGER,
+      source_project_name        TEXT,
+      source_manufacturer_name   TEXT,
+      client_id                  INTEGER REFERENCES clients(id) ON DELETE SET NULL,
+      client_name_snapshot       TEXT,
+      currency                   TEXT NOT NULL DEFAULT 'JOD',
+      notes                      TEXT,
+      responsible_user_id        TEXT,
+      created_at                 TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      assigned_at                TIMESTAMPTZ
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS quotation_line_items (
+      id               SERIAL PRIMARY KEY,
+      quotation_id     INTEGER NOT NULL REFERENCES quotations(id) ON DELETE CASCADE,
+      position         INTEGER NOT NULL,
+      item_model       TEXT NOT NULL DEFAULT '',
+      quantity         INTEGER NOT NULL DEFAULT 1,
+      price_after_tax  NUMERIC(14,4) NOT NULL DEFAULT 0,
+      currency         TEXT NOT NULL DEFAULT 'JOD',
+      UNIQUE (quotation_id, position)
     );
   `;
 }
@@ -562,5 +617,314 @@ export async function updateUserProfile(
     return true;
   } catch {
     return false;
+  }
+}
+
+// ─── Quotations & Clients ───────────────────────────────────────────────────
+
+export interface QuotationIntakeInput {
+  source: string;
+  sourceProjectId?: number | null;
+  sourceProjectName?: string | null;
+  sourceManufacturerName?: string | null;
+  currency?: string;
+  notes?: string | null;
+  lineItems: Array<{
+    itemModel: string;
+    quantity: number;
+    priceAfterTax: number;
+  }>;
+}
+
+/**
+ * Inserts a new quotation (plus its line items) in the "waiting_to_assign"
+ * state. Intended to be called from the Pricing-Sheet integration endpoint
+ * — no client, no responsible user, just the priced models and quantities.
+ */
+export async function createQuotationFromIntake(
+  input: QuotationIntakeInput,
+): Promise<number | null> {
+  try {
+    await ensureTables();
+    const currency = input.currency ?? "JOD";
+    const { rows: inserted } = await sql`
+      INSERT INTO quotations (
+        status, source, source_project_id, source_project_name,
+        source_manufacturer_name, currency, notes
+      )
+      VALUES (
+        'waiting_to_assign',
+        ${input.source},
+        ${input.sourceProjectId ?? null},
+        ${input.sourceProjectName ?? null},
+        ${input.sourceManufacturerName ?? null},
+        ${currency},
+        ${input.notes ?? null}
+      )
+      RETURNING id
+    `;
+    const quotationId = (inserted[0] as { id: number })?.id;
+    if (!quotationId) return null;
+
+    // Insert line items one at a time — simpler than building a VALUES
+    // clause dynamically with the tagged-template client, and the payloads
+    // here are small (a handful of product lines per quotation).
+    let position = 0;
+    for (const li of input.lineItems) {
+      position += 1;
+      await sql`
+        INSERT INTO quotation_line_items (
+          quotation_id, position, item_model, quantity,
+          price_after_tax, currency
+        )
+        VALUES (
+          ${quotationId},
+          ${position},
+          ${li.itemModel ?? ""},
+          ${li.quantity ?? 1},
+          ${li.priceAfterTax ?? 0},
+          ${currency}
+        )
+      `;
+    }
+    return quotationId;
+  } catch (err) {
+    console.error("[db] createQuotationFromIntake error:", err);
+    return null;
+  }
+}
+
+export async function listQuotations(
+  status?: QuotationStatus,
+): Promise<Quotation[]> {
+  try {
+    await ensureTables();
+    const { rows } = status
+      ? await sql`
+          SELECT q.*, COALESCE(c.name, q.client_name_snapshot) AS client_display
+          FROM quotations q
+          LEFT JOIN clients c ON c.id = q.client_id
+          WHERE q.status = ${status}
+          ORDER BY q.created_at DESC
+        `
+      : await sql`
+          SELECT q.*, COALESCE(c.name, q.client_name_snapshot) AS client_display
+          FROM quotations q
+          LEFT JOIN clients c ON c.id = q.client_id
+          ORDER BY q.created_at DESC
+        `;
+
+    const quotations = rows.map(mapQuotationRow);
+    if (quotations.length === 0) return [];
+
+    const ids = quotations.map((q) => q.id);
+    const { rows: lineRows } = await sql`
+      SELECT id, quotation_id AS "quotationId", position, item_model AS "itemModel",
+             quantity, price_after_tax AS "priceAfterTax", currency
+      FROM quotation_line_items
+      WHERE quotation_id = ANY(${ids})
+      ORDER BY quotation_id, position
+    `;
+    const grouped = new Map<number, QuotationLineItem[]>();
+    for (const raw of lineRows) {
+      const r = raw as {
+        id: number; quotationId: number; position: number;
+        itemModel: string; quantity: number;
+        priceAfterTax: string | number; currency: string;
+      };
+      const item: QuotationLineItem = {
+        id: r.id,
+        quotationId: r.quotationId,
+        position: r.position,
+        itemModel: r.itemModel,
+        quantity: r.quantity,
+        priceAfterTax: typeof r.priceAfterTax === "string"
+          ? parseFloat(r.priceAfterTax)
+          : r.priceAfterTax,
+        currency: r.currency,
+      };
+      const arr = grouped.get(r.quotationId) ?? [];
+      arr.push(item);
+      grouped.set(r.quotationId, arr);
+    }
+    return quotations.map((q) => ({
+      ...q,
+      lineItems: grouped.get(q.id) ?? [],
+    }));
+  } catch (err) {
+    console.error("[db] listQuotations error:", err);
+    return [];
+  }
+}
+
+export async function getQuotation(id: number): Promise<Quotation | null> {
+  try {
+    await ensureTables();
+    const { rows } = await sql`
+      SELECT * FROM quotations WHERE id = ${id}
+    `;
+    const row = rows[0];
+    if (!row) return null;
+    const { rows: lineRows } = await sql`
+      SELECT id, quotation_id AS "quotationId", position, item_model AS "itemModel",
+             quantity, price_after_tax AS "priceAfterTax", currency
+      FROM quotation_line_items
+      WHERE quotation_id = ${id}
+      ORDER BY position ASC
+    `;
+    const quotation = mapQuotationRow(row);
+    quotation.lineItems = lineRows.map((raw) => {
+      const r = raw as {
+        id: number; quotationId: number; position: number;
+        itemModel: string; quantity: number;
+        priceAfterTax: string | number; currency: string;
+      };
+      return {
+        id: r.id,
+        quotationId: r.quotationId,
+        position: r.position,
+        itemModel: r.itemModel,
+        quantity: r.quantity,
+        priceAfterTax: typeof r.priceAfterTax === "string"
+          ? parseFloat(r.priceAfterTax)
+          : r.priceAfterTax,
+        currency: r.currency,
+      };
+    });
+    return quotation;
+  } catch (err) {
+    console.error("[db] getQuotation error:", err);
+    return null;
+  }
+}
+
+function mapQuotationRow(raw: unknown): Quotation {
+  const r = raw as Record<string, unknown>;
+  return {
+    id: r.id as number,
+    status: r.status as QuotationStatus,
+    source: (r.source as string) ?? "manual",
+    sourceProjectId: (r.source_project_id as number | null) ?? null,
+    sourceProjectName: (r.source_project_name as string | null) ?? null,
+    sourceManufacturerName: (r.source_manufacturer_name as string | null) ?? null,
+    clientId: (r.client_id as number | null) ?? null,
+    clientNameSnapshot: (r.client_name_snapshot as string | null) ?? null,
+    currency: (r.currency as string) ?? "JOD",
+    notes: (r.notes as string | null) ?? null,
+    responsibleUserId: (r.responsible_user_id as string | null) ?? null,
+    createdAt: String(r.created_at),
+    assignedAt: r.assigned_at ? String(r.assigned_at) : null,
+    lineItems: [],
+  };
+}
+
+export interface AssignQuotationInput {
+  clientId?: number | null;
+  clientNameSnapshot?: string | null;
+  responsibleUserId?: string | null;
+  notes?: string | null;
+  status?: QuotationStatus;
+}
+
+/**
+ * Updates a quotation. When a client (or client snapshot name) is supplied
+ * and the quotation is still in "waiting_to_assign", automatically transitions
+ * it to "assigned" and stamps assigned_at.
+ */
+export async function updateQuotation(
+  id: number,
+  data: AssignQuotationInput,
+): Promise<boolean> {
+  try {
+    await ensureTables();
+    const current = await sql`SELECT status FROM quotations WHERE id = ${id}`;
+    const currentStatus = (current.rows[0] as { status: string } | undefined)?.status;
+    if (!currentStatus) return false;
+
+    const hasClient =
+      (data.clientId != null) ||
+      (data.clientNameSnapshot != null && data.clientNameSnapshot.trim().length > 0);
+    const autoPromote = currentStatus === "waiting_to_assign" && hasClient;
+    const nextStatus = data.status ?? (autoPromote ? "assigned" : currentStatus);
+    const assignedAtSql = autoPromote;
+
+    await sql`
+      UPDATE quotations SET
+        client_id             = ${data.clientId ?? null},
+        client_name_snapshot  = ${data.clientNameSnapshot ?? null},
+        responsible_user_id   = ${data.responsibleUserId ?? null},
+        notes                 = ${data.notes ?? null},
+        status                = ${nextStatus},
+        assigned_at           = CASE WHEN ${assignedAtSql} THEN NOW() ELSE assigned_at END
+      WHERE id = ${id}
+    `;
+    return true;
+  } catch (err) {
+    console.error("[db] updateQuotation error:", err);
+    return false;
+  }
+}
+
+export async function deleteQuotation(id: number): Promise<boolean> {
+  try {
+    await sql`DELETE FROM quotations WHERE id = ${id}`;
+    return true;
+  } catch (err) {
+    console.error("[db] deleteQuotation error:", err);
+    return false;
+  }
+}
+
+export async function listClients(): Promise<Client[]> {
+  try {
+    await ensureTables();
+    const { rows } = await sql`
+      SELECT id, name, company, email, phone, address,
+             created_at AS "createdAt"
+      FROM clients
+      ORDER BY name ASC
+    `;
+    return rows.map((raw) => {
+      const r = raw as Record<string, unknown>;
+      return {
+        id: r.id as number,
+        name: r.name as string,
+        company: (r.company as string | null) ?? null,
+        email: (r.email as string | null) ?? null,
+        phone: (r.phone as string | null) ?? null,
+        address: (r.address as string | null) ?? null,
+        createdAt: String(r.createdAt),
+      };
+    });
+  } catch (err) {
+    console.error("[db] listClients error:", err);
+    return [];
+  }
+}
+
+export async function createClient(data: {
+  name: string;
+  company?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+}): Promise<number | null> {
+  try {
+    await ensureTables();
+    const { rows } = await sql`
+      INSERT INTO clients (name, company, email, phone, address)
+      VALUES (
+        ${data.name},
+        ${data.company ?? null},
+        ${data.email ?? null},
+        ${data.phone ?? null},
+        ${data.address ?? null}
+      )
+      RETURNING id
+    `;
+    return (rows[0] as { id: number })?.id ?? null;
+  } catch (err) {
+    console.error("[db] createClient error:", err);
+    return null;
   }
 }

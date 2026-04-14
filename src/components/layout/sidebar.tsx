@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Map, User, Brain, Sparkles, Terminal, CalendarDays, TrendingUp, Zap } from "lucide-react";
+import { LayoutDashboard, Map, User, Brain, Sparkles, Terminal, CalendarDays, TrendingUp, Zap, FileText } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useLang } from "@/lib/language";
 
@@ -20,6 +20,7 @@ const nav: NavItem[] = [
   { href: "/analysis",  icon: TrendingUp,      en: "Advice Analysis",  ar: "تحليل النصائح" },
   { href: "/roadmap",   icon: Map,              en: "My Roadmap",       ar: "خارطة طريقي"  },
   { href: "/schedule",  icon: CalendarDays,     en: "Schedule",         ar: "جدولي"         },
+  { href: "/quotations",icon: FileText,         en: "Quotations",       ar: "عروض الأسعار" },
   { href: "/profile",   icon: User,             en: "Profile",          ar: "الملف الشخصي" },
   { href: "/pricing",   icon: Zap,              en: "Upgrade / Quota",  ar: "الترقية / الحصة" },
   { href: "/console",   icon: Terminal,         en: "Console",          ar: "وحدة التحكم",  adminOnly: true },
