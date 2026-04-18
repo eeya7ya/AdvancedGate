@@ -150,6 +150,53 @@ function looksLikePlanAttempt(text: string): boolean {
   return t.startsWith("{") || t.startsWith("```") || t.includes('"type": "LEARNING_PLAN"');
 }
 
+// Dev-only hardcoded plan — lets you skip the AI flow and exercise the UI without burning tokens.
+// Guarded by a localhost hostname check at the button site so it never surfaces in production.
+const DEV_MOCK_PLAN: LearningPlan = {
+  type: "LEARNING_PLAN",
+  profile: {
+    name: "Dev User",
+    country: "Jordan",
+    targetMarket: "Local",
+    workStyle: "Employed",
+    summary: "Dev mock: a sample Jordanian professional moving into power systems / networking. Used only for local UI testing.",
+  },
+  marketInsights: {
+    localDemand: "High — utilities and smart-building integrators are hiring.",
+    globalDemand: "Strong across MENA and EU renewables.",
+    salaryRange: "800–1500 JOD/mo locally",
+    recommendation: "Pair KNX with CCNA to stand out in smart-building roles.",
+  },
+  todaysFocus: {
+    topic: "CCNA — Subnetting drills",
+    reason: "Subnetting is the most-tested CCNA skill and unlocks the rest of routing.",
+    duration: "45 min",
+    action: "Do 20 VLSM practice problems on subnettingpractice.com",
+  },
+  priorities: [
+    { topic: "CCNA",       score: 85, description: "Core networking cert",  color: "#f97316" },
+    { topic: "KNX",        score: 70, description: "Smart-building skill",  color: "#a78bfa" },
+    { topic: "Power Basics", score: 55, description: "Foundational",         color: "#4ade80" },
+  ],
+  timeAllocation: [
+    { subject: "CCNA",        percentage: 50, color: "#f97316", hours: 1.5 },
+    { subject: "KNX",         percentage: 30, color: "#a78bfa", hours: 1.0 },
+    { subject: "Power Basics", percentage: 20, color: "#4ade80", hours: 0.5 },
+  ],
+  courseRecommendations: [
+    { title: "Cisco CCNA 200-301 Complete Course", platform: "Udemy",  instructor: "Neil Anderson", estimatedHours: 40, level: "Intermediate", focus: "Routing & switching", phase: "Phase 1", url: "https://www.udemy.com/course/ccna-complete/", sourceType: "paid",   hasCertificate: true  },
+    { title: "KNX Basic Certification",              platform: "KNX Association", instructor: "KNX", estimatedHours: 30, level: "Beginner",     focus: "Smart buildings",    phase: "Phase 2", url: "https://www.knx.org/knx-en/for-professionals/training/", sourceType: "official", hasCertificate: true },
+  ],
+  topicConnections: [
+    { from: "CCNA", to: "KNX", bridge: "IP-based building automation leans on networking fundamentals." },
+  ],
+  nextSteps: [
+    "Finish CCNA subnetting module this week.",
+    "Enroll in KNX Basic Certification.",
+    "Build a home lab with Packet Tracer.",
+  ],
+};
+
 /* ── Translations ───────────────────────────────────────────────── */
 const D: Record<string, { en: string; ar: string }> = {
   badge:          { en: "AI Advisor · Powered by eSpark", ar: "مستشار ذكاء اصطناعي · مدعوم بـ eSpark" },
@@ -870,9 +917,16 @@ const WELCOME_FEATURES: { icon: React.ReactNode; keyEn: string; keyAr: string }[
   { icon: <Sparkles size={14} />,     keyEn: "Any goal or field",  keyAr: "أي هدف أو مجال" },
 ];
 
-function WelcomeScreen({ onStart }: { onStart: () => void }) {
+function WelcomeScreen({ onStart, onDevMock }: { onStart: () => void; onDevMock?: () => void }) {
   const { lang } = useLang();
   const ar = lang === "ar";
+  const [isLocalhost, setIsLocalhost] = useState(false);
+  useEffect(() => {
+    setIsLocalhost(
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+    );
+  }, []);
 
   return (
     <motion.div
@@ -950,6 +1004,16 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
           <span className="relative z-10">{td("startSession", ar)}</span>
           <ArrowRight size={16} className="relative z-10" />
         </motion.button>
+
+        {isLocalhost && onDevMock && (
+          <button
+            onClick={onDevMock}
+            className="block mt-4 mx-auto text-[11px] font-mono px-3 py-1.5 rounded-lg opacity-70 hover:opacity-100 transition-opacity"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px dashed rgba(255,255,255,0.2)", color: "var(--text-muted)" }}
+          >
+            [dev] inject mock plan
+          </button>
+        )}
       </motion.div>
 
       {/* Feature grid */}
@@ -1704,7 +1768,19 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
 
       <AnimatePresence mode="wait">
         {phase === "welcome" && (
-          <WelcomeScreen key="welcome" onStart={startInterview} />
+          <WelcomeScreen
+            key="welcome"
+            onStart={startInterview}
+            onDevMock={() => {
+              setPlan(DEV_MOCK_PLAN);
+              setPhase("plan");
+              fetch("/api/user/roadmap", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ plan: DEV_MOCK_PLAN }),
+              }).catch(() => null);
+            }}
+          />
         )}
 
         {phase === "chat" && (
