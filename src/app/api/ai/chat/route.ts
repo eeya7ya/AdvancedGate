@@ -525,7 +525,16 @@ INFO TO COLLECT (weave naturally, adapt order to the flow):
 
 HARD LIMIT: Ask at MOST 4 short questions total before you must generate. If you still have gaps after 4 turns, infer reasonable defaults from everything they've said (and the selected focus area if provided) and generate now.
 
-SKIP-TO-GENERATE (highest priority — overrides everything else): If the user at any point asks you to stop asking and just generate — including phrases like "generate now", "just generate", "skip", "skip the questions", "enough questions", "go", "start", "do it", "make the plan", "yalla", "خلاص", "ابدأ", "ولّد", "اعمل الخطة", or they repeat a request, send a single "?", "!", or otherwise signal impatience — you MUST immediately stop asking and emit the LEARNING_PLAN JSON on your very next reply. Do NOT ask one more question. Fill in any missing profile fields with sensible defaults based on what they've told you so far plus reasonable assumptions (e.g., use their first name or "Learner", their country if known else "Global", targetMarket "Global Remote" if unclear, workStyle "Mixed" if unclear). Never refuse a skip request.
+SKIP-TO-GENERATE (highest priority — overrides everything else): If THE USER'S message is any of the following, you MUST immediately stop asking and emit the LEARNING_PLAN JSON on your very next reply:
+- Explicit request to generate: "generate", "generate now", "generate a plan", "generate a test", "just generate", "make the plan", "build it", "build the plan", "do it", "go", "start", "start now", "begin", "ready", "I'm ready", "yalla"
+- Test / random / demo requests: "test", "just a test", "quick test", "demo", "random", "random persona", "sample", "example", "use defaults", "use sensible defaults"
+- Skip requests: "skip", "skip the questions", "enough questions", "stop asking", "no more questions"
+- Arabic equivalents: "خلاص", "يلا", "يالله", "ابدأ", "ولّد", "ولد الخطة", "اعمل الخطة", "كفى", "بس", "جرب", "تجربة"
+- A single-character impatience reply FROM THE USER such as "?", "!", "." — treat that user reply as a skip signal
+
+IMPORTANT: "?" / "!" / "." above describe what the USER might type. NEVER output a lone "?" or "!" yourself — your output on a skip turn is ONLY the LEARNING_PLAN JSON below, nothing else.
+
+Do NOT ask one more question on a skip turn. Fill in any missing profile fields with sensible defaults based on what they've told you so far plus reasonable assumptions (first name or "Learner", country if known else "Global", targetMarket "Global Remote" if unclear, workStyle "Mixed" if unclear). Never refuse a skip request.
 
 ONCE YOU HAVE ALL FIVE PIECES — OR the user asked to skip/generate — OR you hit the 4-question hard limit — output ONLY this minimal JSON on its own, no text before or after, no markdown fences, no explanation:
 {"type":"LEARNING_PLAN","profile":{"name":"<first name or 'Learner'>","country":"<country or 'Global'>","targetMarket":"<Local [Country] | Gulf Region | Europe | North America | Global Remote>","workStyle":"<Employed | Freelance | Remote Employee | Business Owner | Mixed>","summary":"<one sentence acknowledging their situation in their language>"}}
@@ -764,10 +773,10 @@ export async function POST(req: NextRequest) {
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
     const lastUserText = (lastUser?.content ?? "").trim().toLowerCase();
     const skipIntent =
-      /\b(just\s+generate|generate\s+now|generate\s+it|generate\s+the\s+plan|make\s+the\s+plan|skip|skip\s+(the\s+)?questions?|enough\s+questions?|stop\s+asking|go(\s+now)?|start\s+(now|already)|do\s+it(\s+already)?|ready|i'?m\s+ready)\b/.test(
+      /\b(generate|generating|generat|build(\s+(it|the\s+plan|a\s+plan|my\s+plan))?|make\s+(the|a|my)\s+plan|create\s+(the|a|my)\s+plan|skip|skipping|enough|stop\s+asking|go|going|start|starting|begin|begun|do\s+it|ready|i'?m\s+ready|test|testing|demo|sample|example|random(\s+persona)?|defaults?|use\s+defaults?|use\s+sensible\s+defaults?|quick)\b/.test(
         lastUserText,
       ) ||
-      /خلاص|يلا|يالله|ابدأ|ولّد|ولد الخطة|اعمل الخطة|كفى|بس|خلّص/.test(lastUser?.content ?? "") ||
+      /خلاص|يلا|يالله|ابدأ|ولّد|ولد الخطة|اعمل الخطة|كفى|بس|خلّص|جرب|تجربة|عشوائي/.test(lastUser?.content ?? "") ||
       /^[!?.…,\s]+$/.test(lastUser?.content ?? "");
 
     const skipNote = skipIntent
@@ -834,10 +843,21 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       try {
         const content = await generatePlan(messages, timezone);
+        if (!content || content.trim().length === 0) {
+          console.error("[chat:generate] Claude returned empty content");
+        } else if (!content.includes("LEARNING_PLAN")) {
+          console.error(
+            "[chat:generate] Claude returned non-plan text (first 400 chars):",
+            content.slice(0, 400),
+          );
+        }
         controller.enqueue(encoder.encode(content));
         controller.close();
       } catch (err) {
-        controller.error(err);
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("[chat:generate] Claude plan generation error:", msg, err);
+        controller.enqueue(encoder.encode(`Plan generation failed: ${msg}`));
+        controller.close();
       }
     },
   });
