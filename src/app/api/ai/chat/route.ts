@@ -525,8 +525,12 @@ INFO TO COLLECT (weave naturally, adapt order to the flow):
 4. Current skills and obstacles
 5. Time available per week and rough timeline
 
-ONCE YOU HAVE ALL FIVE PIECES — output ONLY this minimal JSON on its own, no text before or after, no markdown fences:
-{"type":"LEARNING_PLAN","profile":{"name":"<first name or 'Learner'>","country":"<country>","targetMarket":"<Local [Country] | Gulf Region | Europe | North America | Global Remote>","workStyle":"<Employed | Freelance | Remote Employee | Business Owner | Mixed>","summary":"<one sentence acknowledging their situation in their language>"}}
+HARD LIMIT: Ask at MOST 4 short questions total before you must generate. If you still have gaps after 4 turns, infer reasonable defaults from everything they've said (and the selected focus area if provided) and generate now.
+
+SKIP-TO-GENERATE (highest priority — overrides everything else): If the user at any point asks you to stop asking and just generate — including phrases like "generate now", "just generate", "skip", "skip the questions", "enough questions", "go", "start", "do it", "make the plan", "yalla", "خلاص", "ابدأ", "ولّد", "اعمل الخطة", or they repeat a request, send a single "?", "!", or otherwise signal impatience — you MUST immediately stop asking and emit the LEARNING_PLAN JSON on your very next reply. Do NOT ask one more question. Fill in any missing profile fields with sensible defaults based on what they've told you so far plus reasonable assumptions (e.g., use their first name or "Learner", their country if known else "Global", targetMarket "Global Remote" if unclear, workStyle "Mixed" if unclear). Never refuse a skip request.
+
+ONCE YOU HAVE ALL FIVE PIECES — OR the user asked to skip/generate — OR you hit the 4-question hard limit — output ONLY this minimal JSON on its own, no text before or after, no markdown fences, no explanation:
+{"type":"LEARNING_PLAN","profile":{"name":"<first name or 'Learner'>","country":"<country or 'Global'>","targetMarket":"<Local [Country] | Gulf Region | Europe | North America | Global Remote>","workStyle":"<Employed | Freelance | Remote Employee | Business Owner | Mixed>","summary":"<one sentence acknowledging their situation in their language>"}}
 
 That minimal JSON is the signal that triggers the full roadmap generation (courses, salary data, schedule, phases) in the next step — do NOT try to produce the full plan here. The system handles it.`;
 
@@ -1186,6 +1190,23 @@ export async function POST(req: NextRequest) {
   const encoder = new TextEncoder();
 
   if (isInit) {
+    // Detect explicit "skip the questions, just generate" intent from the user's
+    // latest message (EN + AR + common impatience signals). When present, inject a
+    // forcing instruction so the model reliably emits the LEARNING_PLAN JSON on
+    // this turn instead of asking another question.
+    const lastUser = [...messages].reverse().find((m) => m.role === "user");
+    const lastUserText = (lastUser?.content ?? "").trim().toLowerCase();
+    const skipIntent =
+      /\b(just\s+generate|generate\s+now|generate\s+it|generate\s+the\s+plan|make\s+the\s+plan|skip|skip\s+(the\s+)?questions?|enough\s+questions?|stop\s+asking|go(\s+now)?|start\s+(now|already)|do\s+it(\s+already)?|ready|i'?m\s+ready)\b/.test(
+        lastUserText,
+      ) ||
+      /خلاص|يلا|يالله|ابدأ|ولّد|ولد الخطة|اعمل الخطة|كفى|بس|خلّص/.test(lastUser?.content ?? "") ||
+      /^[!?.…,\s]+$/.test(lastUser?.content ?? "");
+
+    const skipNote = skipIntent
+      ? `\n\n═══════════════════════════════════════════\nUSER SKIP-TO-GENERATE SIGNAL DETECTED\n═══════════════════════════════════════════\nThe user's latest message is an explicit request to stop asking questions and generate the plan now (or a clear impatience signal). Per the SKIP-TO-GENERATE rule, you MUST output ONLY the LEARNING_PLAN JSON on this turn — no questions, no commentary, no markdown fences. Fill any missing profile fields with sensible defaults inferred from the conversation so far.\n`
+      : "";
+
     // Conversational phase + plan generation — stream directly
     const readable = new ReadableStream({
       async start(controller) {
@@ -1198,7 +1219,7 @@ export async function POST(req: NextRequest) {
             model: "llama-3.3-70b-versatile",
             max_tokens: 2048,
             messages: [
-              { role: "system", content: getConversationPrompt(timezone) + scenarioNote },
+              { role: "system", content: getConversationPrompt(timezone) + scenarioNote + skipNote },
               ...messages,
             ],
             stream: true,
