@@ -1,12 +1,12 @@
-import Groq from "groq-sdk";
+import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { auth } from "~/auth";
 import { getUserRoadmap } from "@/lib/db";
 import { getTimezoneForCountry, getLocalizedDateTime } from "@/lib/timezone";
 
-const client = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
+const client = new Anthropic();
+
+const CLAUDE_MODEL = "claude-haiku-4-5";
 
 const SYSTEM_PROMPT_BODY = `You are eSpark 🌟 — a brilliant, warm AI advisor who feels like that one amazing friend who always knows exactly what to do. You help EVERYONE: students figuring out what to study, fresh grads navigating their first job, professionals switching careers, freelancers leveling up, entrepreneurs chasing a dream — anyone with a goal.
 
@@ -84,23 +84,21 @@ AFTER ALL INFO IS COLLECTED
 Once you have everything you need, immediately generate the JSON plan. No closing remarks or transition sentences — go directly to the JSON. No more questions unless something critical is truly missing.
 
 ═══════════════════════════════════════════
-AFTER ALL QUESTIONS ARE ANSWERED: USE THE PRE-SEARCHED DATA
+WEB SEARCH — USE IT EFFICIENTLY (COST-SENSITIVE)
 ═══════════════════════════════════════════
-Before you receive the plan generation instruction, the system has already run parallel web searches and will provide you with:
+You have access to a built-in web_search tool. Use it to gather REAL, current data for this plan. IMPORTANT: you have a hard cap of about 5 searches total across this entire response, so each search must count.
 
-1. COURSE URL CATALOG — a numbered list of REAL course pages returned by Tavily (Coursera, Udemy, YouTube, edX, freeCodeCamp, LinkedIn Learning, official vendor portals). You MUST:
-   - Select courseRecommendations ONLY from courses in the catalog
-   - Copy each URL VERBATIM — not one character changed, no shortening, no reconstruction
-   - NEVER construct, guess, or hallucinate a URL — if a course you want isn't in the catalog, leave url as ""
-   - Do NOT search for course URLs — the catalog is your only course URL source
+Recommended search budget (merge queries when you can):
+1. ONE combined query for salary + job market in the user's country for the target role (e.g. "electrical engineer salary Jordan 2025 JOD entry level").
+2. ONE to THREE queries for specific courses — combine topic + platform when possible (e.g. "CCNA course site:u.cisco.com", "KNX training site:knx.org udemy coursera").
+3. Use remaining searches for any missing pieces (remote rates, certification details).
 
-2. SALARY DATA — pre-searched from multiple sources with the correct local currency. Use these figures directly (cross-reference them, pick the most consistent values).
+When building courseRecommendations:
+- Take URLs DIRECTLY from your web_search results — copy them character-for-character.
+- NEVER invent, guess, or reconstruct a URL from memory. If you did not get the exact course URL from a search result, set url to "".
+- Prefer pages that are clearly a specific course/tutorial (e.g. coursera.org/learn/..., udemy.com/course/..., learn.microsoft.com/..., youtube.com/watch?v=...), not platform homepages.
 
-3. JOB MARKET DATA — pre-searched for the user's country and role.
-
-All course, salary, and market data has been pre-searched using AI deep search. Use the provided data directly — do not attempt additional searches.
-
-Use the pre-searched data when populating courseRecommendations, marketInsights.salaryRange, and marketInsights.localDemand.
+When building marketInsights.salaryRange and marketInsights.localDemand: use figures and demand assessments that appeared in your search results for the user's country/role, with the correct ISO currency code.
 
 ═══════════════════════════════════════════
 PHASE COUNT — MATCH USER'S TIMELINE
@@ -503,8 +501,8 @@ FINAL CRITICAL RULES:
 - This roadmap is real and will be used by real people to change their lives — every number, course, salary, and recommendation must be accurate and specific`;
 
 // Compact conversational prompt used ONLY during the interview streaming
-// phase (chat isInit=true). Keeps each turn under Groq's free-tier 12k TPM
-// limit. The full SYSTEM_PROMPT_BODY (with the complete JSON schema) is
+// phase (chat isInit=true). Keeps each turn small so the interview is fast
+// and cheap. The full SYSTEM_PROMPT_BODY (with the complete JSON schema) is
 // still sent to generatePlan() where the actual plan is built.
 const CONVERSATION_SYSTEM_PROMPT = `You are eSpark 🌟 — a warm, smart AI life advisor who feels like a brilliant friend. You help students, career starters, career switchers, professionals, freelancers, entrepreneurs, and lifelong learners map a realistic path to their goal.
 
@@ -549,129 +547,6 @@ function getSystemPrompt(timezone?: string): string {
 interface Message {
   role: "user" | "assistant";
   content: string;
-}
-
-interface SearchResult {
-  text: string;
-  urls: string[];
-}
-
-// `groq/compound` is the full-power search+reasoning model. `groq/compound-mini`
-// is the lighter variant — good enough for simple lookups like salary/market
-// queries, noticeably cheaper and faster. Course-URL discovery still uses
-// full compound because URL selection quality matters most there.
-type CompoundTier = "full" | "mini";
-const COMPOUND_MODEL: Record<CompoundTier, string> = {
-  full: "groq/compound",
-  mini: "groq/compound-mini",
-};
-
-async function webSearch(query: string, tier: CompoundTier = "full"): Promise<SearchResult> {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await (client.chat.completions.create as any)({
-      model: COMPOUND_MODEL[tier],
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a precise search assistant. For every query, find the most relevant and current web results. " +
-            "Return each result with its exact Title, URL, and a brief Content summary. " +
-            "Focus on real, currently available pages — especially course enrollment pages, official documentation, and authoritative sources. " +
-            "Always include direct URLs to specific pages, never platform homepages.",
-        },
-        { role: "user", content: query },
-      ],
-    });
-
-    const choice = response.choices[0];
-    const message = choice?.message;
-    const content: string = message?.content ?? "";
-
-    // Extract URLs from executed_tools search_results (structured data from compound model)
-    const urls: string[] = [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const executedTools = (message as any)?.executed_tools;
-    if (Array.isArray(executedTools)) {
-      for (const tool of executedTools) {
-        const results = tool.search_results?.results;
-        if (Array.isArray(results)) {
-          for (const r of results) {
-            if (r.url) urls.push(r.url);
-          }
-        }
-      }
-    }
-
-    // Also extract URLs from the text content (compound model often cites URLs inline)
-    const urlRegex = /https?:\/\/[^\s"'<>\])}]+/g;
-    const textUrls = content.match(urlRegex) ?? [];
-    for (const u of textUrls) {
-      const clean = u.replace(/[.,;:!?)]+$/, ""); // strip trailing punctuation
-      if (!urls.includes(clean)) urls.push(clean);
-    }
-
-    // Build text in the same Title/URL/Content format the catalog builder expects
-    let formattedText = "";
-    if (Array.isArray(executedTools)) {
-      const blocks: string[] = [];
-      for (const tool of executedTools) {
-        const results = tool.search_results?.results;
-        if (Array.isArray(results)) {
-          for (const r of results) {
-            blocks.push(
-              `Title: ${r.title ?? "Untitled"}\nURL: ${r.url ?? ""}\nContent: ${r.content ?? ""}`
-            );
-          }
-        }
-      }
-      if (blocks.length > 0) {
-        formattedText = blocks.join("\n\n---\n\n");
-      }
-    }
-
-    // If no structured results, fall back to the model's text content
-    if (!formattedText) {
-      formattedText = content || "No results found.";
-    } else if (content) {
-      formattedText = `Summary: ${content}\n\n${formattedText}`;
-    }
-
-    console.log(`[Groq Compound:${tier}] "${query}" → ${urls.length} URLs found`);
-    return { text: formattedText, urls };
-  } catch (err) {
-    console.error(`[Groq Compound:${tier}] Search error:`, err);
-    return { text: "Search unavailable.", urls: [] };
-  }
-}
-
-/**
- * Verify a URL is actually live and serves real content.
- * - 200-399  → live, keep it
- * - 404      → definitely dead, reject
- * - 403/405  → probably bot-protection on a real page, keep optimistically
- * - timeout / network error → keep optimistically (don't drop on flakiness)
- */
-async function verifyUrl(url: string): Promise<boolean> {
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 6000);
-    const res = await fetch(url, {
-      method: "HEAD",
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,*/*",
-      },
-      redirect: "follow",
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-    // 404 / 410 = confirmed dead. Anything else we keep.
-    return res.status !== 404 && res.status !== 410;
-  } catch {
-    // Network error / timeout — keep optimistically
-    return true;
-  }
 }
 
 /**
@@ -797,361 +672,53 @@ function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
   }
 }
 
-// ╔══════════════════════════════════════════════════════════════════════════════╗
-// ║  LINK COLLECTION SECTION — Powered by Groq Compound (AI deep search)       ║
-// ║                                                                              ║
-// ║  The preSeedSearches function below handles all course URL discovery,        ║
-// ║  salary data pre-fetching, and job market research via parallel Groq         ║
-// ║  Compound model searches (AI-driven web search, no separate API key).       ║
-// ╚══════════════════════════════════════════════════════════════════════════════╝
-
-/**
- * Detect country and role keywords from the conversation, then fire multiple
- * Groq Compound searches IN PARALLEL (salary from different angles + job market)
- * before the model takes over. The compound model uses AI-driven deep web search
- * for smarter, more contextual results than raw keyword searches.
- */
-async function preSeedSearches(
-  messages: Message[]
-): Promise<{ contextBlock: string; urls: Set<string> }> {
-  const fullText = messages.map((m) => m.content).join(" ");
-
-  // Detect country from the conversation
-  const countryPatterns: [RegExp, string][] = [
-    [/\bjordan\b/i, "Jordan"],
-    [/\begypt\b/i, "Egypt"],
-    [/\bsaudi arabia\b|\bksa\b/i, "Saudi Arabia"],
-    [/\buae\b|\bdubai\b|\babu dhabi\b/i, "UAE"],
-    [/\bkuwait\b/i, "Kuwait"],
-    [/\bqatar\b/i, "Qatar"],
-    [/\bbahrain\b/i, "Bahrain"],
-    [/\boman\b/i, "Oman"],
-    [/\bmorocco\b/i, "Morocco"],
-    [/\btunis(?:ia)?\b/i, "Tunisia"],
-    [/\balger(?:ia)?\b/i, "Algeria"],
-    [/\biraq\b/i, "Iraq"],
-    [/\blebanon\b/i, "Lebanon"],
-    [/\bpalestine\b/i, "Palestine"],
-    [/\bturkey\b|\bturkiye\b/i, "Turkey"],
-    [/\bgermany\b/i, "Germany"],
-    [/\bfrance\b/i, "France"],
-    [/\buk\b|\bunited kingdom\b/i, "UK"],
-    [/\bcanada\b/i, "Canada"],
-    [/\busa\b|\bunited states\b/i, "USA"],
-    [/\baustralia\b/i, "Australia"],
-    [/\bindia\b/i, "India"],
-    [/\bpakistan\b/i, "Pakistan"],
-    [/\bmalaysia\b/i, "Malaysia"],
-    [/\bnigeria\b/i, "Nigeria"],
-  ];
-
-  // Per-country local currency codes — one currency per country, no mixing
-  const currencyMap: Record<string, string> = {
-    Jordan: "JOD",
-    Egypt: "EGP",
-    Morocco: "MAD",
-    Tunisia: "TND",
-    Algeria: "DZD",
-    Iraq: "IQD",
-    Lebanon: "LBP",
-    Palestine: "ILS",
-    "Saudi Arabia": "SAR",
-    UAE: "AED",
-    Kuwait: "KWD",
-    Qatar: "QAR",
-    Bahrain: "BHD",
-    Oman: "OMR",
-    Turkey: "TRY",
-    Germany: "EUR",
-    France: "EUR",
-    UK: "GBP",
-    Canada: "CAD",
-    USA: "USD",
-    Australia: "AUD",
-    India: "INR",
-    Pakistan: "PKR",
-    Malaysia: "MYR",
-    Nigeria: "NGN",
-  };
-
-  // Detect role/field keywords from the conversation
-  const rolePatterns: [RegExp, string][] = [
-    [/electrical engineer|power engineer/i, "electrical engineer"],
-    [/network engineer|networking|ccna|cisco/i, "network engineer"],
-    [/software engineer|software developer|programmer|coding/i, "software engineer"],
-    [/web developer|frontend|backend|full.?stack/i, "web developer"],
-    [/data scientist|machine learning|AI engineer/i, "data scientist"],
-    [/cybersecurity|security engineer|penetration/i, "cybersecurity engineer"],
-    [/cloud engineer|devops|aws|azure|gcp/i, "cloud engineer"],
-    [/mechanical engineer/i, "mechanical engineer"],
-    [/civil engineer/i, "civil engineer"],
-    [/graphic design/i, "graphic designer"],
-    [/project manager|PMP/i, "project manager"],
-  ];
-
-  let country = "";
-  for (const [pattern, name] of countryPatterns) {
-    if (pattern.test(fullText)) { country = name; break; }
-  }
-
-  let role = "engineer";
-  for (const [pattern, name] of rolePatterns) {
-    if (pattern.test(fullText)) { role = name; break; }
-  }
-
-  const allUrls = new Set<string>();
-  const parts: string[] = [];
-
-  // ── Extract SPECIFIC topics/certs from the conversation ──────────────────
-  // Each entry: [pattern, searchTerm, officialSiteFilter | null]
-  const specificTopicPatterns: [RegExp, string, string | null][] = [
-    // Networking & Cisco
-    [/\bCCNA\b/i,                    "CCNA",                                "site:u.cisco.com OR site:netacad.com"],
-    [/\bCCNP\b/i,                    "CCNP",                                "site:u.cisco.com"],
-    [/\bCCIE\b/i,                    "CCIE",                                "site:u.cisco.com"],
-    // Building automation / ELV / smart systems
-    [/\bKNX\b/i,                     "KNX smart home automation",           "site:knx.org OR site:knxassociation.org"],
-    [/\bBMS\b|\bBuilding Management System\b/i, "BMS building management system", null],
-    [/\bSCADA\b/i,                   "SCADA industrial automation",         null],
-    [/\bPLC\b/i,                     "PLC programming automation",          null],
-    [/\bCCTV\b|\bIP [Cc]amera\b/i,  "CCTV IP surveillance system",         null],
-    [/\bFire Alarm\b|\bFAS\b/i,      "fire alarm system",                   null],
-    [/\bELV\b/i,                     "ELV extra low voltage systems",       null],
-    [/\bAccess Control\b/i,          "access control security systems",     null],
-    // Cloud & DevOps
-    [/\bAWS\b|\bAmazon Web Services\b/i, "AWS cloud",                       "site:skillbuilder.aws"],
-    [/\bAzure\b/i,                   "Microsoft Azure",                     "site:learn.microsoft.com"],
-    [/\bGCP\b|\bGoogle Cloud\b/i,    "Google Cloud",                        "site:cloudskillsboost.google"],
-    [/\bDocker\b/i,                  "Docker containerization",             null],
-    [/\bKubernetes\b|\bK8s\b/i,      "Kubernetes",                          null],
-    // Security certs
-    [/\bSecurity\+\b/i,              "CompTIA Security+",                   "site:comptia.org"],
-    [/\bNetwork\+\b/i,               "CompTIA Network+",                    "site:comptia.org"],
-    [/\bA\+\b|CompTIA A\b/i,         "CompTIA A+",                          "site:comptia.org"],
-    [/\bCEH\b/i,                     "CEH Certified Ethical Hacker",        "site:eccouncil.org"],
-    [/\bOSCP\b/i,                    "OSCP penetration testing",            "site:offsec.com"],
-    [/\bCISSP\b/i,                   "CISSP",                               "site:isc2.org"],
-    // Project management
-    [/\bPMP\b/i,                     "PMP Project Management Professional", "site:pmi.org"],
-    [/\bPrince2\b/i,                 "PRINCE2",                             null],
-    [/\bAgile\b|\bScrum\b/i,         "Agile Scrum",                         null],
-    // Programming / software
-    [/\bPython\b/i,                  "Python programming",                  null],
-    [/\bJavaScript\b|\bJS\b(?!ON)/i, "JavaScript",                         null],
-    [/\bTypeScript\b/i,              "TypeScript",                          null],
-    [/\bReact\b/i,                   "React",                               null],
-    [/\bNode\.?js\b/i,               "Node.js",                             null],
-    [/\bSQL\b/i,                     "SQL database",                        null],
-    [/\bMachine Learning\b|\bML\b/i, "machine learning",                    null],
-    [/\bData Science\b/i,            "data science",                        null],
-    // Electrical / power
-    [/\bAutoCAD\b/i,                 "AutoCAD Electrical",                  "site:autodesk.com"],
-    [/\bSolar\b|\bPV\b|\bPhotovoltaic\b/i, "solar PV installation",        null],
-    [/\bpower systems\b/i,           "power systems electrical",            null],
-    [/\bHVAC\b/i,                    "HVAC",                                null],
-    // Design
-    [/\bFigma\b/i,                   "Figma UI UX design",                  null],
-    [/\bPhotoshop\b/i,               "Adobe Photoshop",                     "site:helpx.adobe.com OR site:learn.adobe.com"],
-    [/\bUI.?UX\b/i,                  "UI UX design",                        null],
-  ];
-
-  const detectedTopics: { term: string; official: string | null }[] = [];
-  for (const [pattern, term, official] of specificTopicPatterns) {
-    if (pattern.test(fullText)) {
-      detectedTopics.push({ term, official });
-    }
-  }
-
-  // ── Build course queries — per specific topic, priority: official → paid → free
-  // If no specific topics detected, fall back to role-based queries
-  const courseQueries: string[] = [];
-
-  if (detectedTopics.length > 0) {
-    // Take up to 3 most relevant topics to avoid too many queries
-    const topTopics = detectedTopics.slice(0, 3);
-
-    for (const { term, official } of topTopics) {
-      // 1. Official certification body / vendor portal (highest priority)
-      if (official) {
-        courseQueries.push(`"${term}" course training enrollment 2025 ${official}`);
-      }
-      // 2. Udemy (trusted paid, huge catalog)
-      courseQueries.push(`"${term}" course site:udemy.com`);
-      // 3. Coursera (trusted paid/free, university-backed)
-      courseQueries.push(`"${term}" course site:coursera.org`);
-      // 4. YouTube (free, practical tutorials)
-      courseQueries.push(`"${term}" full course tutorial site:youtube.com`);
-    }
-
-    // One LinkedIn Learning sweep across all detected topics combined
-    const topicStr = topTopics.map((t) => t.term).join(" OR ");
-    courseQueries.push(`(${topicStr}) course site:linkedin.com/learning`);
-
-    // Free fallback (edX / freeCodeCamp) for the primary topic
-    courseQueries.push(`"${topTopics[0].term}" course site:edx.org OR site:freecodecamp.org`);
-  } else {
-    // No specific topics detected — use the broad role as fallback
-    const vendorFallback = (() => {
-      if (/network engineer|cisco|ccna/i.test(role))   return `networking course site:u.cisco.com OR site:netacad.com`;
-      if (/software engineer|web developer/i.test(role)) return `software development course site:learn.microsoft.com`;
-      if (/cloud engineer|devops/i.test(role))          return `cloud computing course site:skillbuilder.aws OR site:cloudskillsboost.google`;
-      if (/cybersecurity/i.test(role))                  return `cybersecurity course site:comptia.org`;
-      if (/data scientist/i.test(role))                 return `data science course site:coursera.org OR site:edx.org`;
-      return `${role} training site:coursera.org OR site:skillbuilder.aws`;
-    })();
-    courseQueries.push(
-      vendorFallback,
-      `${role} course site:udemy.com`,
-      `${role} course site:coursera.org`,
-      `${role} full course tutorial site:youtube.com`,
-      `${role} free course site:edx.org OR site:freecodecamp.org`,
-      `${role} course site:linkedin.com/learning`,
-    );
-  }
-
-  // ── Salary + market queries (country-based) ────────────────────────────────
-  const salaryQueries = country ? (() => {
-    const currency = currencyMap[country] ?? "USD";
-    return [
-      `"${country}" "${role}" entry level junior salary 2024 2025 ${currency}`,
-      `${country} ${role} salary monthly 2024 site:numbeo.com`,
-      `${country} ${role} average salary ${currency} per month site:payscale.com`,
-      `"${country}" ${role} salary 2024 2025 site:glassdoor.com`,
-      `${country} ${role} remote freelance salary USD 2025`,
-    ];
-  })() : [];
-
-  const marketQueries = country ? [
-    `"${country}" ${role} job demand hiring 2025 employment opportunities`,
-    `"${country}" technology engineering job market 2025 career prospects`,
-  ] : [];
-
-  // ── Fire EVERYTHING in parallel ────────────────────────────────────────────
-  // Course URL discovery uses the full compound model (URL quality matters).
-  // Salary + market lookups use compound-mini (simpler fact-gathering).
-  const courseJobs  = courseQueries.map((q) => webSearch(q, "full"));
-  const salaryJobs  = salaryQueries.map((q) => webSearch(q, "mini"));
-  const marketJobs  = marketQueries.map((q) => webSearch(q, "mini"));
-  const results = await Promise.all([...courseJobs, ...salaryJobs, ...marketJobs]);
-  results.forEach((r) => r.urls.forEach((u) => allUrls.add(u)));
-
-  const courseResults  = results.slice(0, courseQueries.length);
-  const salaryResults  = results.slice(courseQueries.length, courseQueries.length + salaryQueries.length);
-  const marketResults  = results.slice(courseQueries.length + salaryQueries.length);
-
-  // ── Build course URL catalog with liveness verification ──────────────────
-  // Collect all candidate (title, url) pairs first, then verify in parallel
-  const candidates: { title: string; url: string }[] = [];
-  courseQueries.forEach((_, qi) => {
-    const r = courseResults[qi];
-    const pageUrls = r.urls.filter(isCoursePage);
-    if (pageUrls.length === 0) return;
-
-    // Parse title from Tavily text (format: "Title: ...\nURL: ...\nContent: ...")
-    const blocks = r.text.split(/\n\n---\n\n/);
-    const urlToTitle: Record<string, string> = {};
-    for (const block of blocks) {
-      const titleMatch = block.match(/Title:\s*(.+)/);
-      const urlMatch   = block.match(/URL:\s*(\S+)/);
-      if (titleMatch && urlMatch) urlToTitle[urlMatch[1].trim()] = titleMatch[1].trim();
-    }
-
-    pageUrls.forEach((url) => {
-      candidates.push({ title: urlToTitle[url] ?? url, url });
-    });
-  });
-
-  // Deduplicate by URL, then verify all in parallel (HEAD request)
-  const seen = new Set<string>();
-  const unique = candidates.filter(({ url }) => {
-    if (seen.has(url)) return false;
-    seen.add(url);
-    return true;
-  });
-
-  const liveness = await Promise.all(unique.map(({ url }) => verifyUrl(url)));
-  const verified = unique.filter((_, i) => liveness[i]);
-
-  console.log(`[catalog] ${candidates.length} candidates → ${unique.length} unique → ${verified.length} live`);
-
-  const catalogLines = verified.map(({ title, url }, i) =>
-    `${i + 1}. "${title}"\n   URL: ${url}`
-  );
-
-  if (catalogLines.length > 0) {
-    parts.push(
-      `=== COURSE URL CATALOG — LIVE-VERIFIED ===\n` +
-      `Every URL below was checked and confirmed reachable (HTTP live check + Tavily search). ` +
-      `You MUST select courseRecommendations ONLY from this list. ` +
-      `Copy each URL character-for-character — do NOT modify, shorten, or reconstruct any URL. ` +
-      `Do NOT search for course URLs — this catalog is your only course URL source.\n\n` +
-      catalogLines.join("\n\n")
-    );
-  }
-
-  // ── Salary + market context blocks ────────────────────────────────────────
-  if (country && salaryQueries.length > 0) {
-    const currency = currencyMap[country] ?? "USD";
-    const salaryBlock = salaryQueries
-      .map((q, i) => `Query [${i + 1}]: ${q}\n\n${salaryResults[i].text}`)
-      .join("\n\n---\n\n");
-
-    parts.push(
-      `=== PRE-SEARCHED SALARY DATA FOR ${country.toUpperCase()} (${role}) ===\n` +
-      `IMPORTANT: Use local currency (${currency}) for local salary figures. ` +
-      `Cross-reference all ${salaryQueries.length} queries — pick the figures that appear most consistently, ` +
-      `not the highest or most optimistic. Entry-level/junior figures are most relevant for career starters.\n\n` +
-      salaryBlock
-    );
-
-    const marketBlock = marketQueries
-      .map((q, i) => `Query [${i + 1}]: ${q}\n\n${marketResults[i].text}`)
-      .join("\n\n---\n\n");
-
-    parts.push(`=== PRE-SEARCHED JOB MARKET DATA FOR ${country.toUpperCase()} ===\n\n${marketBlock}`);
-  }
-
-  return { contextBlock: parts.join("\n\n---\n\n"), urls: allUrls };
-}
 
 async function generatePlan(messages: Message[], timezone?: string): Promise<string> {
-  type GroqMessage = Groq.Chat.Completions.ChatCompletionMessageParam;
-
-  // Pre-run all searches via Groq Compound (AI deep search) — courses, salary, market
-  const { contextBlock, urls: preUrls } = await preSeedSearches(messages);
-  const allSearchUrls = new Set<string>(preUrls);
-
   const systemContent = getSystemPrompt(timezone);
-  const history: GroqMessage[] = [
-    { role: "system", content: systemContent },
-    ...messages,
-  ];
 
-  // Inject pre-searched data. Course URLs come from the catalog — the
-  // model generates the plan directly from this rich context.
-  if (contextBlock) {
-    const hasCatalog = contextBlock.includes("COURSE URL CATALOG");
-    history.push({
-      role: "user",
-      content:
-        `[BACKGROUND RESEARCH — real data gathered via AI deep search before plan generation]\n\n${contextBlock}\n\n` +
-        (hasCatalog
-          ? `COURSE URLS: The "COURSE URL CATALOG" above contains real, verified course pages. ` +
-            `You MUST use ONLY URLs from that catalog in courseRecommendations. ` +
-            `Copy each URL exactly as listed — zero characters changed. ` +
-            `Do NOT construct or guess any course URL.\n\n`
-          : ``) +
-        `SALARY DATA: Use the pre-searched salary figures above. Generate the plan immediately.`,
-    });
-  }
-
-  const response = await client.chat.completions.create({
-    model: "openai/gpt-oss-120b",
-    max_tokens: 10000,
-    messages: history,
+  // Claude runs the web_search tool inline (capped at max_uses to control cost),
+  // feeds results back into the same turn, then emits the full plan JSON.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const response = await (client.messages.create as any)({
+    model: CLAUDE_MODEL,
+    max_tokens: 8192,
+    system: [
+      {
+        type: "text",
+        text: systemContent,
+        cache_control: { type: "ephemeral" },
+      },
+    ],
+    tools: [
+      {
+        type: "web_search_20250305",
+        name: "web_search",
+        max_uses: 5,
+      },
+    ],
+    messages: messages.map((m) => ({ role: m.role, content: m.content })),
   });
 
-  return sanitizePlanUrls(response.choices[0].message.content ?? "", allSearchUrls);
+  const searchedUrls = new Set<string>();
+  let finalText = "";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const block of response.content as any[]) {
+    if (block.type === "text") {
+      finalText += block.text ?? "";
+    } else if (block.type === "web_search_tool_result") {
+      const items = block.content;
+      if (Array.isArray(items)) {
+        for (const item of items) {
+          if (item?.url && typeof item.url === "string") {
+            searchedUrls.add(item.url);
+          }
+        }
+      }
+    }
+  }
+
+  console.log(`[Claude web_search] plan generation → ${searchedUrls.size} URLs collected`);
+  return sanitizePlanUrls(finalText, searchedUrls);
 }
 
 export async function POST(req: NextRequest) {
@@ -1215,27 +782,35 @@ export async function POST(req: NextRequest) {
           const scenarioNote = scenario
             ? `\n\n═══════════════════════════════════════════\nUSER SELECTED FOCUS AREA\n═══════════════════════════════════════════\nThe user has selected their focus area before starting: "${scenario}". Tailor your opening question, conversation, and final roadmap to align with this intent. You do NOT need to ask them about their focus — it is already known.\n`
             : "";
-          const stream = await client.chat.completions.create({
-            model: "llama-3.3-70b-versatile",
+          const stream = client.messages.stream({
+            model: CLAUDE_MODEL,
             max_tokens: 2048,
-            messages: [
-              { role: "system", content: getConversationPrompt(timezone) + scenarioNote + skipNote },
-              ...messages,
+            system: [
+              {
+                type: "text",
+                text: getConversationPrompt(timezone) + scenarioNote + skipNote,
+                cache_control: { type: "ephemeral" },
+              },
             ],
-            stream: true,
+            messages: messages.map((m) => ({ role: m.role, content: m.content })),
           });
 
-          for await (const chunk of stream) {
-            const text = chunk.choices[0]?.delta?.content ?? "";
-            if (text) {
-              wroteAnything = true;
-              controller.enqueue(encoder.encode(text));
+          for await (const event of stream) {
+            if (
+              event.type === "content_block_delta" &&
+              event.delta.type === "text_delta"
+            ) {
+              const text = event.delta.text;
+              if (text) {
+                wroteAnything = true;
+                controller.enqueue(encoder.encode(text));
+              }
             }
           }
           controller.close();
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          console.error("[chat:isInit] Groq streaming error:", msg, err);
+          console.error("[chat:isInit] Claude streaming error:", msg, err);
           // Emit a user-visible error instead of closing silently so the
           // client's reader doesn't throw and lose the diagnostic.
           if (!wroteAnything) {
