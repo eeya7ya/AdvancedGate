@@ -1,5 +1,6 @@
 import { auth } from "~/auth";
 import { getUserRoadmap, getScheduleTracking } from "@/lib/db";
+import { isValidPlan } from "@/lib/plan";
 import { ScheduleClient } from "./schedule-client";
 import Link from "next/link";
 import { Brain, ArrowRight } from "lucide-react";
@@ -10,7 +11,7 @@ export default async function SchedulePage() {
   const roadmapData = userId ? await getUserRoadmap(userId) : null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const plan = roadmapData?.planJson as any ?? null;
+  const plan = isValidPlan(roadmapData?.planJson) ? (roadmapData?.planJson as any) : null;
 
   if (!plan) {
     return (
