@@ -98,6 +98,34 @@ function getTextDir(text: string): "rtl" | "ltr" {
 }
 
 /* ── Helpers ────────────────────────────────────────────────────── */
+// Shape-check a plan before storing/rendering. Rejects partial/truncated plans
+// so a missing field can never tear down PlanView at render time.
+function isValidPlan(x: unknown): x is LearningPlan {
+  if (!x || typeof x !== "object") return false;
+  const p = x as Record<string, unknown>;
+  if (p.type !== "LEARNING_PLAN") return false;
+
+  const profile = p.profile as Record<string, unknown> | undefined;
+  if (!profile || typeof profile.name !== "string" || typeof profile.summary !== "string") return false;
+
+  const tf = p.todaysFocus as Record<string, unknown> | undefined;
+  if (!tf || typeof tf.topic !== "string" || typeof tf.reason !== "string" ||
+      typeof tf.duration !== "string" || typeof tf.action !== "string") return false;
+
+  if (!Array.isArray(p.priorities)) return false;
+  for (const item of p.priorities) {
+    if (!item || typeof item !== "object") return false;
+    const pr = item as Record<string, unknown>;
+    if (typeof pr.topic !== "string") return false;
+  }
+
+  if (!Array.isArray(p.timeAllocation)) return false;
+  if (!Array.isArray(p.topicConnections)) return false;
+  if (!Array.isArray(p.nextSteps)) return false;
+
+  return true;
+}
+
 function parsePlan(text: string): LearningPlan | null {
   try {
     let cleaned = text.trim();
@@ -111,8 +139,7 @@ function parsePlan(text: string): LearningPlan | null {
     const end = json.lastIndexOf("}");
     if (end === -1) return null;
     const parsed = JSON.parse(json.slice(0, end + 1));
-    if (parsed.type === "LEARNING_PLAN") return parsed as LearningPlan;
-    return null;
+    return isValidPlan(parsed) ? parsed : null;
   } catch {
     return null;
   }
@@ -956,6 +983,30 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
   const { lang } = useLang();
   const ar = lang === "ar";
 
+  // Last-resort guard: if something upstream slipped a malformed plan past isValidPlan
+  // (e.g. stale cache from an older build), render a recovery screen instead of throwing.
+  if (!isValidPlan(plan)) {
+    return (
+      <div className="max-w-xl mx-auto py-16 text-center space-y-4">
+        <h2 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
+          {ar ? "الخطة المحفوظة غير مكتملة" : "Saved plan looks incomplete"}
+        </h2>
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+          {ar
+            ? "حدث خطأ أثناء حفظ خطتك السابقة. ابدأ جلسة جديدة لإعادة إنشائها."
+            : "Your previous plan was saved incomplete. Start a new session to rebuild it."}
+        </p>
+        <button
+          onClick={onReset}
+          className="px-4 py-2 rounded-xl text-sm font-semibold"
+          style={{ background: "linear-gradient(135deg, #f97316, #fb923c)", color: "#0f0600" }}
+        >
+          {td("restart", ar)}
+        </button>
+      </div>
+    );
+  }
+
   // Embedded chat state
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
   const [chatInput, setChatInput] = useState("");
@@ -1287,8 +1338,8 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
     const cached = sessionStorage.getItem(CACHE_KEY);
     if (cached) {
       try {
-        const parsed = JSON.parse(cached) as LearningPlan;
-        if (parsed?.type === "LEARNING_PLAN") {
+        const parsed: unknown = JSON.parse(cached);
+        if (isValidPlan(parsed)) {
           setPlan(parsed);
           setPhase("plan");
           setIsInitializing(false);
@@ -1296,16 +1347,18 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
           fetch("/api/user/roadmap")
             .then((r) => r.ok ? r.json() : null)
             .then((data) => {
-              if (data?.planJson && (data.planJson as LearningPlan).type === "LEARNING_PLAN") {
+              if (data?.planJson && isValidPlan(data.planJson)) {
                 sessionStorage.setItem(CACHE_KEY, JSON.stringify(data.planJson));
               } else {
-                // Plan was deleted externally — clear cache + reset
+                // Plan was deleted externally or is corrupted — clear cache + reset
                 sessionStorage.removeItem(CACHE_KEY);
               }
             })
             .catch(() => {});
           return;
         }
+        // Cached blob is corrupt (partial/truncated) — drop it and fall through to fresh fetch
+        sessionStorage.removeItem(CACHE_KEY);
       } catch {
         sessionStorage.removeItem(CACHE_KEY);
       }
@@ -1316,12 +1369,12 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
     fetch("/api/user/roadmap")
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
-        if (data?.planJson && (data.planJson as LearningPlan).type === "LEARNING_PLAN") {
+        if (data?.planJson && isValidPlan(data.planJson)) {
           sessionStorage.setItem(CACHE_KEY, JSON.stringify(data.planJson));
-          setPlan(data.planJson as LearningPlan);
+          setPlan(data.planJson);
           setPhase("plan");
         } else if (!introSeen) {
-          // First visit — show full intro
+          // First visit (or stored plan is corrupt) — show full intro
           setShowIntro(true);
         }
         // else: intro already seen this session → show WelcomeScreen directly
