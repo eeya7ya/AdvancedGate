@@ -97,6 +97,7 @@ export async function POST(req: NextRequest) {
 
   const readable = new ReadableStream({
     async start(controller) {
+      let wroteAnything = false;
       try {
         const stream = await client.chat.completions.create({
           model: "llama-3.3-70b-versatile",
@@ -110,11 +111,19 @@ export async function POST(req: NextRequest) {
 
         for await (const chunk of stream) {
           const text = chunk.choices[0]?.delta?.content ?? "";
-          if (text) controller.enqueue(encoder.encode(text));
+          if (text) {
+            wroteAnything = true;
+            controller.enqueue(encoder.encode(text));
+          }
         }
         controller.close();
       } catch (err) {
-        controller.error(err);
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("[advisor] Groq streaming error:", msg, err);
+        if (!wroteAnything) {
+          controller.enqueue(encoder.encode(`Sorry — the AI service returned an error: ${msg}`));
+        }
+        controller.close();
       }
     },
   });

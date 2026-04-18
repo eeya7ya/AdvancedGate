@@ -1155,6 +1155,7 @@ export async function POST(req: NextRequest) {
     // Conversational phase + plan generation — stream directly
     const readable = new ReadableStream({
       async start(controller) {
+        let wroteAnything = false;
         try {
           const scenarioNote = scenario
             ? `\n\n═══════════════════════════════════════════\nUSER SELECTED FOCUS AREA\n═══════════════════════════════════════════\nThe user has selected their focus area before starting: "${scenario}". Tailor your opening question, conversation, and final roadmap to align with this intent. You do NOT need to ask them about their focus — it is already known.\n`
@@ -1171,11 +1172,21 @@ export async function POST(req: NextRequest) {
 
           for await (const chunk of stream) {
             const text = chunk.choices[0]?.delta?.content ?? "";
-            if (text) controller.enqueue(encoder.encode(text));
+            if (text) {
+              wroteAnything = true;
+              controller.enqueue(encoder.encode(text));
+            }
           }
           controller.close();
         } catch (err) {
-          controller.error(err);
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error("[chat:isInit] Groq streaming error:", msg, err);
+          // Emit a user-visible error instead of closing silently so the
+          // client's reader doesn't throw and lose the diagnostic.
+          if (!wroteAnything) {
+            controller.enqueue(encoder.encode(`Sorry — the AI service returned an error: ${msg}`));
+          }
+          controller.close();
         }
       },
     });
