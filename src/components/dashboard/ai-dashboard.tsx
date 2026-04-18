@@ -150,31 +150,52 @@ function looksLikePlanAttempt(text: string): boolean {
   return t.startsWith("{") || t.startsWith("```") || t.includes('"type": "LEARNING_PLAN"');
 }
 
-// Dev-only: generate a random synthetic user bio and ship it straight at the plan-generation
-// endpoint so we can test real Groq responses without hand-typing a full advisor conversation.
+// Dev-only hardcoded plan — lets you skip the AI flow and exercise the UI without burning tokens.
 // Guarded by a localhost hostname check at the button site so it never surfaces in production.
-const DEV_PERSONAS = [
-  { name: "Ahmad Nassar",  country: "Jordan",     status: "an employed electrical engineer", goal: "transition into smart-building integration with KNX and CCNA", hours: 3 },
-  { name: "Layla Haddad",  country: "UAE",        status: "a fresh graduate",                  goal: "break into renewable-energy project management",                hours: 4 },
-  { name: "Omar Khatib",   country: "Egypt",      status: "a university student in year 3",    goal: "land a networking internship and finish CCNA this summer",      hours: 2 },
-  { name: "Sara Mansour",  country: "Saudi Arabia", status: "a working technician",            goal: "become a power-systems protection engineer",                    hours: 2 },
-  { name: "Yusuf Rahman",  country: "Qatar",      status: "an employed IT support tech",       goal: "pivot to cybersecurity — CCNA then Security+",                  hours: 3 },
-  { name: "Nadia Farouk",  country: "Morocco",    status: "a freelancer",                      goal: "learn PLC programming and industrial automation",               hours: 5 },
-];
-
-function buildRandomDevConversation(): Message[] {
-  const p = DEV_PERSONAS[Math.floor(Math.random() * DEV_PERSONAS.length)];
-  // Single-shot user message with all the info the plan generator needs.
-  return [
-    {
-      role: "user",
-      content:
-        `Hi, I'm ${p.name} from ${p.country}. I'm ${p.status} and my goal is to ${p.goal}. ` +
-        `I can dedicate about ${p.hours} hours a day and I'd like a learning plan targeting the local market. ` +
-        `Please generate my full personalized plan now.`,
-    },
-  ];
-}
+const DEV_MOCK_PLAN: LearningPlan = {
+  type: "LEARNING_PLAN",
+  profile: {
+    name: "Dev User",
+    country: "Jordan",
+    targetMarket: "Local",
+    workStyle: "Employed",
+    summary: "Dev mock: a sample Jordanian professional moving into power systems / networking. Used only for local UI testing.",
+  },
+  marketInsights: {
+    localDemand: "High — utilities and smart-building integrators are hiring.",
+    globalDemand: "Strong across MENA and EU renewables.",
+    salaryRange: "800–1500 JOD/mo locally",
+    recommendation: "Pair KNX with CCNA to stand out in smart-building roles.",
+  },
+  todaysFocus: {
+    topic: "CCNA — Subnetting drills",
+    reason: "Subnetting is the most-tested CCNA skill and unlocks the rest of routing.",
+    duration: "45 min",
+    action: "Do 20 VLSM practice problems on subnettingpractice.com",
+  },
+  priorities: [
+    { topic: "CCNA",       score: 85, description: "Core networking cert",  color: "#f97316" },
+    { topic: "KNX",        score: 70, description: "Smart-building skill",  color: "#a78bfa" },
+    { topic: "Power Basics", score: 55, description: "Foundational",         color: "#4ade80" },
+  ],
+  timeAllocation: [
+    { subject: "CCNA",        percentage: 50, color: "#f97316", hours: 1.5 },
+    { subject: "KNX",         percentage: 30, color: "#a78bfa", hours: 1.0 },
+    { subject: "Power Basics", percentage: 20, color: "#4ade80", hours: 0.5 },
+  ],
+  courseRecommendations: [
+    { title: "Cisco CCNA 200-301 Complete Course", platform: "Udemy",  instructor: "Neil Anderson", estimatedHours: 40, level: "Intermediate", focus: "Routing & switching", phase: "Phase 1", url: "https://www.udemy.com/course/ccna-complete/", sourceType: "paid",   hasCertificate: true  },
+    { title: "KNX Basic Certification",              platform: "KNX Association", instructor: "KNX", estimatedHours: 30, level: "Beginner",     focus: "Smart buildings",    phase: "Phase 2", url: "https://www.knx.org/knx-en/for-professionals/training/", sourceType: "official", hasCertificate: true },
+  ],
+  topicConnections: [
+    { from: "CCNA", to: "KNX", bridge: "IP-based building automation leans on networking fundamentals." },
+  ],
+  nextSteps: [
+    "Finish CCNA subnetting module this week.",
+    "Enroll in KNX Basic Certification.",
+    "Build a home lab with Packet Tracer.",
+  ],
+};
 
 /* ── Translations ───────────────────────────────────────────────── */
 const D: Record<string, { en: string; ar: string }> = {
@@ -1750,53 +1771,14 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
           <WelcomeScreen
             key="welcome"
             onStart={startInterview}
-            onDevMock={async () => {
-              const convo = buildRandomDevConversation();
-              setPhase("chat");
-              setMessages(convo);
-              setIsLoading(true);
-              setStreamedText("");
-              streamBufferRef.current = "";
-              try {
-                const res = await fetch("/api/ai/chat", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  // Omit isInit → hits the Tavily + Groq plan-generation path.
-                  body: JSON.stringify({ messages: convo }),
-                });
-                if (!res.ok || !res.body) {
-                  const body = await res.text().catch(() => "");
-                  setMessages([...convo, { role: "assistant", content: `[dev] Groq request failed: ${res.status} ${body}` }]);
-                  return;
-                }
-                const reader = res.body.getReader();
-                const decoder = new TextDecoder();
-                while (true) {
-                  const { done, value } = await reader.read();
-                  if (done) break;
-                  streamBufferRef.current += decoder.decode(value, { stream: true });
-                  setStreamedText(streamBufferRef.current);
-                }
-                const full = streamBufferRef.current;
-                const parsed = parsePlan(full);
-                if (parsed) {
-                  setPlan(parsed);
-                  setPhase("plan");
-                  setMessages([...convo, { role: "assistant", content: full }]);
-                  fetch("/api/user/roadmap", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ plan: parsed }),
-                  }).catch(() => null);
-                } else {
-                  setMessages([...convo, { role: "assistant", content: full }]);
-                }
-              } catch (err) {
-                setMessages([...convo, { role: "assistant", content: `[dev] request threw: ${err instanceof Error ? err.message : String(err)}` }]);
-              } finally {
-                setIsLoading(false);
-                setStreamedText("");
-              }
+            onDevMock={() => {
+              setPlan(DEV_MOCK_PLAN);
+              setPhase("plan");
+              fetch("/api/user/roadmap", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ plan: DEV_MOCK_PLAN }),
+              }).catch(() => null);
             }}
           />
         )}
