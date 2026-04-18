@@ -1094,7 +1094,7 @@ async function generatePlan(messages: Message[], timezone?: string): Promise<str
   }
 
   const response = await client.chat.completions.create({
-    model: "moonshotai/kimi-k2-instruct",
+    model: "openai/gpt-oss-120b",
     max_tokens: 10000,
     messages: history,
   });
@@ -1146,7 +1146,7 @@ export async function POST(req: NextRequest) {
             ? `\n\n═══════════════════════════════════════════\nUSER SELECTED FOCUS AREA\n═══════════════════════════════════════════\nThe user has selected their focus area before starting: "${scenario}". Tailor your opening question, conversation, and final roadmap to align with this intent. You do NOT need to ask them about their focus — it is already known.\n`
             : "";
           const stream = await client.chat.completions.create({
-            model: "moonshotai/kimi-k2-instruct",
+            model: "openai/gpt-oss-120b",
             max_tokens: 8192,
             messages: [
               { role: "system", content: getSystemPrompt(timezone) + scenarioNote },
