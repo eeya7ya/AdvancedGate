@@ -1,4 +1,4 @@
-import Groq from "groq-sdk";
+import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "~/auth";
 import { getCachedLink, setCachedLink } from "@/lib/runtime-cache";
@@ -7,9 +7,9 @@ import { getUserApiSpent, addUserApiCost, getCachedCourseLink, setCachedCourseLi
 // Per-user budget cap in USD
 const USER_BUDGET_USD = 0.70;
 
-// Groq groq/compound pricing (search tool included in model cost)
-const COST_PER_INPUT_TOKEN  = 0.15 / 1_000_000; // $0.15 / MTok
-const COST_PER_OUTPUT_TOKEN = 0.75 / 1_000_000; // $0.75 / MTok
+// Claude Haiku 4.5 pricing
+const COST_PER_INPUT_TOKEN  = 1.00 / 1_000_000; // $1.00 / MTok
+const COST_PER_OUTPUT_TOKEN = 5.00 / 1_000_000; // $5.00 / MTok
 
 function calcCost(inputTokens: number, outputTokens: number): number {
   return (
@@ -18,7 +18,8 @@ function calcCost(inputTokens: number, outputTokens: number): number {
   );
 }
 
-const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const client = new Anthropic();
+const MODEL = "claude-haiku-4-5";
 
 /* ── URL helpers ─────────────────────────────────────────────────────── */
 
@@ -153,7 +154,7 @@ function isArabicCountry(country: string): boolean {
   return ARABIC_COUNTRIES.has(country.toLowerCase().trim());
 }
 
-/* ── Groq Compound web search ────────────────────────────────────────── */
+/* ── Claude Haiku + web_search tool ──────────────────────────────────── */
 async function findCourseLink(
   title: string,
   platform: string,
@@ -166,7 +167,7 @@ async function findCourseLink(
   const query = [title, instructor, platform].filter(Boolean).join(" ");
 
   const systemPrompt =
-    "You are a course URL finder. Use web search to find the exact enrollment or watch URL for the requested course. " +
+    "You are a course URL finder. Use the web_search tool to find the exact enrollment or watch URL for the requested course. " +
     "Priority: (1) official vendor site (cisco.com/learning, learn.microsoft.com, aws.amazon.com/training, cloudskillsboost.google, netacad.com), " +
     "(2) trusted platforms (Coursera, Udemy, edX, LinkedIn Learning, YouTube). " +
     (isArabic ? "Prefer Arabic-language versions when available on official sites or YouTube. " : "") +
@@ -179,53 +180,53 @@ async function findCourseLink(
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await (client.chat.completions.create as any)({
-      model: "groq/compound",
-      max_tokens: 300,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user",   content: userMessage },
+    const response = await (client.messages.create as any)({
+      model: MODEL,
+      max_tokens: 512,
+      system: systemPrompt,
+      tools: [
+        { type: "web_search_20250305", name: "web_search", max_uses: 2 },
       ],
+      messages: [{ role: "user", content: userMessage }],
     });
 
-    const choice   = response.choices?.[0];
-    const message  = choice?.message;
-    const content  = (message?.content ?? "") as string;
-
-    // The model's explicitly chosen URL (text response) — highest confidence
-    let modelUrl = "";
-    // Fallback pool: URLs extracted from Compound's executed search results + text
+    let textContent = "";
     const searchUrls: string[] = [];
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const executedTools = (message as any)?.executed_tools;
-    if (Array.isArray(executedTools)) {
-      for (const tool of executedTools) {
-        const results = tool.search_results?.results;
-        if (Array.isArray(results)) {
-          for (const r of results) {
-            if (r.url) searchUrls.push(r.url.replace(/[.,;:!?)]+$/, ""));
+    for (const block of response.content as any[]) {
+      if (block.type === "text") {
+        textContent += block.text ?? "";
+      } else if (block.type === "web_search_tool_result") {
+        const items = block.content;
+        if (Array.isArray(items)) {
+          for (const item of items) {
+            if (item?.url && typeof item.url === "string") {
+              searchUrls.push(item.url.replace(/[.,;:!?)]+$/, ""));
+            }
           }
         }
       }
     }
 
+    // The model's explicitly chosen URL (first URL in text) — highest confidence
+    let modelUrl = "";
     const URL_RE = /https?:\/\/[^\s"'<>\])}]+/g;
-    const matches = content.match(URL_RE) ?? [];
+    const matches = textContent.match(URL_RE) ?? [];
     for (const u of matches) {
       const clean = u.replace(/[.,;:!?)]+$/, "");
-      if (!modelUrl) modelUrl = clean;               // first URL = model's pick
+      if (!modelUrl) modelUrl = clean;
       if (!searchUrls.includes(clean)) searchUrls.push(clean);
     }
 
     const cost = calcCost(
-      response.usage?.prompt_tokens     ?? 0,
-      response.usage?.completion_tokens ?? 0,
+      response.usage?.input_tokens  ?? 0,
+      response.usage?.output_tokens ?? 0,
     );
 
     return { urls: searchUrls, modelUrl, cost };
   } catch (err) {
-    console.error("[course-link] Groq Compound search error:", err);
+    console.error("[course-link] Claude web_search error:", err);
     return { urls: [], modelUrl: "", cost: 0 };
   }
 }
