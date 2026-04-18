@@ -145,9 +145,13 @@ function parsePlan(text: string): LearningPlan | null {
   }
 }
 
+// Minimal signal regex: matches `"type":"LEARNING_PLAN"` with any whitespace
+// variant and either quote style. The conversational turn emits this as the
+// trigger for full plan generation (with or without surrounding prose / fences).
+const PLAN_SIGNAL_REGEX = /["']type["']\s*:\s*["']LEARNING_PLAN["']/;
+
 function looksLikePlanAttempt(text: string): boolean {
-  const t = text.trim();
-  return t.startsWith("{") || t.startsWith("```") || t.includes('"type": "LEARNING_PLAN"');
+  return PLAN_SIGNAL_REGEX.test(text);
 }
 
 // Dev-only hardcoded plan — lets you skip the AI flow and exercise the UI without burning tokens.
@@ -1494,112 +1498,63 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
       }
       const full = streamBufferRef.current;
 
-      // Check if it's a learning plan
+      // A valid full plan, or the minimal "signal" JSON, both mean: generate now.
+      // Hide the raw JSON from the chat thread — the user should never see it.
+      // streamedText stays set to `full` so TypingIndicator keeps showing
+      // "Crafting your personalized roadmap..." while we build the real plan.
       const detected = parsePlan(full);
-      if (detected) {
-        // Keep loading — wait for Tavily-enriched plan (with real course links) before showing anything
-        setIsLoading(true);
-        const tavilyController = new AbortController();
-        const tavilyTimeout = setTimeout(() => tavilyController.abort(), 150000);
-        fetch("/api/ai/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: newMessages }), // isInit omitted → false → Tavily path
-          signal: tavilyController.signal,
-        })
-          .then(async (r) => {
-            clearTimeout(tavilyTimeout);
-            if (!r.ok || !r.body) {
-              // Fall back to initial plan if Tavily fails
-              setPlan(detected);
-              setPhase("plan");
-              setMessages([...newMessages, { role: "assistant", content: full }]);
-              fetch("/api/user/roadmap", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ plan: detected }),
-              }).catch(() => null);
-              return;
-            }
-            const tavilyReader = r.body.getReader();
-            const tavilyDecoder = new TextDecoder();
-            let tavilyText = "";
+      const hasSignal = detected !== null || looksLikePlanAttempt(full);
+
+      if (hasSignal) {
+        const applyPlan = (plan: LearningPlan) => {
+          setPlan(plan);
+          setPhase("plan");
+          fetch("/api/user/roadmap", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ plan }),
+          }).catch(() => null);
+        };
+
+        const genController = new AbortController();
+        const genTimeout = setTimeout(() => genController.abort(), 150000);
+        let genText = "";
+        try {
+          const r = await fetch("/api/ai/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages: newMessages }), // isInit omitted → full plan path
+            signal: genController.signal,
+          });
+          if (r.ok && r.body) {
+            const genReader = r.body.getReader();
+            const genDecoder = new TextDecoder();
             while (true) {
-              const { done, value } = await tavilyReader.read();
+              const { done, value } = await genReader.read();
               if (done) break;
-              tavilyText += tavilyDecoder.decode(value, { stream: true });
+              genText += genDecoder.decode(value, { stream: true });
             }
-            const enrichedPlan = parsePlan(tavilyText);
-            if (enrichedPlan) {
-              setPlan(enrichedPlan);
-              setPhase("plan");
-              setMessages([...newMessages, { role: "assistant", content: tavilyText }]);
-              fetch("/api/user/roadmap", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ plan: enrichedPlan }),
-              }).catch(() => null);
-            } else {
-              // Tavily response malformed — fall back to initial plan
-              setPlan(detected);
-              setPhase("plan");
-              setMessages([...newMessages, { role: "assistant", content: full }]);
-              fetch("/api/user/roadmap", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ plan: detected }),
-              }).catch(() => null);
-            }
-          })
-          .catch(() => {
-            clearTimeout(tavilyTimeout);
-            // On timeout/error fall back to initial plan
-            setPlan(detected);
-            setPhase("plan");
-            setMessages([...newMessages, { role: "assistant", content: full }]);
-            fetch("/api/user/roadmap", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ plan: detected }),
-            }).catch(() => null);
-          })
-          .finally(() => setIsLoading(false));
-      } else if (looksLikePlanAttempt(full)) {
-        // Plan JSON was malformed/truncated — auto-retry via the full Tavily generation path silently
-        setIsLoading(true);
-        const retryController = new AbortController();
-        const retryTimeout = setTimeout(() => retryController.abort(), 150000);
-        fetch("/api/ai/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: newMessages }), // isInit omitted → full Tavily plan path
-          signal: retryController.signal,
-        })
-          .then(async (r) => {
-            clearTimeout(retryTimeout);
-            if (!r.ok || !r.body) return;
-            const retryReader = r.body.getReader();
-            const retryDecoder = new TextDecoder();
-            let retryText = "";
-            while (true) {
-              const { done, value } = await retryReader.read();
-              if (done) break;
-              retryText += retryDecoder.decode(value, { stream: true });
-            }
-            const retryPlan = parsePlan(retryText);
-            if (retryPlan) {
-              setPlan(retryPlan);
-              setPhase("plan");
-              setMessages([...newMessages, { role: "assistant" as const, content: retryText }]);
-              fetch("/api/user/roadmap", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ plan: retryPlan }),
-              }).catch(() => null);
-            }
-          })
-          .catch(() => { clearTimeout(retryTimeout); })
-          .finally(() => setIsLoading(false));
+          }
+        } catch {
+          // Timeout or network error — fall through to detected-plan fallback below
+        } finally {
+          clearTimeout(genTimeout);
+        }
+
+        const enrichedPlan = parsePlan(genText);
+        if (enrichedPlan) applyPlan(enrichedPlan);
+        else if (detected) applyPlan(detected);
+        else {
+          setMessages([
+            ...newMessages,
+            {
+              role: "assistant",
+              content: lang === "ar"
+                ? "عذراً، لم أتمكن من إنشاء خارطة الطريق الآن. حاول مرة أخرى خلال لحظة."
+                : "Sorry — I couldn't build your roadmap just now. Give it another try in a moment.",
+            },
+          ]);
+        }
       } else {
         setMessages([...newMessages, { role: "assistant", content: full }]);
       }
@@ -1609,7 +1564,7 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
       setIsLoading(false);
       setStreamedText("");
     }
-  }, [messages, isLoading]);
+  }, [messages, isLoading, lang]);
 
   const startInterview = useCallback(async (scenarioLabel?: string) => {
     setPhase("chat");
