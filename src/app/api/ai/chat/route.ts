@@ -518,11 +518,21 @@ interface SearchResult {
   urls: string[];
 }
 
-async function webSearch(query: string): Promise<SearchResult> {
+// `groq/compound` is the full-power search+reasoning model. `groq/compound-mini`
+// is the lighter variant — good enough for simple lookups like salary/market
+// queries, noticeably cheaper and faster. Course-URL discovery still uses
+// full compound because URL selection quality matters most there.
+type CompoundTier = "full" | "mini";
+const COMPOUND_MODEL: Record<CompoundTier, string> = {
+  full: "groq/compound",
+  mini: "groq/compound-mini",
+};
+
+async function webSearch(query: string, tier: CompoundTier = "full"): Promise<SearchResult> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const response = await (client.chat.completions.create as any)({
-      model: "groq/compound",
+      model: COMPOUND_MODEL[tier],
       messages: [
         {
           role: "system",
@@ -589,10 +599,10 @@ async function webSearch(query: string): Promise<SearchResult> {
       formattedText = `Summary: ${content}\n\n${formattedText}`;
     }
 
-    console.log(`[Groq Compound] "${query}" → ${urls.length} URLs found`);
+    console.log(`[Groq Compound:${tier}] "${query}" → ${urls.length} URLs found`);
     return { text: formattedText, urls };
   } catch (err) {
-    console.error("[Groq Compound] Search error:", err);
+    console.error(`[Groq Compound:${tier}] Search error:`, err);
     return { text: "Search unavailable.", urls: [] };
   }
 }
@@ -979,8 +989,12 @@ async function preSeedSearches(
   ] : [];
 
   // ── Fire EVERYTHING in parallel ────────────────────────────────────────────
-  const allQueries = [...courseQueries, ...salaryQueries, ...marketQueries];
-  const results = await Promise.all(allQueries.map((q) => webSearch(q)));
+  // Course URL discovery uses the full compound model (URL quality matters).
+  // Salary + market lookups use compound-mini (simpler fact-gathering).
+  const courseJobs  = courseQueries.map((q) => webSearch(q, "full"));
+  const salaryJobs  = salaryQueries.map((q) => webSearch(q, "mini"));
+  const marketJobs  = marketQueries.map((q) => webSearch(q, "mini"));
+  const results = await Promise.all([...courseJobs, ...salaryJobs, ...marketJobs]);
   results.forEach((r) => r.urls.forEach((u) => allUrls.add(u)));
 
   const courseResults  = results.slice(0, courseQueries.length);
@@ -1094,7 +1108,7 @@ async function generatePlan(messages: Message[], timezone?: string): Promise<str
   }
 
   const response = await client.chat.completions.create({
-    model: "moonshotai/kimi-k2-instruct",
+    model: "openai/gpt-oss-120b",
     max_tokens: 10000,
     messages: history,
   });
@@ -1146,7 +1160,7 @@ export async function POST(req: NextRequest) {
             ? `\n\n═══════════════════════════════════════════\nUSER SELECTED FOCUS AREA\n═══════════════════════════════════════════\nThe user has selected their focus area before starting: "${scenario}". Tailor your opening question, conversation, and final roadmap to align with this intent. You do NOT need to ask them about their focus — it is already known.\n`
             : "";
           const stream = await client.chat.completions.create({
-            model: "moonshotai/kimi-k2-instruct",
+            model: "openai/gpt-oss-120b",
             max_tokens: 8192,
             messages: [
               { role: "system", content: getSystemPrompt(timezone) + scenarioNote },
