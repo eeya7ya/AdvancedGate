@@ -1,8 +1,8 @@
-import Anthropic from "@anthropic-ai/sdk";
+import Groq from "groq-sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "~/auth";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export interface QuizQuestion {
   id: number;
@@ -101,15 +101,21 @@ ${lectureNotes ? `\nLearner's notes from this lecture:\n${lectureNotes}` : ""}
 Generate 5 multiple-choice questions to reinforce the learner's understanding.`;
 
   try {
-    const message = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
+    // qwen/qwen3-32b has native reasoning. reasoning_format:"hidden" keeps
+    // the <think> content out of `content` so the JSON parser sees clean JSON.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const message = await (client.chat.completions.create as any)({
+      model: "qwen/qwen3-32b",
       max_tokens: 2048,
+      reasoning_effort: "default",
+      reasoning_format: "hidden",
       messages: [
-        { role: "user", content: `${systemPrompt}\n\n${userPrompt}` },
+        { role: "system", content: systemPrompt },
+        { role: "user",   content: userPrompt   },
       ],
     });
 
-    let raw = message.content[0]?.type === "text" ? message.content[0].text : "";
+    let raw = (message.choices[0]?.message?.content ?? "") as string;
 
     // Strip markdown fences if present
     raw = raw.trim();

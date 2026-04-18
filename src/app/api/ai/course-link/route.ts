@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import Groq from "groq-sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "~/auth";
 import { getCachedLink, setCachedLink } from "@/lib/runtime-cache";
@@ -7,20 +7,18 @@ import { getUserApiSpent, addUserApiCost, getCachedCourseLink, setCachedCourseLi
 // Per-user budget cap in USD
 const USER_BUDGET_USD = 0.70;
 
-// Claude Sonnet 4.6 pricing
-const COST_PER_INPUT_TOKEN  = 3    / 1_000_000; // $3 / MTok
-const COST_PER_OUTPUT_TOKEN = 15   / 1_000_000; // $15 / MTok
-const COST_PER_WEB_SEARCH   = 10   / 1_000;     // $10 / 1k searches
+// Groq groq/compound pricing (search tool included in model cost)
+const COST_PER_INPUT_TOKEN  = 0.15 / 1_000_000; // $0.15 / MTok
+const COST_PER_OUTPUT_TOKEN = 0.75 / 1_000_000; // $0.75 / MTok
 
-function calcCost(inputTokens: number, outputTokens: number, webSearches: number): number {
+function calcCost(inputTokens: number, outputTokens: number): number {
   return (
     inputTokens  * COST_PER_INPUT_TOKEN +
-    outputTokens * COST_PER_OUTPUT_TOKEN +
-    webSearches  * COST_PER_WEB_SEARCH
+    outputTokens * COST_PER_OUTPUT_TOKEN
   );
 }
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 /* ── URL helpers ─────────────────────────────────────────────────────── */
 
@@ -155,20 +153,20 @@ function isArabicCountry(country: string): boolean {
   return ARABIC_COUNTRIES.has(country.toLowerCase().trim());
 }
 
-/* ── Claude Sonnet 4.6 web search ────────────────────────────────────── */
+/* ── Groq Compound web search ────────────────────────────────────────── */
 async function findCourseLink(
   title: string,
   platform: string,
   instructor: string,
   country?: string,
-): Promise<{ urls: string[]; claudeUrl: string; cost: number }> {
+): Promise<{ urls: string[]; modelUrl: string; cost: number }> {
   const isArabic = country ? isArabicCountry(country) : false;
   const langHint = isArabic ? "Arabic language (preferred) or English" : "English";
 
   const query = [title, instructor, platform].filter(Boolean).join(" ");
 
   const systemPrompt =
-    "You are a course URL finder. Search for the exact enrollment or watch URL for the requested course. " +
+    "You are a course URL finder. Use web search to find the exact enrollment or watch URL for the requested course. " +
     "Priority: (1) official vendor site (cisco.com/learning, learn.microsoft.com, aws.amazon.com/training, cloudskillsboost.google, netacad.com), " +
     "(2) trusted platforms (Coursera, Udemy, edX, LinkedIn Learning, YouTube). " +
     (isArabic ? "Prefer Arabic-language versions when available on official sites or YouTube. " : "") +
@@ -181,57 +179,54 @@ async function findCourseLink(
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await (anthropic.messages.create as any)({
-      model: "claude-sonnet-4-6",
+    const response = await (client.chat.completions.create as any)({
+      model: "groq/compound",
       max_tokens: 300,
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 1 }],
-      system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
-    }) as Anthropic.Message;
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user",   content: userMessage },
+      ],
+    });
 
-    // Claude's explicitly chosen URL (text response) — highest confidence
-    let claudeUrl = "";
-    // Fallback pool: URLs extracted from raw search results
+    const choice   = response.choices?.[0];
+    const message  = choice?.message;
+    const content  = (message?.content ?? "") as string;
+
+    // The model's explicitly chosen URL (text response) — highest confidence
+    let modelUrl = "";
+    // Fallback pool: URLs extracted from Compound's executed search results + text
     const searchUrls: string[] = [];
-    let webSearchCount = 0;
 
-    const URL_RE = /https?:\/\/[^\s"'<>\])}]+/g;
-
-    for (const block of response.content ?? []) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const b = block as any;
-
-      if (b.type === "web_search_tool_result") {
-        webSearchCount++;
-        const content = b.content;
-        if (Array.isArray(content)) {
-          for (const item of content) {
-            if (item.url) searchUrls.push(item.url.replace(/[.,;:!?)]+$/, ""));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const executedTools = (message as any)?.executed_tools;
+    if (Array.isArray(executedTools)) {
+      for (const tool of executedTools) {
+        const results = tool.search_results?.results;
+        if (Array.isArray(results)) {
+          for (const r of results) {
+            if (r.url) searchUrls.push(r.url.replace(/[.,;:!?)]+$/, ""));
           }
-        }
-      }
-
-      // Claude's own text reply — extract the first URL it stated (its selection)
-      if (b.type === "text") {
-        const matches = (b.text as string).match(URL_RE) ?? [];
-        for (const u of matches) {
-          const clean = u.replace(/[.,;:!?)]+$/, "");
-          if (!claudeUrl) claudeUrl = clean;          // first URL = Claude's pick
-          if (!searchUrls.includes(clean)) searchUrls.push(clean);
         }
       }
     }
 
+    const URL_RE = /https?:\/\/[^\s"'<>\])}]+/g;
+    const matches = content.match(URL_RE) ?? [];
+    for (const u of matches) {
+      const clean = u.replace(/[.,;:!?)]+$/, "");
+      if (!modelUrl) modelUrl = clean;               // first URL = model's pick
+      if (!searchUrls.includes(clean)) searchUrls.push(clean);
+    }
+
     const cost = calcCost(
-      response.usage?.input_tokens ?? 0,
-      response.usage?.output_tokens ?? 0,
-      webSearchCount,
+      response.usage?.prompt_tokens     ?? 0,
+      response.usage?.completion_tokens ?? 0,
     );
 
-    return { urls: searchUrls, claudeUrl, cost };
+    return { urls: searchUrls, modelUrl, cost };
   } catch (err) {
-    console.error("[course-link] Claude search error:", err);
-    return { urls: [], claudeUrl: "", cost: 0 };
+    console.error("[course-link] Groq Compound search error:", err);
+    return { urls: [], modelUrl: "", cost: 0 };
   }
 }
 
@@ -281,7 +276,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url: "", quota_exceeded: true });
   }
 
-  const { urls: allUrls, claudeUrl, cost } = await findCourseLink(title, platform, instructor, country);
+  const { urls: allUrls, modelUrl, cost } = await findCourseLink(title, platform, instructor, country);
 
   // Record cost against this user's budget
   if (cost > 0) await addUserApiCost(userId, cost);
@@ -297,10 +292,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Claude's explicit text response is its highest-confidence selection —
+  // Model's explicit text response is its highest-confidence selection —
   // use it directly if it's a real URL (not a homepage / root path).
-  // Fall back to ranked pool only if Claude's pick looks wrong.
-  const claudeIsGood = claudeUrl && isCoursePage(claudeUrl);
+  // Fall back to ranked pool only if the model's pick looks wrong.
+  const modelPickIsGood = modelUrl && isCoursePage(modelUrl);
 
   // Priority: official site course page → official site → trusted (non-YT) course page →
   //           trusted course page (incl. YT) → any course page → YT → first URL
@@ -314,7 +309,7 @@ export async function POST(req: NextRequest) {
     deduped[0] ??
     "";
 
-  const best = claudeIsGood ? claudeUrl : (rankedBest || claudeUrl);
+  const best = modelPickIsGood ? modelUrl : (rankedBest || modelUrl);
 
   // Fall back to a Google search if nothing was found
   const finalUrl = best || platformSearchUrl(title, platform);

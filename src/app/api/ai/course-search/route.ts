@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import Groq from "groq-sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "~/auth";
 import { subjects } from "@/lib/data";
@@ -7,11 +7,11 @@ import { getUserApiSpent, addUserApiCost } from "@/lib/db";
 // Per-user budget cap in USD
 const USER_BUDGET_USD = 0.70;
 
-// Claude Sonnet 4.6 pricing
-const COST_PER_INPUT_TOKEN  = 3  / 1_000_000; // $3 / MTok
-const COST_PER_OUTPUT_TOKEN = 15 / 1_000_000; // $15 / MTok
+// Groq openai/gpt-oss-120b pricing
+const COST_PER_INPUT_TOKEN  = 0.15 / 1_000_000; // $0.15 / MTok
+const COST_PER_OUTPUT_TOKEN = 0.75 / 1_000_000; // $0.75 / MTok
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export interface CourseSearchResult {
   courseId: string;
@@ -94,27 +94,34 @@ Omit non-matching courses. officialResources may be an empty array if nothing is
   }
 
   try {
-    const message = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const completion = await (client.chat.completions.create as any)({
+      model: "openai/gpt-oss-120b",
       max_tokens: 1500,
-      messages: [{ role: "user", content: userMessage }],
-      system: systemPrompt,
+      reasoning_effort: "medium",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user",   content: userMessage },
+      ],
     });
 
     // Track cost against this user's budget
     const cost =
-      (message.usage?.input_tokens ?? 0)  * COST_PER_INPUT_TOKEN +
-      (message.usage?.output_tokens ?? 0) * COST_PER_OUTPUT_TOKEN;
+      (completion.usage?.prompt_tokens     ?? 0) * COST_PER_INPUT_TOKEN +
+      (completion.usage?.completion_tokens ?? 0) * COST_PER_OUTPUT_TOKEN;
     if (cost > 0) await addUserApiCost(userId, cost);
 
-    const rawText =
-      message.content[0]?.type === "text" ? message.content[0].text : "";
+    let rawText = (completion.choices[0]?.message?.content ?? "").trim();
+    // Strip markdown fences if the model wrapped its JSON
+    if (rawText.startsWith("```")) {
+      rawText = rawText.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/i, "").trim();
+    }
 
     let parsed: { officialResources?: OfficialResource[]; results: { courseId: string; matchReason: string }[]; summary: string };
     try {
       parsed = JSON.parse(rawText);
     } catch {
-      console.error("[course-search] Failed to parse Claude response:", rawText);
+      console.error("[course-search] Failed to parse Groq response:", rawText);
       return NextResponse.json({ error: "Failed to parse AI response" }, { status: 500 });
     }
 
@@ -142,7 +149,7 @@ Omit non-matching courses. officialResources may be an empty array if nothing is
       summary: parsed.summary,
     } satisfies CourseSearchResponse);
   } catch (err) {
-    console.error("[course-search] Anthropic API error:", err);
+    console.error("[course-search] Groq API error:", err);
     return NextResponse.json({ error: "AI search failed" }, { status: 500 });
   }
 }
