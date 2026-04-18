@@ -1,4 +1,4 @@
-import Groq from "groq-sdk";
+import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "~/auth";
 import { subjects } from "@/lib/data";
@@ -7,11 +7,12 @@ import { getUserApiSpent, addUserApiCost } from "@/lib/db";
 // Per-user budget cap in USD
 const USER_BUDGET_USD = 0.70;
 
-// Groq openai/gpt-oss-120b pricing
-const COST_PER_INPUT_TOKEN  = 0.15 / 1_000_000; // $0.15 / MTok
-const COST_PER_OUTPUT_TOKEN = 0.75 / 1_000_000; // $0.75 / MTok
+// Claude Haiku 4.5 pricing
+const COST_PER_INPUT_TOKEN  = 1.00 / 1_000_000; // $1.00 / MTok
+const COST_PER_OUTPUT_TOKEN = 5.00 / 1_000_000; // $5.00 / MTok
 
-const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const client = new Anthropic();
+const MODEL = "claude-haiku-4-5";
 
 export interface CourseSearchResult {
   courseId: string;
@@ -94,24 +95,24 @@ Omit non-matching courses. officialResources may be an empty array if nothing is
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const completion = await (client.chat.completions.create as any)({
-      model: "openai/gpt-oss-120b",
+    const completion = await client.messages.create({
+      model: MODEL,
       max_tokens: 1500,
-      reasoning_effort: "medium",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user",   content: userMessage },
-      ],
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
     });
 
     // Track cost against this user's budget
     const cost =
-      (completion.usage?.prompt_tokens     ?? 0) * COST_PER_INPUT_TOKEN +
-      (completion.usage?.completion_tokens ?? 0) * COST_PER_OUTPUT_TOKEN;
+      (completion.usage?.input_tokens  ?? 0) * COST_PER_INPUT_TOKEN +
+      (completion.usage?.output_tokens ?? 0) * COST_PER_OUTPUT_TOKEN;
     if (cost > 0) await addUserApiCost(userId, cost);
 
-    let rawText = (completion.choices[0]?.message?.content ?? "").trim();
+    let rawText = completion.content
+      .filter((b) => b.type === "text")
+      .map((b) => (b as { type: "text"; text: string }).text)
+      .join("")
+      .trim();
     // Strip markdown fences if the model wrapped its JSON
     if (rawText.startsWith("```")) {
       rawText = rawText.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/i, "").trim();
@@ -121,7 +122,7 @@ Omit non-matching courses. officialResources may be an empty array if nothing is
     try {
       parsed = JSON.parse(rawText);
     } catch {
-      console.error("[course-search] Failed to parse Groq response:", rawText);
+      console.error("[course-search] Failed to parse Claude response:", rawText);
       return NextResponse.json({ error: "Failed to parse AI response" }, { status: 500 });
     }
 
@@ -149,7 +150,7 @@ Omit non-matching courses. officialResources may be an empty array if nothing is
       summary: parsed.summary,
     } satisfies CourseSearchResponse);
   } catch (err) {
-    console.error("[course-search] Groq API error:", err);
+    console.error("[course-search] Claude API error:", err);
     return NextResponse.json({ error: "AI search failed" }, { status: 500 });
   }
 }

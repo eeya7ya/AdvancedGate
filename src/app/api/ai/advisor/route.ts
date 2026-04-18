@@ -1,12 +1,11 @@
-import Groq from "groq-sdk";
+import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { auth } from "~/auth";
 import { getUserRoadmap, getUserNotes } from "@/lib/db";
 import { getTimezoneForCountry, getLocalizedDateTime } from "@/lib/timezone";
 
-const client = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
+const client = new Anthropic();
+const MODEL = "claude-haiku-4-5";
 
 function buildSystemPrompt(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -99,27 +98,31 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       let wroteAnything = false;
       try {
-        const stream = await client.chat.completions.create({
-          model: "llama-3.3-70b-versatile",
+        const stream = client.messages.stream({
+          model: MODEL,
           max_tokens: 4096,
-          messages: [
-            { role: "system", content: systemPrompt },
-            ...messages,
+          system: [
+            { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } },
           ],
-          stream: true,
+          messages: messages.map((m) => ({ role: m.role, content: m.content })),
         });
 
-        for await (const chunk of stream) {
-          const text = chunk.choices[0]?.delta?.content ?? "";
-          if (text) {
-            wroteAnything = true;
-            controller.enqueue(encoder.encode(text));
+        for await (const event of stream) {
+          if (
+            event.type === "content_block_delta" &&
+            event.delta.type === "text_delta"
+          ) {
+            const text = event.delta.text;
+            if (text) {
+              wroteAnything = true;
+              controller.enqueue(encoder.encode(text));
+            }
           }
         }
         controller.close();
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        console.error("[advisor] Groq streaming error:", msg, err);
+        console.error("[advisor] Claude streaming error:", msg, err);
         if (!wroteAnything) {
           controller.enqueue(encoder.encode(`Sorry — the AI service returned an error: ${msg}`));
         }
