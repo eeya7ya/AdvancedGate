@@ -150,6 +150,32 @@ function looksLikePlanAttempt(text: string): boolean {
   return t.startsWith("{") || t.startsWith("```") || t.includes('"type": "LEARNING_PLAN"');
 }
 
+// Dev-only: generate a random synthetic user bio and ship it straight at the plan-generation
+// endpoint so we can test real Groq responses without hand-typing a full advisor conversation.
+// Guarded by a localhost hostname check at the button site so it never surfaces in production.
+const DEV_PERSONAS = [
+  { name: "Ahmad Nassar",  country: "Jordan",     status: "an employed electrical engineer", goal: "transition into smart-building integration with KNX and CCNA", hours: 3 },
+  { name: "Layla Haddad",  country: "UAE",        status: "a fresh graduate",                  goal: "break into renewable-energy project management",                hours: 4 },
+  { name: "Omar Khatib",   country: "Egypt",      status: "a university student in year 3",    goal: "land a networking internship and finish CCNA this summer",      hours: 2 },
+  { name: "Sara Mansour",  country: "Saudi Arabia", status: "a working technician",            goal: "become a power-systems protection engineer",                    hours: 2 },
+  { name: "Yusuf Rahman",  country: "Qatar",      status: "an employed IT support tech",       goal: "pivot to cybersecurity — CCNA then Security+",                  hours: 3 },
+  { name: "Nadia Farouk",  country: "Morocco",    status: "a freelancer",                      goal: "learn PLC programming and industrial automation",               hours: 5 },
+];
+
+function buildRandomDevConversation(): Message[] {
+  const p = DEV_PERSONAS[Math.floor(Math.random() * DEV_PERSONAS.length)];
+  // Single-shot user message with all the info the plan generator needs.
+  return [
+    {
+      role: "user",
+      content:
+        `Hi, I'm ${p.name} from ${p.country}. I'm ${p.status} and my goal is to ${p.goal}. ` +
+        `I can dedicate about ${p.hours} hours a day and I'd like a learning plan targeting the local market. ` +
+        `Please generate my full personalized plan now.`,
+    },
+  ];
+}
+
 /* ── Translations ───────────────────────────────────────────────── */
 const D: Record<string, { en: string; ar: string }> = {
   badge:          { en: "AI Advisor · Powered by eSpark", ar: "مستشار ذكاء اصطناعي · مدعوم بـ eSpark" },
@@ -870,9 +896,16 @@ const WELCOME_FEATURES: { icon: React.ReactNode; keyEn: string; keyAr: string }[
   { icon: <Sparkles size={14} />,     keyEn: "Any goal or field",  keyAr: "أي هدف أو مجال" },
 ];
 
-function WelcomeScreen({ onStart }: { onStart: () => void }) {
+function WelcomeScreen({ onStart, onDevMock }: { onStart: () => void; onDevMock?: () => void }) {
   const { lang } = useLang();
   const ar = lang === "ar";
+  const [isLocalhost, setIsLocalhost] = useState(false);
+  useEffect(() => {
+    setIsLocalhost(
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+    );
+  }, []);
 
   return (
     <motion.div
@@ -950,6 +983,16 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
           <span className="relative z-10">{td("startSession", ar)}</span>
           <ArrowRight size={16} className="relative z-10" />
         </motion.button>
+
+        {isLocalhost && onDevMock && (
+          <button
+            onClick={onDevMock}
+            className="block mt-4 mx-auto text-[11px] font-mono px-3 py-1.5 rounded-lg opacity-70 hover:opacity-100 transition-opacity"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px dashed rgba(255,255,255,0.2)", color: "var(--text-muted)" }}
+          >
+            [dev] inject mock plan
+          </button>
+        )}
       </motion.div>
 
       {/* Feature grid */}
@@ -1704,7 +1747,58 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
 
       <AnimatePresence mode="wait">
         {phase === "welcome" && (
-          <WelcomeScreen key="welcome" onStart={startInterview} />
+          <WelcomeScreen
+            key="welcome"
+            onStart={startInterview}
+            onDevMock={async () => {
+              const convo = buildRandomDevConversation();
+              setPhase("chat");
+              setMessages(convo);
+              setIsLoading(true);
+              setStreamedText("");
+              streamBufferRef.current = "";
+              try {
+                const res = await fetch("/api/ai/chat", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  // Omit isInit → hits the Tavily + Groq plan-generation path.
+                  body: JSON.stringify({ messages: convo }),
+                });
+                if (!res.ok || !res.body) {
+                  const body = await res.text().catch(() => "");
+                  setMessages([...convo, { role: "assistant", content: `[dev] Groq request failed: ${res.status} ${body}` }]);
+                  return;
+                }
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  streamBufferRef.current += decoder.decode(value, { stream: true });
+                  setStreamedText(streamBufferRef.current);
+                }
+                const full = streamBufferRef.current;
+                const parsed = parsePlan(full);
+                if (parsed) {
+                  setPlan(parsed);
+                  setPhase("plan");
+                  setMessages([...convo, { role: "assistant", content: full }]);
+                  fetch("/api/user/roadmap", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ plan: parsed }),
+                  }).catch(() => null);
+                } else {
+                  setMessages([...convo, { role: "assistant", content: full }]);
+                }
+              } catch (err) {
+                setMessages([...convo, { role: "assistant", content: `[dev] request threw: ${err instanceof Error ? err.message : String(err)}` }]);
+              } finally {
+                setIsLoading(false);
+                setStreamedText("");
+              }
+            }}
+          />
         )}
 
         {phase === "chat" && (
