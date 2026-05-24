@@ -9,36 +9,34 @@ const client = new Anthropic();
 // Interview + lightweight turns run on Haiku (cheapest).
 const CLAUDE_MODEL = "claude-haiku-4-5";
 
-// Two-stage deep research, run as two separate sub-60s requests:
+// Two-stage deep research, run as two separate requests:
 //   Stage 1 (GATHER)  — Haiku runs the live web searches and collects real
 //     course URLs + market figures into a compact digest.
-//   Stage 2 (SYNTH)   — writes the plan JSON from that digest (no search).
-// Both run on Haiku 4.5. Sonnet writes slightly nicer prose, but generating the
-// full ~6-8k-token plan JSON takes >60s on Sonnet ALONE — which exceeds Vercel
-// Hobby's per-call limit and 504s (confirmed in production runtime logs). Haiku
-// generates the same schema in ~40s, well inside the limit, and far cheaper.
-// The live market data is identical either way — it comes from the stage-1 web
-// search, not the writer. To restore Sonnet for the writer, first move off the
-// 60s cap (Vercel Pro's 300s maxDuration, or a platform like Cloudflare Workers
-// that doesn't wall-clock-kill streamed responses) and set SYNTH_MODEL back to
-// "claude-sonnet-4-6" together with SYNTH_IN/SYNTH_OUT.
+//   Stage 2 (SYNTH)   — Sonnet writes the plan JSON from that digest (no search).
+// The writer runs on Sonnet for higher-quality prose. Sonnet's full ~6-8k-token
+// plan generation can exceed 60s, so each route declares maxDuration = 300 (the
+// platform's max with Fluid Compute) — there is no longer a 60s wall-clock cap to
+// dodge. The gatherer stays on Haiku: it only extracts live data, which plays to
+// Haiku's strengths and keeps the token-heavy search work cheap.
 const GATHER_MODEL = "claude-haiku-4-5";
 const GATHER_WEB_SEARCH = "web_search_20250305";
-const SYNTH_MODEL = "claude-haiku-4-5";
+const SYNTH_MODEL = "claude-sonnet-4-6";
 
 // Pricing (tracked against the per-user budget for visibility; never blocks).
 const HAIKU_IN  = 1.00 / 1_000_000;   // $1 / MTok
 const HAIKU_OUT = 5.00 / 1_000_000;   // $5 / MTok
 // Writer (synthesize) rates — keep in lockstep with SYNTH_MODEL above.
-const SYNTH_IN  = HAIKU_IN;
-const SYNTH_OUT = HAIKU_OUT;
+const SONNET_IN  = 3.00 / 1_000_000;  // $3 / MTok
+const SONNET_OUT = 15.00 / 1_000_000; // $15 / MTok
+const SYNTH_IN  = SONNET_IN;
+const SYNTH_OUT = SONNET_OUT;
 const COST_PER_WEB_SEARCH = 10.00 / 1000; // $0.01 / search
 
 // Plan generation is split across TWO requests — "gather" (Haiku + web search)
-// then "synthesize" (Sonnet writes the plan from the gathered data). Each call
-// finishes well inside Vercel's per-call cap (Hobby = 60s), so the full deep-
-// research flow keeps Sonnet quality without ever tripping the runtime timeout.
-export const maxDuration = 60;
+// then "synthesize" (Sonnet writes the plan from the gathered data). Sonnet's
+// synthesis can run well past 60s, so we claim the platform's full 300s window
+// (Fluid Compute) rather than racing a 60s wall clock.
+export const maxDuration = 300;
 
 const SYSTEM_PROMPT_BODY = `You are eSpark 🌟 — a brilliant, warm AI advisor who feels like that one amazing friend who always knows exactly what to do. You help EVERYONE: students figuring out what to study, fresh grads navigating their first job, professionals switching careers, freelancers leveling up, entrepreneurs chasing a dream — anyone with a goal.
 

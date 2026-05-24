@@ -9,8 +9,8 @@ const HAIKU_IN = 1.0 / 1_000_000;
 const HAIKU_OUT = 5.0 / 1_000_000;
 
 // Generating only the schedule (no other plan fields) keeps the output small,
-// so this finishes comfortably inside the 60s limit.
-export const maxDuration = 60;
+// but claim the full 300s window (Fluid Compute) so a slow week never 504s.
+export const maxDuration = 300;
 
 const SCHEDULE_SYSTEM_PROMPT = `You build a detailed, day-by-day weekly study schedule for a learner, based on the learning plan context provided. Output ONLY a JSON array (no prose, no markdown fences) of EXACTLY 4 week objects covering the first month.
 
