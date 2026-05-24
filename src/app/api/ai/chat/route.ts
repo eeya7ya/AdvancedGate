@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { auth } from "~/auth";
 import { getUserRoadmap, addUserApiCost, setUserResearchPool, getUserResearchPool, canGeneratePlan, incrementPlanGenerations, type ResearchPoolEntry } from "@/lib/db";
 import { getTimezoneForCountry, getLocalizedDateTime } from "@/lib/timezone";
+import { isAdmin } from "@/lib/admin";
 
 const client = new Anthropic();
 
@@ -937,8 +938,8 @@ export async function POST(req: NextRequest) {
   // gather + synthesize together build one full plan. Free users get a single
   // plan generation (lifetime); paid subscriptions are unlimited; quota top-ups
   // extend the free allotment. The conversational interview (isInit) above is
-  // always free — only the actual plan build is gated.
-  if (!(await canGeneratePlan(userId))) {
+  // always free — only the actual plan build is gated. Admins are never gated.
+  if (!isAdmin(session.user.email) && !(await canGeneratePlan(userId))) {
     return new Response(
       JSON.stringify({ error: "quota_exceeded", upgrade: true }),
       { status: 402, headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" } },
