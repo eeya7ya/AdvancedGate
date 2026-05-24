@@ -26,6 +26,11 @@ const SYNTH_COST_PER_INPUT_TOKEN  = 1.00 / 1_000_000;  // $1.00 / MTok
 const SYNTH_COST_PER_OUTPUT_TOKEN = 5.00 / 1_000_000;  // $5.00 / MTok
 const COST_PER_WEB_SEARCH = 10.00 / 1000;              // $0.01 / search
 
+// Plan generation runs live web searches + a large JSON synthesis, which can
+// take longer than the platform default and was timing out mid-call. Give the
+// function room to finish (capped by your Vercel plan — Hobby allows up to 60s).
+export const maxDuration = 60;
+
 const SYSTEM_PROMPT_BODY = `You are eSpark 🌟 — a brilliant, warm AI advisor who feels like that one amazing friend who always knows exactly what to do. You help EVERYONE: students figuring out what to study, fresh grads navigating their first job, professionals switching careers, freelancers leveling up, entrepreneurs chasing a dream — anyone with a goal.
 
 Your vibe: genuine excitement for people's journeys, smart advice delivered like a conversation, never robotic. You use emojis naturally (don't overdo it, keep it authentic). You're perceptive — you pick up on who someone is and tailor everything to their actual life situation and target.
@@ -102,14 +107,14 @@ AFTER ALL INFO IS COLLECTED
 Once you have everything you need, immediately generate the JSON plan. No closing remarks or transition sentences — go directly to the JSON. No more questions unless something critical is truly missing.
 
 ═══════════════════════════════════════════
-WEB SEARCH — USE IT EFFICIENTLY (COST-SENSITIVE)
+WEB SEARCH — REAL-TIME DATA FIRST, USED EFFICIENTLY
 ═══════════════════════════════════════════
-You have access to a built-in web_search tool. Use it to gather REAL, current data for this plan. IMPORTANT: you have a hard cap of about 5 searches total across this entire response, so each search must count.
+You have access to a built-in web_search tool. Accurate, up-to-date market and course data is the TOP priority — but you have a hard cap of about 3 searches total across this entire response, so make each one count by merging related needs into one well-crafted query.
 
-Recommended search budget (merge queries when you can):
-1. ONE combined query for salary + job market in the user's country for the target role (e.g. "electrical engineer salary Jordan 2025 JOD entry level").
-2. ONE to THREE queries for specific courses — combine topic + platform when possible (e.g. "CCNA course site:u.cisco.com", "KNX training site:knx.org udemy coursera").
-3. Use remaining searches for any missing pieces (remote rates, certification details).
+Recommended search budget (3 searches — the salary/market one matters most):
+1. ONE combined query for CURRENT salary + job-market demand in the user's country/target market for the role — this is the single most important search (e.g. "electrical engineer salary Jordan 2025 JOD demand entry level"). Pull adjacent-field demand signals from these results too.
+2. ONE query for the best specific courses, combining topic + official vendor/platform (e.g. "CCNA course site:u.cisco.com OR udemy.com OR coursera.org").
+3. ONE query for the most valuable remaining gap — a second course source, remote/freelance rates, or certification details — whichever most improves the plan.
 
 When building courseRecommendations:
 - Take URLs DIRECTLY from your web_search results — copy them character-for-character.
@@ -145,7 +150,7 @@ Frame every notice like a trusted mentor — honest, specific, and always with a
 If there are no genuine concerns, OMIT the notice field entirely.
 
 RELATED & OTHER AREAS — ADJACENT OPPORTUNITIES:
-Beyond their primary goal, identify 2-3 adjacent or alternative fields/roles that leverage similar skills and currently show stronger or growing demand — especially valuable when their primary local market is saturated. Populate marketInsights.adjacentOpportunities with these. Ground the demand signals in your search results, but FOLD any needed lookup into your existing salary/market searches — do NOT spend extra searches on this (stay within the ~5 search cap).
+Beyond their primary goal, identify 2-3 adjacent or alternative fields/roles that leverage similar skills and currently show stronger or growing demand — especially valuable when their primary local market is saturated. Populate marketInsights.adjacentOpportunities with these. Ground the demand signals in your search results, but FOLD any needed lookup into your existing salary/market searches — do NOT spend extra searches on this (stay within the ~3 search cap).
 
 ═══════════════════════════════════════════
 OUTPUT: ONLY THE JSON BELOW
@@ -723,7 +728,7 @@ async function generatePlan(messages: Message[], userId: string, timezone?: stri
       {
         type: SYNTH_WEB_SEARCH,
         name: "web_search",
-        max_uses: 5,
+        max_uses: 3,
       },
     ],
     messages: messages.map((m) => ({ role: m.role, content: m.content })),
