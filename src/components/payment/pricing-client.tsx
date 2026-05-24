@@ -8,14 +8,14 @@ import { useLang } from "@/lib/language";
 const PLAN_FEATURES = {
   free: {
     en: [
-      "20 AI advisor sessions / month",
-      "Basic roadmap generation",
+      "1 free personalized plan",
+      "Unlimited advisor conversation",
       "Course recommendations",
       "Arabic & English support",
     ],
     ar: [
-      "20 جلسة مع المستشار الذكي شهرياً",
-      "إنشاء خارطة طريق أساسية",
+      "خطة شخصية مجانية واحدة",
+      "محادثة غير محدودة مع المستشار",
       "توصيات الدورات",
       "دعم العربية والإنجليزية",
     ],

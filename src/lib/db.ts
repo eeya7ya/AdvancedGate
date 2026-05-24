@@ -520,6 +520,95 @@ export async function resetUserBudget(userId: string): Promise<void> {
   }
 }
 
+// ─── Subscription / Plan-generation Quota ────────────────────────────────────
+// The Stripe webhook stores plan / subscription_status / quota_extra on
+// user_stats. plan_generations is a lifetime counter of how many full plans the
+// user has generated — it is NOT reset by "Start Over", so the free allotment
+// (one plan) can only ever be claimed once.
+
+let subscriptionColumnsPromise: Promise<void> | null = null;
+export function ensureSubscriptionColumns(): Promise<void> {
+  if (!subscriptionColumnsPromise) {
+    subscriptionColumnsPromise = (async () => {
+      await sql`
+        ALTER TABLE user_stats
+          ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free',
+          ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT,
+          ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT,
+          ADD COLUMN IF NOT EXISTS subscription_status TEXT,
+          ADD COLUMN IF NOT EXISTS quota_extra INTEGER NOT NULL DEFAULT 0,
+          ADD COLUMN IF NOT EXISTS plan_generations INTEGER NOT NULL DEFAULT 0;
+      `;
+    })().catch((err) => {
+      console.error("[db] ensureSubscriptionColumns failed:", err);
+      subscriptionColumnsPromise = null; // allow retry on next request
+    });
+  }
+  return subscriptionColumnsPromise;
+}
+
+export interface UserSubscription {
+  plan: string;
+  subscriptionStatus: string | null;
+  quotaExtra: number;
+  planGenerations: number;
+}
+
+export async function getUserSubscription(userId: string): Promise<UserSubscription> {
+  const fallback: UserSubscription = { plan: "free", subscriptionStatus: null, quotaExtra: 0, planGenerations: 0 };
+  try {
+    await ensureTables();
+    await ensureSubscriptionColumns();
+    const { rows } = await sql`
+      SELECT plan, subscription_status, quota_extra, plan_generations
+      FROM user_stats WHERE user_id = ${userId}
+    `;
+    const r = rows[0] as
+      | { plan: string | null; subscription_status: string | null; quota_extra: number | null; plan_generations: number | null }
+      | undefined;
+    if (!r) return fallback;
+    return {
+      plan: r.plan ?? "free",
+      subscriptionStatus: r.subscription_status ?? null,
+      quotaExtra: Number(r.quota_extra ?? 0),
+      planGenerations: Number(r.plan_generations ?? 0),
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+export async function incrementPlanGenerations(userId: string): Promise<void> {
+  try {
+    await ensureSubscriptionColumns();
+    await sql`
+      INSERT INTO user_stats (user_id, plan_generations)
+      VALUES (${userId}, 1)
+      ON CONFLICT (user_id) DO UPDATE
+        SET plan_generations = user_stats.plan_generations + 1
+    `;
+  } catch (err) {
+    console.error("[db] incrementPlanGenerations failed:", err);
+  }
+}
+
+// One free full plan generation per user; paid plans are unlimited; quota
+// top-ups add to the free allotment.
+export const FREE_PLAN_LIMIT = 1;
+
+export function isPaidSubscription(sub: UserSubscription): boolean {
+  const paidPlan = sub.plan === "pro" || sub.plan === "enterprise";
+  const activeStatus = sub.subscriptionStatus === "active" || sub.subscriptionStatus === "trialing";
+  return paidPlan && activeStatus;
+}
+
+/** True when the user may generate another full plan right now. */
+export async function canGeneratePlan(userId: string): Promise<boolean> {
+  const sub = await getUserSubscription(userId);
+  if (isPaidSubscription(sub)) return true;
+  return sub.planGenerations < FREE_PLAN_LIMIT + sub.quotaExtra;
+}
+
 // ─── Course Link Cache ──────────────────────────────────────────────────────
 
 export async function getCachedCourseLink(cacheKey: string): Promise<string | null> {
