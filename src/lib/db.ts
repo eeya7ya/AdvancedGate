@@ -150,6 +150,16 @@ export async function createTables() {
       spent    NUMERIC(10,6) NOT NULL DEFAULT 0
     );
   `;
+
+  // Research bundle — the URLs the deep-research (plan generation) pass found.
+  // Lets course-link resolve URLs for free instead of re-searching the web.
+  await sql`
+    CREATE TABLE IF NOT EXISTS user_research_pool (
+      user_id    TEXT PRIMARY KEY,
+      pool       JSONB NOT NULL DEFAULT '[]'::jsonb,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
 }
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
@@ -539,6 +549,50 @@ export async function setCachedCourseLink(cacheKey: string, url: string): Promis
 export async function deleteUserCourseLinkCache(userId: string): Promise<void> {
   try {
     await sql`DELETE FROM course_link_cache WHERE cache_key LIKE ${userId + "|%"}`;
+  } catch {
+    // non-fatal
+  }
+}
+
+// ─── Research Pool (deep-research URL bundle) ─────────────────────────────────
+// Saved by the plan-generation pass; read by course-link so it can resolve a
+// course's URL from URLs already discovered, instead of paying for a new search.
+
+export interface ResearchPoolEntry {
+  url: string;
+  title: string;
+}
+
+export async function getUserResearchPool(userId: string): Promise<ResearchPoolEntry[]> {
+  try {
+    await ensureTables();
+    const { rows } = await sql`
+      SELECT pool FROM user_research_pool WHERE user_id = ${userId}
+    `;
+    const pool = (rows[0] as { pool: unknown } | undefined)?.pool;
+    return Array.isArray(pool) ? (pool as ResearchPoolEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function setUserResearchPool(userId: string, pool: ResearchPoolEntry[]): Promise<void> {
+  try {
+    await ensureTables();
+    await sql`
+      INSERT INTO user_research_pool (user_id, pool, updated_at)
+      VALUES (${userId}, ${JSON.stringify(pool)}, NOW())
+      ON CONFLICT (user_id) DO UPDATE
+        SET pool = EXCLUDED.pool, updated_at = NOW()
+    `;
+  } catch {
+    // non-fatal
+  }
+}
+
+export async function deleteUserResearchPool(userId: string): Promise<void> {
+  try {
+    await sql`DELETE FROM user_research_pool WHERE user_id = ${userId}`;
   } catch {
     // non-fatal
   }

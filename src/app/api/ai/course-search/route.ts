@@ -84,7 +84,9 @@ Respond ONLY with valid JSON (no text outside):
 
 Omit non-matching courses. officialResources may be an empty array if nothing is relevant.`;
 
-  const userMessage = `Catalog:${JSON.stringify(catalog)}\nQuery:"${query}"`;
+  // The catalog is static and identical across all users, so it lives in a
+  // cached system block (below). Only the query varies per request.
+  const userMessage = `Query:"${query}"`;
 
   // Per-user budget guard
   const userId = session.user.id!;
@@ -98,7 +100,13 @@ Omit non-matching courses. officialResources may be an empty array if nothing is
     const completion = await client.messages.create({
       model: MODEL,
       max_tokens: 1500,
-      system: systemPrompt,
+      system: [
+        {
+          type: "text",
+          text: `${systemPrompt}\n\nCOURSE CATALOG (JSON):\n${JSON.stringify(catalog)}`,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
       messages: [{ role: "user", content: userMessage }],
     });
 

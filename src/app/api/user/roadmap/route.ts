@@ -1,5 +1,5 @@
 import { auth } from "~/auth";
-import { sql, getUserRoadmap, upsertUserRoadmap, updateRoadmapEmailSettings, ensureTables, deleteUserRoadmap, deleteUserCourseLinkCache } from "@/lib/db";
+import { sql, getUserRoadmap, upsertUserRoadmap, updateRoadmapEmailSettings, ensureTables, deleteUserRoadmap, deleteUserCourseLinkCache, deleteUserResearchPool } from "@/lib/db";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -51,8 +51,10 @@ export async function DELETE() {
   const ok = await deleteUserRoadmap(session.user.id);
   if (!ok) return NextResponse.json({ error: "Failed to delete roadmap" }, { status: 500 });
 
-  // Clear the user's course-link cache so fresh links are fetched after restart
+  // Clear the user's course-link cache + research bundle so a fresh plan
+  // starts from clean research instead of stale URLs.
   void deleteUserCourseLinkCache(session.user.id);
+  void deleteUserResearchPool(session.user.id);
 
   return NextResponse.json({ ok });
 }
