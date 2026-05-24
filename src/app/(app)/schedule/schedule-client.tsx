@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { useLang } from "@/lib/language";
 import {
   CalendarDays, Clock, Target, CheckCircle, Circle,
@@ -1321,6 +1322,27 @@ export function ScheduleClient({
 }: ScheduleClientProps) {
   const { lang } = useLang();
   const isRTL = lang === "ar";
+  const router = useRouter();
+
+  // On-demand weekly schedule generation. Kept OUT of the main plan generation
+  // so that stays fast and reliable; the learner generates the detailed
+  // day-by-day schedule here in its own quick call.
+  const [schedLoading, setSchedLoading] = useState(false);
+  const [schedError, setSchedError] = useState("");
+  const handleGenerateSchedule = useCallback(async () => {
+    setSchedLoading(true);
+    setSchedError("");
+    try {
+      const res = await fetch("/api/ai/schedule", { method: "POST" });
+      if (!res.ok) throw new Error("failed");
+      // The server merged + saved the schedule into the plan — refresh the
+      // route's server data so the new schedule renders.
+      router.refresh();
+    } catch {
+      setSchedError(isRTL ? "تعذّر إنشاء الجدول الآن. حاول مرة أخرى." : "Couldn't generate the schedule. Please try again.");
+      setSchedLoading(false);
+    }
+  }, [router, isRTL]);
 
   // Determine plan start date — use created_at or today's date as fallback
   const planStartDate = useMemo(() => {
@@ -1472,7 +1494,7 @@ export function ScheduleClient({
       </div>
 
       {/* Week-by-Week Schedule */}
-      {plan.weeklySchedule && plan.weeklySchedule.length > 0 && (
+      {plan.weeklySchedule && plan.weeklySchedule.length > 0 ? (
         <WeeklyScheduleView
           plan={plan}
           tracking={trackingMap}
@@ -1480,6 +1502,40 @@ export function ScheduleClient({
           onToggle={handleToggle}
           isRTL={isRTL}
         />
+      ) : (
+        <div
+          className="rounded-2xl p-8 text-center"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+        >
+          <div
+            className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            style={{ background: "linear-gradient(135deg, #f97316, #fb923c)", boxShadow: "0 0 28px rgba(249,115,22,0.3)" }}
+          >
+            <CalendarDays size={26} className="text-white" strokeWidth={1.5} />
+          </div>
+          <h3 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
+            {isRTL ? "أنشئ جدولك الأسبوعي" : "Generate your weekly schedule"}
+          </h3>
+          <p className="text-sm mb-6 max-w-md mx-auto leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            {isRTL
+              ? "خطة يومية مفصّلة لأول 4 أسابيع، مبنية على دوراتك وأهدافك. تُنشأ عند الطلب لتبقى سريعة ومنخفضة التكلفة."
+              : "A detailed day-by-day plan for your first 4 weeks, built from your courses and goals. Generated on demand so it stays fast and cheap."}
+          </p>
+          <button
+            onClick={handleGenerateSchedule}
+            disabled={schedLoading}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-60"
+            style={{ background: "linear-gradient(135deg, #f97316, #fb923c)", boxShadow: "0 0 24px rgba(249,115,22,0.35)" }}
+          >
+            <CalendarDays size={16} />
+            {schedLoading
+              ? (isRTL ? "جارٍ الإنشاء…" : "Generating…")
+              : (isRTL ? "أنشئ الجدول الأسبوعي" : "Generate weekly schedule")}
+          </button>
+          {schedError && (
+            <p className="text-xs mt-4" style={{ color: "#f87171" }}>{schedError}</p>
+          )}
+        </div>
       )}
     </div>
   );
