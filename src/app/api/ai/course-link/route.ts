@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "~/auth";
 import { getCachedLink, setCachedLink } from "@/lib/runtime-cache";
-import { getUserApiSpent, addUserApiCost, getCachedCourseLink, setCachedCourseLink } from "@/lib/db";
+import { getUserApiSpent, addUserApiCost, getCachedCourseLink, setCachedCourseLink, getUserResearchPool } from "@/lib/db";
 
 // Per-user budget cap in USD
 const USER_BUDGET_USD = 0.70;
@@ -154,6 +154,85 @@ function isArabicCountry(country: string): boolean {
   return ARABIC_COUNTRIES.has(country.toLowerCase().trim());
 }
 
+/* ── Research-pool matching (free URL resolution, no web search) ──────── */
+
+// Map a platform label to a host substring used as a soft match signal.
+function platformHostHint(platform: string): string {
+  const p = platform.toLowerCase();
+  if (p.includes("udemy"))        return "udemy.com";
+  if (p.includes("coursera"))     return "coursera.org";
+  if (p.includes("edx"))          return "edx.org";
+  if (p.includes("youtube"))      return "youtube";
+  if (p.includes("freecodecamp")) return "freecodecamp.org";
+  if (p.includes("linkedin"))     return "linkedin.com";
+  if (p.includes("pluralsight"))  return "pluralsight.com";
+  if (p.includes("udacity"))      return "udacity.com";
+  if (p.includes("codecademy"))   return "codecademy.com";
+  if (p.includes("khan"))         return "khanacademy.org";
+  if (p.includes("cisco"))        return "cisco";
+  if (p.includes("netacad"))      return "netacad";
+  if (p.includes("microsoft"))    return "microsoft";
+  if (p.includes("aws") || p.includes("amazon")) return "aws";
+  if (p.includes("google"))       return "google";
+  return "";
+}
+
+const TITLE_STOPWORDS = new Set([
+  "the", "and", "for", "with", "course", "tutorial", "complete", "full",
+  "learn", "learning", "beginners", "beginner", "introduction", "intro",
+  "guide", "masterclass", "bootcamp", "using", "from", "your", "fundamentals",
+]);
+
+function titleKeywords(title: string): string[] {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 3 && !TITLE_STOPWORDS.has(w));
+}
+
+// Resolve a course URL from the user's research bundle without any API call.
+// Requires real overlap (platform host match, or 2+ title-word hits) so we
+// don't return an unrelated course that merely lives on the same platform.
+function matchPoolToCourse(
+  pool: Array<{ url: string; title: string }>,
+  title: string,
+  platform: string,
+): string {
+  if (!pool.length || !title) return "";
+  const hostHint = platformHostHint(platform);
+  const words = titleKeywords(title);
+
+  let best = "";
+  let bestScore = 0;
+  for (const entry of pool) {
+    if (!entry?.url || !isCoursePage(entry.url)) continue;
+    let host = "";
+    try {
+      host = new URL(entry.url).hostname.toLowerCase().replace(/^www\./, "");
+    } catch {
+      continue;
+    }
+
+    const hostMatch = hostHint !== "" && host.includes(hostHint);
+    const hay = `${entry.title ?? ""} ${entry.url}`.toLowerCase();
+    let wordHits = 0;
+    for (const w of words) if (hay.includes(w)) wordHits += 1;
+
+    let score = wordHits;
+    if (hostMatch) score += 3;
+    if (isOfficial(entry.url)) score += 2;
+    else if (isTrusted(entry.url) && !isYouTube(entry.url)) score += 1;
+
+    const confident = hostMatch || wordHits >= 2;
+    if (confident && score > bestScore) {
+      bestScore = score;
+      best = entry.url;
+    }
+  }
+  return best;
+}
+
 /* ── Claude Haiku + web_search tool ──────────────────────────────────── */
 async function findCourseLink(
   title: string,
@@ -268,6 +347,18 @@ export async function POST(req: NextRequest) {
     setCachedLink(cacheKey, dbHit); // warm L1
     console.log(`[course-link] db-cache hit: "${title}" → ${dbHit}`);
     return NextResponse.json({ url: dbHit });
+  }
+
+  // L3: research bundle from the user's last deep-research pass — FREE, no API
+  // call and no budget cost. Runs BEFORE the budget guard so a user who has hit
+  // their cap still gets links the plan generation already discovered.
+  const pool = await getUserResearchPool(userId);
+  const poolHit = matchPoolToCourse(pool, title, platform);
+  if (poolHit) {
+    setCachedLink(cacheKey, poolHit);
+    void setCachedCourseLink(cacheKey, poolHit);
+    console.log(`[course-link] research-pool hit: "${title}" → ${poolHit}`);
+    return NextResponse.json({ url: poolHit });
   }
 
   // Per-user budget guard

@@ -1,12 +1,25 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { auth } from "~/auth";
-import { getUserRoadmap } from "@/lib/db";
+import { getUserRoadmap, addUserApiCost, setUserResearchPool } from "@/lib/db";
 import { getTimezoneForCountry, getLocalizedDateTime } from "@/lib/timezone";
 
 const client = new Anthropic();
 
+// Interview + lightweight turns run on Haiku (cheapest).
 const CLAUDE_MODEL = "claude-haiku-4-5";
+
+// The deep-research synthesis (plan generation) runs on Sonnet 4.6 for deeper
+// market analysis, paired with the newer dynamic-filtering web search that
+// Sonnet 4.6 supports (filters results before they hit context → fewer tokens).
+const SYNTH_MODEL = "claude-sonnet-4-6";
+const SYNTH_WEB_SEARCH = "web_search_20260209";
+
+// Sonnet 4.6 pricing + web-search fee. Tracked against the per-user budget for
+// visibility, but plan generation is never blocked on it.
+const SYNTH_COST_PER_INPUT_TOKEN  = 3.00 / 1_000_000;  // $3.00 / MTok
+const SYNTH_COST_PER_OUTPUT_TOKEN = 15.00 / 1_000_000; // $15.00 / MTok
+const COST_PER_WEB_SEARCH = 10.00 / 1000;              // $0.01 / search
 
 const SYSTEM_PROMPT_BODY = `You are eSpark 🌟 — a brilliant, warm AI advisor who feels like that one amazing friend who always knows exactly what to do. You help EVERYONE: students figuring out what to study, fresh grads navigating their first job, professionals switching careers, freelancers leveling up, entrepreneurs chasing a dream — anyone with a goal.
 
@@ -126,6 +139,9 @@ Frame every notice like a trusted mentor — honest, specific, and always with a
 
 If there are no genuine concerns, OMIT the notice field entirely.
 
+RELATED & OTHER AREAS — ADJACENT OPPORTUNITIES:
+Beyond their primary goal, identify 2-3 adjacent or alternative fields/roles that leverage similar skills and currently show stronger or growing demand — especially valuable when their primary local market is saturated. Populate marketInsights.adjacentOpportunities with these. Ground the demand signals in your search results, but FOLD any needed lookup into your existing salary/market searches — do NOT spend extra searches on this (stay within the ~5 search cap).
+
 ═══════════════════════════════════════════
 OUTPUT: ONLY THE JSON BELOW
 ═══════════════════════════════════════════
@@ -147,7 +163,14 @@ All description fields must be full, meaningful sentences — never 2-word label
     "globalDemand": "1-2 sentences on global demand, growth trends, and remote opportunity for their goal, based on your search results",
     "salaryRange": "Realistic income range from your search data. Use the correct ISO currency code for EACH market segment — NEVER mix currency symbols. Local figures must use the user's local currency (e.g., JOD for Jordan, EGP for Egypt, SAR for Saudi Arabia). Gulf region uses the relevant Gulf currency (SAR, AED, QAR). Global remote uses USD. Example for a Jordanian user: 'JOD 600–1,200/month locally; AED 5,000–9,000/month in the UAE; USD 3,000–6,000/month for global remote clients'. All amounts must use proper ISO codes.",
     "notice": "Only include if there is a genuine strategic concern. Write constructively: acknowledge the challenge, explain why it matters for their decision, and give a specific recommended alternative path. Omit this field entirely if there are no real concerns.",
-    "recommendation": "2-3 sentences of strategic advice tailored precisely to their country, stated target market, work style preference, and goal — referencing what they told you"
+    "recommendation": "2-3 sentences of strategic advice tailored precisely to their country, stated target market, work style preference, and goal — referencing what they told you",
+    "adjacentOpportunities": [
+      {
+        "field": "Name of a related or alternative field/role that leverages similar skills and currently shows stronger or growing demand than the primary local market",
+        "why": "1-2 sentences: how it connects to their background and goal, and why it is worth considering (demand, pay, remote potential)",
+        "demandSignal": "Short current-demand note grounded in your search results (e.g. 'High growth, many remote roles in 2025')"
+      }
+    ]
   },
   "todaysFocus": {
     "topic": "The single most important first step toward their dream — specific and actionable",
@@ -491,6 +514,7 @@ FINAL CRITICAL RULES:
 - courseRecommendations.url CRITICAL: ONLY use a URL that appears word-for-word in the COURSE URL CATALOG provided in the background research. NEVER construct, guess, or hallucinate a URL. If the exact course URL was not in the catalog, set url to "" (empty string). The "Search" fallback button will handle finding it. A fabricated URL that leads to a 404 destroys user trust — empty string is always better.
 - roadmap phase count and total duration MUST match their stated timeline exactly
 - notice in marketInsights appears ONLY for genuine strategic concerns — never invent problems
+- marketInsights.adjacentOpportunities MUST contain 2-3 real, relevant related/alternative fields with current demand signals from your search data — this is how users discover stronger paths in related and other areas
 - salaryRange must be specific to their stated target market (Gulf, Europe, local, etc.) — not just generic USD
 - All descriptions are full meaningful sentences — this is someone's life roadmap, not a keyword list
 - timeAllocation[].subject MUST be 1–3 words maximum, clean and readable, with NO trailing symbols (+, &, ,, -). These names display in a weekly schedule grid. BAD: "KNX + CCNA + Networking Fundamentals". GOOD: "KNX & CCNA", "Hands-On Labs", "Portfolio Work"
@@ -532,16 +556,13 @@ ONCE YOU HAVE ALL FIVE PIECES — OR the user asked to skip/generate — OR you 
 
 That minimal JSON is the signal that triggers the full roadmap generation (courses, salary data, schedule, phases) in the next step — do NOT try to produce the full plan here. The system handles it.`;
 
-function getConversationPrompt(timezone?: string): string {
+// Volatile date/time block. Kept SEPARATE from the cached system prompt so the
+// live clock never invalidates the cached prefix (prompt caching is a prefix
+// match — a changing timestamp at the front would re-bill the whole prompt and
+// never hit the cache).
+function dateBlock(timezone?: string): string {
   const tz = timezone || "UTC";
-  const now = getLocalizedDateTime(tz);
-  return `Today's date & time (${tz}): ${now}\n\n${CONVERSATION_SYSTEM_PROMPT}`;
-}
-
-function getSystemPrompt(timezone?: string): string {
-  const tz = timezone || "UTC";
-  const now = getLocalizedDateTime(tz);
-  return `Today's date & time (${tz}): ${now}\n\n${SYSTEM_PROMPT_BODY}`;
+  return `Today's date & time (${tz}): ${getLocalizedDateTime(tz)}`;
 }
 
 interface Message {
@@ -673,25 +694,29 @@ function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
 }
 
 
-async function generatePlan(messages: Message[], timezone?: string): Promise<string> {
-  const systemContent = getSystemPrompt(timezone);
-
-  // Claude runs the web_search tool inline (capped at max_uses to control cost),
+async function generatePlan(messages: Message[], userId: string, timezone?: string): Promise<string> {
+  // Sonnet runs the web_search tool inline (capped at max_uses to control cost),
   // feeds results back into the same turn, then emits the full plan JSON.
+  // The static system prompt is cached; the live date is a separate block so it
+  // doesn't invalidate that cache.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const response = await (client.messages.create as any)({
-    model: CLAUDE_MODEL,
-    max_tokens: 8192,
+    model: SYNTH_MODEL,
+    max_tokens: 10000,
     system: [
       {
         type: "text",
-        text: systemContent,
+        text: SYSTEM_PROMPT_BODY,
         cache_control: { type: "ephemeral" },
+      },
+      {
+        type: "text",
+        text: dateBlock(timezone),
       },
     ],
     tools: [
       {
-        type: "web_search_20250305",
+        type: SYNTH_WEB_SEARCH,
         name: "web_search",
         max_uses: 5,
       },
@@ -699,25 +724,58 @@ async function generatePlan(messages: Message[], timezone?: string): Promise<str
     messages: messages.map((m) => ({ role: m.role, content: m.content })),
   });
 
+  // Collect every search-result URL+title into the research bundle. This is the
+  // "wired together" piece: course-link reuses these instead of re-searching.
+  const pool: { url: string; title: string }[] = [];
   const searchedUrls = new Set<string>();
+  const seenPoolUrls = new Set<string>();
+  let searchCount = 0;
   let finalText = "";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const block of response.content as any[]) {
     if (block.type === "text") {
       finalText += block.text ?? "";
     } else if (block.type === "web_search_tool_result") {
+      searchCount += 1;
       const items = block.content;
       if (Array.isArray(items)) {
         for (const item of items) {
           if (item?.url && typeof item.url === "string") {
             searchedUrls.add(item.url);
+            if (!seenPoolUrls.has(item.url)) {
+              seenPoolUrls.add(item.url);
+              pool.push({ url: item.url, title: typeof item.title === "string" ? item.title : "" });
+            }
           }
         }
       }
     }
   }
 
-  console.log(`[Claude web_search] plan generation → ${searchedUrls.size} URLs collected`);
+  // Persist the bundle BEFORE returning so the course-link lookups that follow
+  // (the client resolves course URLs right after rendering the plan) can read it.
+  if (pool.length > 0) {
+    await setUserResearchPool(userId, pool);
+  }
+
+  // Track cost against the per-user budget (visibility only — never blocks).
+  // input_tokens is the uncached remainder; cache reads/writes are billed apart.
+  const usage = response.usage ?? {};
+  // Prefer the API's own search count when present (robust across tool
+  // versions); fall back to counting result blocks.
+  const billedSearches =
+    typeof usage.server_tool_use?.web_search_requests === "number"
+      ? usage.server_tool_use.web_search_requests
+      : searchCount;
+  const cost =
+    (usage.input_tokens ?? 0) * SYNTH_COST_PER_INPUT_TOKEN +
+    (usage.cache_creation_input_tokens ?? 0) * SYNTH_COST_PER_INPUT_TOKEN * 1.25 +
+    (usage.cache_read_input_tokens ?? 0) * SYNTH_COST_PER_INPUT_TOKEN * 0.1 +
+    (usage.output_tokens ?? 0) * SYNTH_COST_PER_OUTPUT_TOKEN +
+    billedSearches * COST_PER_WEB_SEARCH;
+  if (cost > 0) void addUserApiCost(userId, cost);
+
+  console.log(`[deep-research] plan gen → ${pool.length} URLs bundled, ${billedSearches} searches, $${cost.toFixed(4)}`);
   return sanitizePlanUrls(finalText, searchedUrls);
 }
 
@@ -726,6 +784,7 @@ export async function POST(req: NextRequest) {
   if (!session?.user) {
     return new Response("Unauthorized", { status: 401 });
   }
+  const userId = session.user.id!;
 
   let messages: Message[];
   let isInit = false;
@@ -788,8 +847,12 @@ export async function POST(req: NextRequest) {
             system: [
               {
                 type: "text",
-                text: getConversationPrompt(timezone) + scenarioNote + skipNote,
+                text: CONVERSATION_SYSTEM_PROMPT,
                 cache_control: { type: "ephemeral" },
+              },
+              {
+                type: "text",
+                text: `${dateBlock(timezone)}${scenarioNote}${skipNote}`,
               },
             ],
             messages: messages.map((m) => ({ role: m.role, content: m.content })),
@@ -833,7 +896,7 @@ export async function POST(req: NextRequest) {
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        const content = await generatePlan(messages, timezone);
+        const content = await generatePlan(messages, userId, timezone);
         controller.enqueue(encoder.encode(content));
         controller.close();
       } catch (err) {

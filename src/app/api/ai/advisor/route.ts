@@ -37,12 +37,7 @@ ${notes.map((n) => `- [${n.category}] ${n.note}`).join("\n")}
 `
       : "USER HAS NO SAVED NOTES YET.";
 
-  const userCountry = plan?.profile?.country ?? "";
-  const tz = getTimezoneForCountry(userCountry);
-  const now = getLocalizedDateTime(tz);
-
-  return `CURRENT DATE & TIME (${tz}): ${now}
-IMPORTANT: You have been provided the current date and time above. NEVER say you don't know the date/time or that you lack real-time access — use the date and time provided confidently in all responses.
+  return `You always have the current date and time provided to you in a separate context block. NEVER say you don't know the date/time or that you lack real-time access — use the provided date/time confidently in all responses.
 
 You are eSpark 🌟 — a smart, warm AI companion who genuinely cares about the user's journey. You have full access to their learning plan, notes, and preferences. You're like that brilliant friend who knows their situation inside and out and gives real, direct advice — not robotic text.
 
@@ -92,6 +87,11 @@ export async function POST(req: NextRequest) {
   const plan = roadmapData?.planJson as any ?? null;
   const systemPrompt = buildSystemPrompt(plan, notes);
 
+  // Live clock kept OUT of the cached system prompt so multi-turn advisor chats
+  // reuse the cached prefix instead of re-billing it on every turn.
+  const advisorTz = getTimezoneForCountry(plan?.profile?.country ?? "");
+  const dateContext = `CURRENT DATE & TIME (${advisorTz}): ${getLocalizedDateTime(advisorTz)}`;
+
   const encoder = new TextEncoder();
 
   const readable = new ReadableStream({
@@ -103,6 +103,7 @@ export async function POST(req: NextRequest) {
           max_tokens: 4096,
           system: [
             { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } },
+            { type: "text", text: dateContext },
           ],
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
         });
