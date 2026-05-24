@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { Send, Sparkles, Brain, Target, Clock, ArrowRight, RotateCcw, Map, Globe, X, Trash2, TrendingUp, MessageCircle, CalendarDays, CheckCircle } from "lucide-react";
+import { Send, Sparkles, Brain, Target, Clock, ArrowRight, RotateCcw, Map, Globe, X, Trash2, TrendingUp, MessageCircle, CalendarDays, CheckCircle, Crown, Zap } from "lucide-react";
 import { useLang } from "@/lib/language";
 
 /* ── Types ─────────────────────────────────────────────────────── */
@@ -85,17 +85,6 @@ interface LearningPlan {
 }
 
 type Phase = "welcome" | "chat" | "plan";
-
-/* ── Language / RTL Helpers ─────────────────────────────────────── */
-const ARABIC_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
-
-function isArabic(text: string): boolean {
-  return ARABIC_REGEX.test(text);
-}
-
-function getTextDir(text: string): "rtl" | "ltr" {
-  return isArabic(text) ? "rtl" : "ltr";
-}
 
 /* ── Helpers ────────────────────────────────────────────────────── */
 // Shape-check a plan before storing/rendering. Rejects partial/truncated plans
@@ -242,6 +231,9 @@ const D: Record<string, { en: string; ar: string }> = {
   guideSidebar:   { en: "Navigate to Courses, Roadmap, Schedule and more", ar: "تصفح الدورات وخارطة الطريق والجدول وأكثر" },
   guideSearch:    { en: "Deep Search finds relevant courses and official docs for any topic", ar: "البحث العميق يجد الدورات والمراجع الرسمية لأي موضوع" },
   guideReady:     { en: "Your AI advisor is ready to build your personalized learning roadmap", ar: "مستشارك الذكي جاهز لبناء خارطة تعلمك الشخصية" },
+  upgradeTitle:   { en: "You've used your free plan", ar: "لقد استخدمت خطتك المجانية" },
+  upgradeMsg:     { en: "Every account includes one free personalized plan. Upgrade to Pro for unlimited plans, verified course links, and more.", ar: "يحصل كل حساب على خطة شخصية مجانية واحدة. قم بالترقية إلى Pro للحصول على خطط غير محدودة وروابط دورات محققة والمزيد." },
+  upgradeCta:     { en: "Upgrade to Pro", ar: "الترقية إلى Pro" },
 };
 function td(key: string, ar: boolean): string {
   return ar ? (D[key]?.ar ?? key) : (D[key]?.en ?? key);
@@ -389,7 +381,7 @@ function renderInlineMarkdown(text: string, baseKey: number): React.ReactNode {
   if (parts.length === 1) return text;
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={baseKey + i} style={{ color: "var(--text-primary)", fontWeight: 700 }}>{part.slice(2, -2)}</strong>;
+      return <strong key={baseKey + i} style={{ color: "var(--text-primary)", fontWeight: 700, unicodeBidi: "isolate" }}>{part.slice(2, -2)}</strong>;
     }
     return part;
   });
@@ -440,7 +432,7 @@ function formatAIMessage(content: string, isStreaming?: boolean) {
           >
             {qNum}
           </span>
-          <span className="leading-relaxed text-sm font-medium pt-0.5" style={{ color: "var(--text-primary)" }}>
+          <span dir="auto" className="leading-relaxed text-sm font-medium pt-0.5" style={{ color: "var(--text-primary)", textAlign: "start" }}>
             {renderInlineMarkdown(qMatch[2], startKey + 1)}
           </span>
         </div>
@@ -451,7 +443,7 @@ function formatAIMessage(content: string, isStreaming?: boolean) {
       const startKey = key;
       key += 20;
       elements.push(
-        <p key={startKey} className="leading-relaxed text-sm" style={{ wordBreak: "break-word" }}>
+        <p key={startKey} dir="auto" className="leading-relaxed text-sm" style={{ wordBreak: "break-word", textAlign: "start" }}>
           {renderInlineMarkdown(trimmed, startKey + 1)}
         </p>
       );
@@ -473,7 +465,6 @@ function formatAIMessage(content: string, isStreaming?: boolean) {
 
 function ChatBubble({ msg, isStreaming }: { msg: Message; isStreaming?: boolean }) {
   const isAI = msg.role === "assistant";
-  const dir = getTextDir(msg.content);
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -492,7 +483,7 @@ function ChatBubble({ msg, isStreaming }: { msg: Message; isStreaming?: boolean 
         </div>
       )}
       <div
-        dir={dir}
+        dir="auto"
         className={`px-4 py-3 rounded-2xl ${isAI ? "max-w-[85%]" : "max-w-[75%]"}`}
         style={
           isAI
@@ -502,7 +493,7 @@ function ChatBubble({ msg, isStreaming }: { msg: Message; isStreaming?: boolean 
                 color: "var(--text-primary)",
                 borderBottomLeftRadius: "6px",
                 lineHeight: "1.65",
-                textAlign: dir === "rtl" ? "right" : "left",
+                textAlign: "start",
               }
             : {
                 background: "linear-gradient(135deg, #f97316, #fb923c)",
@@ -510,11 +501,11 @@ function ChatBubble({ msg, isStreaming }: { msg: Message; isStreaming?: boolean 
                 borderBottomRightRadius: "6px",
                 lineHeight: "1.6",
                 fontWeight: 500,
-                textAlign: dir === "rtl" ? "right" : "left",
+                textAlign: "start",
               }
         }
       >
-        {isAI ? formatAIMessage(msg.content, isStreaming) : <p className="leading-relaxed text-sm">{msg.content}</p>}
+        {isAI ? formatAIMessage(msg.content, isStreaming) : <p dir="auto" className="leading-relaxed text-sm" style={{ textAlign: "start" }}>{msg.content}</p>}
       </div>
     </motion.div>
   );
@@ -1307,11 +1298,12 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
               <AIAvatar />
               <div
                 className="max-w-[80%] px-4 py-3 rounded-2xl rounded-bl-sm text-sm leading-relaxed whitespace-pre-wrap"
-                dir={getTextDir(chatStreamedText)}
+                dir="auto"
                 style={{
                   background: "var(--bg-base)",
                   border: "1px solid var(--border-subtle)",
                   color: "var(--text-primary)",
+                  textAlign: "start",
                 }}
               >
                 {chatStreamedText}
@@ -1340,7 +1332,7 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
             placeholder={td("chatPlaceholder", ar)}
             rows={1}
             disabled={chatLoading}
-            dir={getTextDir(chatInput)}
+            dir="auto"
             className="flex-1 resize-none bg-transparent outline-none text-sm leading-relaxed py-1.5 disabled:opacity-40"
             style={{
               color: "var(--text-primary)",
@@ -1349,7 +1341,7 @@ function PlanView({ plan, onReset }: { plan: LearningPlan; onReset: () => void }
               overflowY: "auto",
               caretColor: "#f97316",
               height: "36px",
-              textAlign: isArabic(chatInput) ? "right" : "left",
+              textAlign: "start",
               wordBreak: "break-word",
               whiteSpace: "pre-wrap",
             }}
@@ -1390,6 +1382,7 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
   const [isDeleting, setIsDeleting] = useState(false);
   const [showIntro, setShowIntro] = useState(false);
   const [scenario, setScenario] = useState<string>("");
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const { lang } = useLang();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -1527,6 +1520,7 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
         const genController = new AbortController();
         const genTimeout = setTimeout(() => genController.abort(), 290000);
         let genText = "";
+        let quotaExceeded = false;
         try {
           // Stage 1 — research (fast). Failure is non-fatal: synthesize can
           // still produce a plan (it falls back to the persisted pool / model
@@ -1558,7 +1552,11 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
             body: JSON.stringify({ messages: newMessages, phase: "synthesize", research }),
             signal: genController.signal,
           });
-          if (!r.ok) {
+          // 402 = free plan already used. Surface the upgrade prompt instead of
+          // an error, and never fall back to applying the minimal plan.
+          if (r.status === 402) {
+            quotaExceeded = true;
+          } else if (!r.ok) {
             const errBody = await r.text().catch(() => "");
             console.error(`[gen] synthesize HTTP ${r.status}:`, errBody.slice(0, 500));
           }
@@ -1580,22 +1578,29 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
           setGenStatus("");
         }
 
-        const enrichedPlan = parsePlan(genText);
-        if (!enrichedPlan && genText) {
-          console.error(`[gen] synthesize returned ${genText.length} chars but it did not parse as a valid plan. First 300:`, genText.slice(0, 300), "…last 200:", genText.slice(-200));
-        }
-        if (enrichedPlan) applyPlan(enrichedPlan);
-        else if (detected) applyPlan(detected);
-        else {
-          setMessages([
-            ...newMessages,
-            {
-              role: "assistant",
-              content: lang === "ar"
-                ? "عذراً، لم أتمكن من إنشاء خارطة الطريق الآن. حاول مرة أخرى خلال لحظة."
-                : "Sorry — I couldn't build your roadmap just now. Give it another try in a moment.",
-            },
-          ]);
+        if (quotaExceeded) {
+          // Free plan already consumed — show the upgrade prompt, don't apply
+          // any plan (not even the minimal detected one).
+          setShowUpgrade(true);
+          setMessages(newMessages);
+        } else {
+          const enrichedPlan = parsePlan(genText);
+          if (!enrichedPlan && genText) {
+            console.error(`[gen] synthesize returned ${genText.length} chars but it did not parse as a valid plan. First 300:`, genText.slice(0, 300), "…last 200:", genText.slice(-200));
+          }
+          if (enrichedPlan) applyPlan(enrichedPlan);
+          else if (detected) applyPlan(detected);
+          else {
+            setMessages([
+              ...newMessages,
+              {
+                role: "assistant",
+                content: lang === "ar"
+                  ? "عذراً، لم أتمكن من إنشاء خارطة الطريق الآن. حاول مرة أخرى خلال لحظة."
+                  : "Sorry — I couldn't build your roadmap just now. Give it another try in a moment.",
+              },
+            ]);
+          }
         }
       } else {
         setMessages([...newMessages, { role: "assistant", content: full }]);
@@ -1617,8 +1622,8 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
     try {
       const focusSuffix = activeScenario ? ` My focus: ${activeScenario}.` : "";
       const greeting = lang === "ar"
-        ? `مرحباً! أنا مستعد للحصول على خطة العمل الشخصية الخاصة بي.${activeScenario ? ` تركيزي: ${activeScenario}.` : ""}`
-        : `Hello! I'm ready to get my personalized action plan.${focusSuffix}`;
+        ? `مرحباً! أود أن أرسم طريقي معك.${activeScenario ? ` تركيزي: ${activeScenario}.` : ""}`
+        : `Hi! I'd like to map out my path with you.${focusSuffix}`;
       const initMessages: Message[] = [{ role: "user", content: greeting }];
       setMessages(initMessages);
 
@@ -1642,7 +1647,22 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
       }
       const full = streamBufferRef.current;
 
-      setMessages([...initMessages, { role: "assistant", content: full }]);
+      // Defense in depth: the opening turn should always be conversational, never
+      // a plan. If the model still emits a plan signal / raw JSON here, never show
+      // it raw — fall back to a warm opening question instead.
+      if (looksLikePlanAttempt(full) || parsePlan(full) || full.trim().startsWith("{")) {
+        setMessages([
+          ...initMessages,
+          {
+            role: "assistant",
+            content: lang === "ar"
+              ? "أهلاً بك! أنا eSpark، مرشدك الذكي. أخبرني قليلاً عن نفسك — من أنت، ومن أين أنت، وهل أنت طالب أم تعمل أم شيء آخر؟"
+              : "Welcome! I'm eSpark, your AI guide. Tell me a bit about yourself — who are you, where are you from, and are you studying, working, or something else?",
+          },
+        ]);
+      } else {
+        setMessages([...initMessages, { role: "assistant", content: full }]);
+      }
     } catch {
       setMessages([
         { role: "user", content: "Hello!" },
@@ -1674,6 +1694,7 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
       setStreamedText("");
       setIsLoading(false);
       setGenStatus("");
+      setShowUpgrade(false);
       localStorage.removeItem(LS_SCENARIO);
       localStorage.removeItem(LS_INTRO_SEEN);
       sessionStorage.removeItem("espark-plan-cache");
@@ -1803,8 +1824,8 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
               {messages.map((msg, i) => {
                 // Don't render the silent greeting sent at start
                 if (msg.role === "user" && (
-                  msg.content === "Hello! I'm ready to get my personalized action plan." ||
-                  msg.content === "مرحباً! أنا مستعد للحصول على خطة العمل الشخصية الخاصة بي."
+                  msg.content === "Hi! I'd like to map out my path with you." ||
+                  msg.content === "مرحباً! أود أن أرسم طريقي معك."
                 )) return null;
                 return <ChatBubble key={i} msg={msg} />;
               })}
@@ -1821,6 +1842,43 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
                         : undefined
                   }
                 />
+              )}
+
+              {/* Upgrade prompt — shown when the free plan is already used */}
+              {showUpgrade && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  dir={lang === "ar" ? "rtl" : "ltr"}
+                  className="rounded-2xl p-5"
+                  style={{
+                    background: "linear-gradient(135deg, rgba(249,115,22,0.12), rgba(251,146,60,0.06))",
+                    border: "1px solid rgba(249,115,22,0.35)",
+                    boxShadow: "0 0 20px rgba(249,115,22,0.12)",
+                  }}
+                >
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Crown size={18} style={{ color: "#f59e0b" }} />
+                    <h3 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
+                      {td("upgradeTitle", lang === "ar")}
+                    </h3>
+                  </div>
+                  <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--text-secondary)" }}>
+                    {td("upgradeMsg", lang === "ar")}
+                  </p>
+                  <Link
+                    href="/pricing"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90"
+                    style={{
+                      background: "linear-gradient(135deg, #f97316, #fb923c)",
+                      color: "#0f0600",
+                      boxShadow: "0 0 16px rgba(249,115,22,0.3)",
+                    }}
+                  >
+                    <Zap size={16} fill="currentColor" />
+                    {td("upgradeCta", lang === "ar")}
+                  </Link>
+                </motion.div>
               )}
 
               <div ref={messagesEndRef} />
@@ -1848,7 +1906,7 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
                 placeholder={td("placeholder", lang === "ar")}
                 rows={1}
                 disabled={isLoading}
-                dir={getTextDir(input)}
+                dir="auto"
                 className="flex-1 resize-none bg-transparent outline-none text-sm leading-relaxed py-1.5 disabled:opacity-40"
                 style={{
                   color: "var(--text-primary)",
@@ -1857,7 +1915,7 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
                   overflowY: "auto",
                   caretColor: "#f97316",
                   height: "36px",
-                  textAlign: isArabic(input) ? "right" : "left",
+                  textAlign: "start",
                   wordBreak: "break-word",
                   whiteSpace: "pre-wrap",
                 }}

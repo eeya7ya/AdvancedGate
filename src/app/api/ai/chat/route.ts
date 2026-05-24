@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { auth } from "~/auth";
-import { getUserRoadmap, addUserApiCost, setUserResearchPool, getUserResearchPool, type ResearchPoolEntry } from "@/lib/db";
+import { getUserRoadmap, addUserApiCost, setUserResearchPool, getUserResearchPool, canGeneratePlan, incrementPlanGenerations, type ResearchPoolEntry } from "@/lib/db";
 import { getTimezoneForCountry, getLocalizedDateTime } from "@/lib/timezone";
 
 const client = new Anthropic();
@@ -68,6 +68,18 @@ You help with ANY situation, not just job-seekers:
 - 📚 Lifelong learners: learning something new for personal growth or curiosity
 
 Detect from the conversation what kind of situation they're in and adapt your whole approach. A student asking about university subjects gets completely different advice than a professional switching industries.
+
+═══════════════════════════════════════════
+FOLLOW THE USER'S ACTUAL GOAL — DO NOT FORCE A CAREER FRAME
+═══════════════════════════════════════════
+This is NOT a jobs tool. It is a genuine learning/life advisor. Build the plan around what the user ACTUALLY asked for, even when that has nothing to do with employment or income.
+
+Classify the goal and adapt accordingly:
+- ACADEMIC / SCHOOL (e.g. "help me with 7th-grade math and science", "pass my chemistry final", "understand calculus", "do well this semester"): Build a STUDY plan — topic breakdown, mastery milestones, practice strategy, exam prep, study schedule. Do NOT talk about salaries, job markets, "target market", or "work style". These do not apply to a school student and make the advice feel wrong.
+- PERSONAL / CURIOSITY (e.g. "learn guitar", "understand AI for fun", "read more philosophy"): Build a learning plan around enjoyment, steady progress, and milestones. No market/salary framing.
+- CAREER / INCOME (e.g. "become a network engineer", "switch to data science", "earn more freelancing"): The full market/salary/targetMarket framing applies — use it.
+
+CRITICAL: For ACADEMIC and PERSONAL goals, OMIT the entire "marketInsights" object and leave profile.targetMarket / profile.workStyle empty ("") — never invent a salary range or job-market claim for a school subject or a hobby. Only include marketInsights when the goal is genuinely about a career, job, or income.
 
 ═══════════════════════════════════════════
 PATH DETECTION — READ THE PERSON, NOT A SCRIPT
@@ -421,11 +433,13 @@ CONVERSATION STYLE:
 - If they give multiple answers at once, absorb them all and ask only what's still missing.
 - Warm, smart, casual — genuinely curious about their story.
 
-INFO TO COLLECT (weave naturally, adapt order to the flow):
-1. Identity: name, country, current situation (student / working / other), current field
-2. Goal: dream role, target income or lifestyle, specific outcome
-3. Target market: local vs. abroad vs. remote / freelance / global
-4. Current skills and obstacles
+ADAPT TO THE GOAL — this is NOT just a careers tool. If someone wants help with school subjects (e.g. "7th-grade math"), exam prep, or learning something for personal interest, build them a STUDY/LEARNING plan and do NOT ask about job markets, target income, or "work style" — those questions feel wrong for a student or hobby learner. Only ask career/market questions when the goal is genuinely about a job or income.
+
+INFO TO COLLECT (weave naturally, adapt order and SKIP what doesn't fit the goal):
+1. Identity: name, country, current situation (student / working / other), current field or subjects
+2. Goal: what they actually want — a dream role, OR mastering specific subjects, OR an exam to pass, OR a skill to learn for themselves
+3. (Career goals only) Target market: local vs. abroad vs. remote / freelance / global
+4. Current level / knowledge and obstacles
 5. Time available per week and rough timeline
 
 HARD LIMIT: Ask at MOST 4 short questions total before you must generate. If you still have gaps after 4 turns, infer reasonable defaults from everything they've said (and the selected focus area if provided) and generate now.
@@ -639,16 +653,20 @@ function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
 // Stage 1 gatherer — Haiku faithfully collects live data; it does NOT design
 // the plan. Keeping it a pure extractor plays to Haiku's strengths and keeps
 // the token-heavy search work cheap and fast.
-const GATHER_SYSTEM_PROMPT = `You are a research gatherer for a career/learning planner. Use the web_search tool to collect REAL, current data for the user described in the conversation. Soft cap: about 5 searches — merge needs into each query, but ALWAYS spend at least one dedicated search on the official certification/training provider (rule 3 below).
+const GATHER_SYSTEM_PROMPT = `You are a research gatherer for a learning/life planner. Use the web_search tool to collect REAL, current data for the user described in the conversation. Soft cap: about 5 searches — merge needs into each query.
 
-Gather, in priority order:
-1. CURRENT salary + job-market demand for the user's target role in their country/target market (most important). Note 2-3 adjacent/related fields that currently have stronger or growing demand.
+FIRST, classify the goal:
+- CAREER / INCOME goal (a job, role, freelancing, earning): gather salary + job-market data AND courses, and ALWAYS spend one search on the official certification/training provider (rule 3).
+- ACADEMIC / SCHOOL goal (school or university subjects, exam prep, e.g. "7th-grade math") or PERSONAL / HOBBY goal (learning for interest): DO NOT search for salaries or job-market demand — they are irrelevant. SKIP the entire MARKET DATA section. Spend all searches on the best real learning resources for those specific subjects/topics (free first: Khan Academy, YouTube, freeCodeCamp, OpenStax, MIT OCW, plus reputable paid). For Arabic-speaking users, include Arabic-language options.
+
+Gather, in priority order (skip market items for academic/personal goals):
+1. CURRENT salary + job-market demand for the user's target role in their country/target market (CAREER goals only). Note 2-3 adjacent/related fields that currently have stronger or growing demand.
 2. The best real, specific courses for their goal — official vendor courses first (Cisco U., Microsoft Learn, AWS Skill Builder, CompTIA, KNX, etc.), then reputable paid (Coursera, Udemy, LinkedIn Learning) and free (YouTube, freeCodeCamp, edX). For Arabic-speaking countries, include Arabic-language options.
-3. THE OFFICIAL CERTIFICATION COURSE — MANDATORY. Run a dedicated search for the certification/skill's OWN official training portal and capture that exact course/training URL. Examples: CCNA → Cisco Learning Network / Cisco U. / NetAcad; Azure or M365 → Microsoft Learn; AWS → AWS Skill Builder; Google Cloud → Cloud Skills Boost; CompTIA → CompTIA CertMaster; KNX → KNX Association; PMP → PMI; Security+/CISSP/CEH → the issuing body. The official course is the anchor of the plan — never return a candidate list without it. If you genuinely cannot find the official URL, still list the official course by name with a blank URL so the writer can include it.
+3. THE OFFICIAL CERTIFICATION COURSE — MANDATORY FOR CAREER/CERTIFICATION GOALS (skip for academic/school subjects and hobbies, which have no certification). Run a dedicated search for the certification/skill's OWN official training portal and capture that exact course/training URL. Examples: CCNA → Cisco Learning Network / Cisco U. / NetAcad; Azure or M365 → Microsoft Learn; AWS → AWS Skill Builder; Google Cloud → Cloud Skills Boost; CompTIA → CompTIA CertMaster; KNX → KNX Association; PMP → PMI; Security+/CISSP/CEH → the issuing body. The official course is the anchor of the plan — never return a candidate list without it. If you genuinely cannot find the official URL, still list the official course by name with a blank URL so the writer can include it.
 
 You do NOT design or format the plan. You only gather and faithfully report what you found, in this exact shape (plain text, no markdown fences):
 
-MARKET DATA:
+MARKET DATA: (CAREER goals only — OMIT this whole section for academic/school or personal/hobby goals)
 - Salary (local): <figures + exact currency as found>
 - Salary (regional / global / remote): <figures + currency>
 - Demand: <honest local + global demand, 1-2 lines>
@@ -839,12 +857,18 @@ export async function POST(req: NextRequest) {
     // this turn instead of asking another question.
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
     const lastUserText = (lastUser?.content ?? "").trim().toLowerCase();
+    // Skip-to-generate only makes sense AFTER the conversation has started — i.e.
+    // once the advisor has asked at least one question. On the opening turn there
+    // is nothing to skip, and honoring it there causes the advisor to dump a plan
+    // signal immediately (e.g. the auto-greeting "I'm ready..." trips "ready").
+    const conversationStarted = messages.some((m) => m.role === "assistant");
     const skipIntent =
-      /\b(just\s+generate|generate\s+now|generate\s+it|generate\s+the\s+plan|make\s+the\s+plan|skip|skip\s+(the\s+)?questions?|enough\s+questions?|stop\s+asking|go(\s+now)?|start\s+(now|already)|do\s+it(\s+already)?|ready|i'?m\s+ready)\b/.test(
+      conversationStarted &&
+      (/\b(just\s+generate|generate\s+now|generate\s+it|generate\s+the\s+plan|make\s+the\s+plan|skip|skip\s+(the\s+)?questions?|enough\s+questions?|stop\s+asking|go(\s+now)?|start\s+(now|already)|do\s+it(\s+already)?|ready|i'?m\s+ready)\b/.test(
         lastUserText,
       ) ||
       /خلاص|يلا|يالله|ابدأ|ولّد|ولد الخطة|اعمل الخطة|كفى|بس|خلّص/.test(lastUser?.content ?? "") ||
-      /^[!?.…,\s]+$/.test(lastUser?.content ?? "");
+      /^[!?.…,\s]+$/.test(lastUser?.content ?? ""));
 
     const skipNote = skipIntent
       ? `\n\n═══════════════════════════════════════════\nUSER SKIP-TO-GENERATE SIGNAL DETECTED\n═══════════════════════════════════════════\nThe user's latest message is an explicit request to stop asking questions and generate the plan now (or a clear impatience signal). Per the SKIP-TO-GENERATE rule, you MUST output ONLY the LEARNING_PLAN JSON on this turn — no questions, no commentary, no markdown fences. Fill any missing profile fields with sensible defaults inferred from the conversation so far.\n`
@@ -909,6 +933,18 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // ── Plan quota gate ──────────────────────────────────────────────
+  // gather + synthesize together build one full plan. Free users get a single
+  // plan generation (lifetime); paid subscriptions are unlimited; quota top-ups
+  // extend the free allotment. The conversational interview (isInit) above is
+  // always free — only the actual plan build is gated.
+  if (!(await canGeneratePlan(userId))) {
+    return new Response(
+      JSON.stringify({ error: "quota_exceeded", upgrade: true }),
+      { status: 402, headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" } },
+    );
+  }
+
   // ── Stage 1: GATHER ──────────────────────────────────────────────
   // Haiku runs the live web searches and returns a compact research bundle.
   // This call is fast (well under 60s), so it never trips the runtime timeout.
@@ -961,6 +997,10 @@ export async function POST(req: NextRequest) {
         }
         console.log(`[deep-research] stage2 synth (${SYNTH_MODEL}) → $${synth.cost.toFixed(4)}`);
         if (synth.cost > 0) void addUserApiCost(userId, synth.cost);
+
+        // Count this successful plan build against the user's quota. Runs once
+        // per generation (synthesize is the single plan-writing call).
+        void incrementPlanGenerations(userId);
 
         controller.enqueue(encoder.encode(sanitizePlanUrls(synth.text, validUrls)));
         controller.close();
