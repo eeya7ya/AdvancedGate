@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { auth } from "~/auth";
-import { getUserRoadmap, addUserApiCost, setUserResearchPool } from "@/lib/db";
+import { getUserRoadmap, addUserApiCost, setUserResearchPool, getUserResearchPool, type ResearchPoolEntry } from "@/lib/db";
 import { getTimezoneForCountry, getLocalizedDateTime } from "@/lib/timezone";
 
 const client = new Anthropic();
@@ -28,9 +28,10 @@ const SONNET_IN  = 3.00 / 1_000_000;  // $3 / MTok
 const SONNET_OUT = 15.00 / 1_000_000; // $15 / MTok
 const COST_PER_WEB_SEARCH = 10.00 / 1000; // $0.01 / search
 
-// Plan generation makes two sequential model calls + live searches; give the
-// function room to finish instead of being killed mid-call. Capped by your
-// Vercel plan — Hobby ≤60s; on Pro you can raise this to ~300 for Sonnet headroom.
+// Plan generation is split across TWO requests — "gather" (Haiku + web search)
+// then "synthesize" (Sonnet writes the plan from the gathered data). Each call
+// finishes well inside Vercel's per-call cap (Hobby = 60s), so the full deep-
+// research flow keeps Sonnet quality without ever tripping the runtime timeout.
 export const maxDuration = 60;
 
 const SYSTEM_PROMPT_BODY = `You are eSpark 🌟 — a brilliant, warm AI advisor who feels like that one amazing friend who always knows exactly what to do. You help EVERYONE: students figuring out what to study, fresh grads navigating their first job, professionals switching careers, freelancers leveling up, entrepreneurs chasing a dream — anyone with a goal.
@@ -536,7 +537,7 @@ FINAL CRITICAL RULES:
 // Compact conversational prompt used ONLY during the interview streaming
 // phase (chat isInit=true). Keeps each turn small so the interview is fast
 // and cheap. The full SYSTEM_PROMPT_BODY (with the complete JSON schema) is
-// still sent to generatePlan() where the actual plan is built.
+// sent in the synthesize phase, where the actual plan is built.
 const CONVERSATION_SYSTEM_PROMPT = `You are eSpark 🌟 — a warm, smart AI life advisor who feels like a brilliant friend. You help students, career starters, career switchers, professionals, freelancers, entrepreneurs, and lifelong learners map a realistic path to their goal.
 
 LANGUAGE: Detect the user's language and respond ENTIRELY in it. Arabic user → Arabic reply. English user → English. Match dialect when they use one. Use emojis naturally (not every sentence).
@@ -824,45 +825,18 @@ async function runSynthesis(
   return { text, cost };
 }
 
-async function generatePlan(messages: Message[], userId: string, timezone?: string): Promise<string> {
-  // Stage 1: Haiku gathers the live data (cheap + fast; carries the token-heavy
-  // search results at Haiku rates instead of Sonnet's).
-  const research = await gatherResearch(messages, timezone);
-
-  // Persist the bundle BEFORE returning so the course-link lookups that follow
-  // can resolve URLs from these real results for free.
-  if (research.pool.length > 0) {
-    await setUserResearchPool(userId, research.pool);
-  }
-
-  // Verbatim catalog so the synthesizer copies real URLs rather than recalling
-  // them from memory.
-  const catalog = research.pool
+// Build the research context the synthesizer reads. Shared by the synthesize
+// phase whether the bundle was just gathered (passed from the client) or read
+// back from the persisted pool.
+function buildResearchBlock(digest: string, pool: ResearchPoolEntry[]): string {
+  const catalog = pool
     .map((e) => `- ${e.title || "(untitled)"} | ${e.url}`)
     .join("\n");
-  const researchBlock =
+  return (
     `BACKGROUND RESEARCH (gathered live via web search — base the plan on THIS, do not invent):\n\n` +
-    `${research.digest}\n\n` +
-    `COURSE URL CATALOG (real URLs from search — copy EXACTLY into courseRecommendations.url; use "" if a course is not listed here):\n${catalog || "(none found)"}`;
-
-  // Stage 2: Sonnet synthesizes the accurate plan from the gathered data.
-  // If Sonnet errors, fall back to Haiku so the user always gets a plan rather
-  // than the failure screen.
-  let synth: { text: string; cost: number };
-  try {
-    synth = await runSynthesis(SYNTH_MODEL, SONNET_IN, SONNET_OUT, messages, researchBlock, timezone);
-    console.log(`[deep-research] stage2 synth (Sonnet) → $${synth.cost.toFixed(4)}`);
-  } catch (err) {
-    console.error("[deep-research] Sonnet synthesis failed; falling back to Haiku:", err instanceof Error ? err.message : err);
-    synth = await runSynthesis(GATHER_MODEL, HAIKU_IN, HAIKU_OUT, messages, researchBlock, timezone);
-    console.log(`[deep-research] stage2 synth (Haiku fallback) → $${synth.cost.toFixed(4)}`);
-  }
-
-  const totalCost = research.cost + synth.cost;
-  if (totalCost > 0) void addUserApiCost(userId, totalCost);
-  console.log(`[deep-research] plan total → $${totalCost.toFixed(4)}`);
-
-  return sanitizePlanUrls(synth.text, research.searchedUrls);
+    `${digest || "(market digest unavailable — use your best current knowledge, but do NOT fabricate specific salary numbers or course URLs)"}\n\n` +
+    `COURSE URL CATALOG (real URLs from search — copy EXACTLY into courseRecommendations.url; use "" if a course is not listed here):\n${catalog || "(none found)"}`
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -875,11 +849,24 @@ export async function POST(req: NextRequest) {
   let messages: Message[];
   let isInit = false;
   let scenario = "";
+  let phase = "";
+  let providedResearch: { digest: string; pool: ResearchPoolEntry[] } | null = null;
   try {
     const body = await req.json();
     messages = body.messages;
     isInit = body.isInit === true;
     scenario = typeof body.scenario === "string" ? body.scenario.slice(0, 120) : "";
+    phase = typeof body.phase === "string" ? body.phase : "";
+    if (body.research && typeof body.research === "object") {
+      const digest = typeof body.research.digest === "string" ? body.research.digest : "";
+      const pool: ResearchPoolEntry[] = Array.isArray(body.research.pool)
+        ? body.research.pool
+            .filter((e: unknown): e is ResearchPoolEntry =>
+              !!e && typeof (e as ResearchPoolEntry).url === "string")
+            .map((e: ResearchPoolEntry) => ({ url: e.url, title: typeof e.title === "string" ? e.title : "" }))
+        : [];
+      providedResearch = { digest, pool };
+    }
   } catch {
     return new Response("Invalid JSON", { status: 400 });
   }
@@ -978,12 +965,60 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Plan generation phase — run web searches then emit full result
+  // ── Stage 1: GATHER ──────────────────────────────────────────────
+  // Haiku runs the live web searches and returns a compact research bundle.
+  // This call is fast (well under 60s), so it never trips the runtime timeout.
+  // The plan itself is written by a SECOND request (synthesize, below) —
+  // splitting the work across two calls is what keeps each one inside Vercel's
+  // per-call limit while still using Sonnet for the final plan.
+  if (phase === "gather") {
+    try {
+      const research = await gatherResearch(messages, timezone);
+      // Persist the pool so course-link lookups can resolve URLs for free, and
+      // so synthesize can recover it if the client doesn't echo it back.
+      if (research.pool.length > 0) await setUserResearchPool(userId, research.pool);
+      if (research.cost > 0) void addUserApiCost(userId, research.cost);
+      return new Response(
+        JSON.stringify({ type: "RESEARCH", digest: research.digest, pool: research.pool }),
+        { headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" } },
+      );
+    } catch (err) {
+      console.error("[deep-research] gather phase failed:", err instanceof Error ? err.message : err);
+      // Return an empty bundle so the synthesize step can still produce a plan.
+      return new Response(
+        JSON.stringify({ type: "RESEARCH", digest: "", pool: [] }),
+        { headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" } },
+      );
+    }
+  }
+
+  // ── Stage 2: SYNTHESIZE ──────────────────────────────────────────
+  // Sonnet writes the full plan from the already-gathered research (no web
+  // search here → small input, finishes inside the limit). Falls back to the
+  // persisted pool if the client didn't echo one, and to Haiku if Sonnet errors.
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        const content = await generatePlan(messages, userId, timezone);
-        controller.enqueue(encoder.encode(content));
+        const digest = providedResearch?.digest ?? "";
+        let pool: ResearchPoolEntry[] = providedResearch?.pool ?? [];
+        if (pool.length === 0) {
+          try { pool = await getUserResearchPool(userId); } catch { /* no persisted pool */ }
+        }
+        const researchBlock = buildResearchBlock(digest, pool);
+        const validUrls = new Set<string>(pool.map((e) => e.url).filter(Boolean));
+
+        let synth: { text: string; cost: number };
+        try {
+          synth = await runSynthesis(SYNTH_MODEL, SONNET_IN, SONNET_OUT, messages, researchBlock, timezone);
+          console.log(`[deep-research] stage2 synth (Sonnet) → $${synth.cost.toFixed(4)}`);
+        } catch (err) {
+          console.error("[deep-research] Sonnet synthesis failed; falling back to Haiku:", err instanceof Error ? err.message : err);
+          synth = await runSynthesis(GATHER_MODEL, HAIKU_IN, HAIKU_OUT, messages, researchBlock, timezone);
+          console.log(`[deep-research] stage2 synth (Haiku fallback) → $${synth.cost.toFixed(4)}`);
+        }
+        if (synth.cost > 0) void addUserApiCost(userId, synth.cost);
+
+        controller.enqueue(encoder.encode(sanitizePlanUrls(synth.text, validUrls)));
         controller.close();
       } catch (err) {
         controller.error(err);

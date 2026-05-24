@@ -260,7 +260,7 @@ function AIAvatar() {
   );
 }
 
-function TypingIndicator({ isPlan = false }: { isPlan?: boolean }) {
+function TypingIndicator({ isPlan = false, label }: { isPlan?: boolean; label?: string }) {
   const { lang } = useLang();
   const ar = lang === "ar";
   return (
@@ -275,9 +275,9 @@ function TypingIndicator({ isPlan = false }: { isPlan?: boolean }) {
           <span className="typing-dot w-2 h-2 rounded-full" style={{ background: "var(--brand-teal)" }} />
           <span className="typing-dot w-2 h-2 rounded-full" style={{ background: "var(--brand-teal)" }} />
         </div>
-        {isPlan && (
+        {(label || isPlan) && (
           <p className="text-xs font-medium animate-pulse" style={{ color: "var(--text-muted)" }}>
-            {td("crafting", ar)}
+            {label ?? td("crafting", ar)}
           </p>
         )}
       </div>
@@ -1382,6 +1382,9 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [streamedText, setStreamedText] = useState("");
+  // Plan-generation sub-phase, surfaced in the typing indicator:
+  // "research" → gathering live market data, "write" → synthesizing the plan.
+  const [genStatus, setGenStatus] = useState<"" | "research" | "write">("");
   const [isInitializing, setIsInitializing] = useState(true);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -1516,14 +1519,42 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
           }).catch(() => null);
         };
 
+        // Plan generation runs as TWO sequential requests so neither one hits
+        // Vercel's 60s per-call limit: first "gather" (Haiku + live web search),
+        // then "synthesize" (Sonnet writes the plan from that research). The
+        // research bundle is carried through the client between the two calls.
         const genController = new AbortController();
-        const genTimeout = setTimeout(() => genController.abort(), 150000);
+        const genTimeout = setTimeout(() => genController.abort(), 170000);
         let genText = "";
         try {
+          // Stage 1 — research (fast). Failure is non-fatal: synthesize can
+          // still produce a plan (it falls back to the persisted pool / model
+          // knowledge), so we just proceed with whatever we get.
+          setGenStatus("research");
+          let research: { digest: string; pool: { url: string; title: string }[] } | null = null;
+          try {
+            const ra = await fetch("/api/ai/chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ messages: newMessages, phase: "gather" }),
+              signal: genController.signal,
+            });
+            if (ra.ok) {
+              const j = await ra.json();
+              if (j && j.type === "RESEARCH") {
+                research = { digest: typeof j.digest === "string" ? j.digest : "", pool: Array.isArray(j.pool) ? j.pool : [] };
+              }
+            }
+          } catch {
+            // ignore — proceed to synthesize without fresh research
+          }
+
+          // Stage 2 — synthesize the plan from the research (Sonnet, streamed).
+          setGenStatus("write");
           const r = await fetch("/api/ai/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ messages: newMessages }), // isInit omitted → full plan path
+            body: JSON.stringify({ messages: newMessages, phase: "synthesize", research }),
             signal: genController.signal,
           });
           if (r.ok && r.body) {
@@ -1539,6 +1570,7 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
           // Timeout or network error — fall through to detected-plan fallback below
         } finally {
           clearTimeout(genTimeout);
+          setGenStatus("");
         }
 
         const enrichedPlan = parsePlan(genText);
@@ -1631,6 +1663,7 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
       setInput("");
       setStreamedText("");
       setIsLoading(false);
+      setGenStatus("");
       localStorage.removeItem(LS_SCENARIO);
       localStorage.removeItem(LS_INTRO_SEEN);
       sessionStorage.removeItem("espark-plan-cache");
@@ -1768,7 +1801,16 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
 
               {/* Loading indicator — shown throughout generation (no raw streaming text) */}
               {isLoading && (
-                <TypingIndicator isPlan={looksLikePlanAttempt(streamedText)} />
+                <TypingIndicator
+                  isPlan={looksLikePlanAttempt(streamedText) || genStatus !== ""}
+                  label={
+                    genStatus === "research"
+                      ? (lang === "ar" ? "أبحث في بيانات السوق والدورات الحيّة…" : "Researching live market data & courses…")
+                      : genStatus === "write"
+                        ? (lang === "ar" ? "أكتب خطتك الشخصية…" : "Writing your personalized plan…")
+                        : undefined
+                  }
+                />
               )}
 
               <div ref={messagesEndRef} />
