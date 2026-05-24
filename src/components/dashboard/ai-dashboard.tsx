@@ -1558,6 +1558,10 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
             body: JSON.stringify({ messages: newMessages, phase: "synthesize", research }),
             signal: genController.signal,
           });
+          if (!r.ok) {
+            const errBody = await r.text().catch(() => "");
+            console.error(`[gen] synthesize HTTP ${r.status}:`, errBody.slice(0, 500));
+          }
           if (r.ok && r.body) {
             const genReader = r.body.getReader();
             const genDecoder = new TextDecoder();
@@ -1567,14 +1571,19 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
               genText += genDecoder.decode(value, { stream: true });
             }
           }
-        } catch {
-          // Timeout or network error — fall through to detected-plan fallback below
+        } catch (err) {
+          // Timeout / abort / network error — log it so the cause is visible,
+          // then fall through to the detected-plan fallback below.
+          console.error("[gen] plan generation failed:", err);
         } finally {
           clearTimeout(genTimeout);
           setGenStatus("");
         }
 
         const enrichedPlan = parsePlan(genText);
+        if (!enrichedPlan && genText) {
+          console.error(`[gen] synthesize returned ${genText.length} chars but it did not parse as a valid plan. First 300:`, genText.slice(0, 300), "…last 200:", genText.slice(-200));
+        }
         if (enrichedPlan) applyPlan(enrichedPlan);
         else if (detected) applyPlan(detected);
         else {

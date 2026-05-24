@@ -667,7 +667,11 @@ async function runSynthesis(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const response = await (client.messages.create as any)({
     model,
-    max_tokens: 8192,
+    // The full plan JSON (8 courses + roadmap + schedule + every text field) can
+    // run ~8-12k output tokens on Sonnet. The old 8192 cap truncated the JSON
+    // mid-array, dropping the trailing `nextSteps` field that isValidPlan
+    // REQUIRES — so the client silently rejected the plan. 16000 gives headroom.
+    max_tokens: 16000,
     system: [
       { type: "text", text: SYSTEM_PROMPT_BODY, cache_control: { type: "ephemeral" } },
       { type: "text", text: dateBlock(timezone) },
@@ -682,6 +686,13 @@ async function runSynthesis(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const block of response.content as any[]) {
     if (block.type === "text") text += block.text ?? "";
+  }
+
+  // A truncated response (hit max_tokens) yields invalid JSON that the client
+  // rejects, surfacing as the generic "couldn't build your roadmap" message.
+  // Log it loudly so the cause is visible in runtime logs instead of silent.
+  if (response.stop_reason && response.stop_reason !== "end_turn") {
+    console.warn(`[deep-research] synth stop_reason=${response.stop_reason} (text ${text.length} chars) — output may be truncated`);
   }
 
   const usage = response.usage ?? {};
