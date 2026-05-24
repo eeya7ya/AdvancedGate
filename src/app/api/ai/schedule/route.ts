@@ -75,51 +75,82 @@ ${courses || "(none listed)"}
 
 Generate the 4-week schedule now.`;
 
-  try {
+  // Extract a JSON array from model output that may be wrapped in prose or
+  // markdown fences. Returns the parsed value, or null if it can't be parsed.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function extractSchedule(raw: string): any[] | null {
+    let text = raw.trim();
+    if (text.startsWith("```")) {
+      text = text.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/i, "").trim();
+    }
+    // Prefer the outermost [...] array; fall back to a {weeklySchedule:[...]} object.
+    const start = text.indexOf("[");
+    const end = text.lastIndexOf("]");
+    const candidates: string[] = [];
+    if (start !== -1 && end > start) candidates.push(text.slice(start, end + 1));
+    candidates.push(text);
+    for (const c of candidates) {
+      try {
+        const parsed = JSON.parse(c);
+        const arr = Array.isArray(parsed) ? parsed : parsed?.weeklySchedule;
+        if (Array.isArray(arr) && arr.length > 0) return arr;
+      } catch {
+        // try next candidate
+      }
+    }
+    return null;
+  }
+
+  // One Haiku call → parsed schedule. Generous token budget so a full
+  // 4-week × 7-day plan (verbose, often Arabic) never truncates mid-JSON,
+  // which was the main cause of "generated nothing" failures.
+  async function attempt(): Promise<{ schedule: unknown[] | null; cost: number; truncated: boolean }> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const resp = await (client.messages.create as any)({
       model: MODEL,
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: [
         { type: "text", text: SCHEDULE_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
       ],
       messages: [{ role: "user", content: context }],
     });
-
-    let raw = (resp.content ?? [])
+    const raw = (resp.content ?? [])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .filter((b: any) => b.type === "text")
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((b: any) => b.text ?? "")
       .join("")
       .trim();
-    if (raw.startsWith("```")) {
-      raw = raw.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/i, "").trim();
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let parsed: any;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      console.error("[schedule] failed to parse model output");
-      return NextResponse.json({ error: "Failed to parse schedule" }, { status: 500 });
-    }
-    const weeklySchedule = Array.isArray(parsed) ? parsed : parsed.weeklySchedule;
-    if (!Array.isArray(weeklySchedule) || weeklySchedule.length === 0) {
-      return NextResponse.json({ error: "Empty schedule" }, { status: 500 });
-    }
-
     const usage = resp.usage ?? {};
     const cost = (usage.input_tokens ?? 0) * HAIKU_IN + (usage.output_tokens ?? 0) * HAIKU_OUT;
-    if (cost > 0) void addUserApiCost(userId, cost);
+    return { schedule: extractSchedule(raw), cost, truncated: resp.stop_reason === "max_tokens" };
+  }
+
+  try {
+    let totalCost = 0;
+    let weeklySchedule: unknown[] | null = null;
+    // Up to 2 attempts — a transient bad/truncated response shouldn't strand
+    // the learner. Each attempt logs whether it hit the token ceiling.
+    for (let i = 0; i < 2 && !weeklySchedule; i++) {
+      const { schedule, cost, truncated } = await attempt();
+      totalCost += cost;
+      if (truncated) console.error(`[schedule] attempt ${i + 1} hit max_tokens (truncated output)`);
+      if (schedule) weeklySchedule = schedule;
+      else console.error(`[schedule] attempt ${i + 1} produced no parseable schedule`);
+    }
+
+    if (totalCost > 0) void addUserApiCost(userId, totalCost);
+
+    if (!weeklySchedule) {
+      return NextResponse.json({ error: "Failed to parse schedule" }, { status: 502 });
+    }
 
     const ok = await upsertUserRoadmap(userId, { ...plan, weeklySchedule });
     if (!ok) {
       return NextResponse.json({ error: "Failed to save schedule" }, { status: 500 });
     }
 
-    console.log(`[schedule] generated ${weeklySchedule.length} weeks for ${userId} → $${cost.toFixed(4)}`);
+    console.log(`[schedule] generated ${weeklySchedule.length} weeks for ${userId} → $${totalCost.toFixed(4)}`);
     return NextResponse.json({ ok: true, weeks: weeklySchedule.length });
   } catch (err) {
     console.error("[schedule] generation error:", err);
