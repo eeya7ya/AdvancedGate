@@ -9,26 +9,28 @@ const client = new Anthropic();
 // Interview + lightweight turns run on Haiku (cheapest).
 const CLAUDE_MODEL = "claude-haiku-4-5";
 
-// Deep-research synthesis (plan generation). Kept on Haiku 4.5 + the proven
-// web_search_20250305 tool — the known-good, fast combination that completes
-// within the serverless timeout. (Sonnet 4.6 + web_search_20260209 was tried
-// but failed in production — the model/tool isn't enabled on this account or
-// the longer call exceeded the function timeout, billing tokens with no result.
-// To re-enable: flip the two constants below to "claude-sonnet-4-6" /
-// "web_search_20260209" AND the pricing to Sonnet rates ($3/$15), AND confirm
-// account access + a generous Vercel function maxDuration.)
-const SYNTH_MODEL = "claude-haiku-4-5";
-const SYNTH_WEB_SEARCH = "web_search_20250305";
+// Two-stage deep research, split by model strength:
+//   Stage 1 (GATHER)  — Haiku runs the live web searches and faithfully collects
+//     real course URLs + market figures. The heavy search-result tokens are
+//     billed at cheap Haiku rates, and Haiku is fast.
+//   Stage 2 (SYNTH)   — Sonnet 4.6 turns that gathered data into the plan. This
+//     is where accuracy matters (best course matches, faithful URL copying,
+//     correct salary/currency extraction) and Sonnet sees only the compact
+//     digest — no re-searching — so it stays affordable and quick.
+const GATHER_MODEL = "claude-haiku-4-5";
+const GATHER_WEB_SEARCH = "web_search_20250305";
+const SYNTH_MODEL = "claude-sonnet-4-6";
 
-// Pricing for SYNTH_MODEL (Haiku 4.5) + web-search fee. Tracked against the
-// per-user budget for visibility, but plan generation is never blocked on it.
-const SYNTH_COST_PER_INPUT_TOKEN  = 1.00 / 1_000_000;  // $1.00 / MTok
-const SYNTH_COST_PER_OUTPUT_TOKEN = 5.00 / 1_000_000;  // $5.00 / MTok
-const COST_PER_WEB_SEARCH = 10.00 / 1000;              // $0.01 / search
+// Pricing (tracked against the per-user budget for visibility; never blocks).
+const HAIKU_IN  = 1.00 / 1_000_000;   // $1 / MTok
+const HAIKU_OUT = 5.00 / 1_000_000;   // $5 / MTok
+const SONNET_IN  = 3.00 / 1_000_000;  // $3 / MTok
+const SONNET_OUT = 15.00 / 1_000_000; // $15 / MTok
+const COST_PER_WEB_SEARCH = 10.00 / 1000; // $0.01 / search
 
-// Plan generation runs live web searches + a large JSON synthesis, which can
-// take longer than the platform default and was timing out mid-call. Give the
-// function room to finish (capped by your Vercel plan — Hobby allows up to 60s).
+// Plan generation makes two sequential model calls + live searches; give the
+// function room to finish instead of being killed mid-call. Capped by your
+// Vercel plan — Hobby ≤60s; on Pro you can raise this to ~300 for Sonnet headroom.
 export const maxDuration = 60;
 
 const SYSTEM_PROMPT_BODY = `You are eSpark 🌟 — a brilliant, warm AI advisor who feels like that one amazing friend who always knows exactly what to do. You help EVERYONE: students figuring out what to study, fresh grads navigating their first job, professionals switching careers, freelancers leveling up, entrepreneurs chasing a dream — anyone with a goal.
@@ -107,14 +109,11 @@ AFTER ALL INFO IS COLLECTED
 Once you have everything you need, immediately generate the JSON plan. No closing remarks or transition sentences — go directly to the JSON. No more questions unless something critical is truly missing.
 
 ═══════════════════════════════════════════
-WEB SEARCH — REAL-TIME DATA FIRST, USED EFFICIENTLY
+USING THE PROVIDED RESEARCH — REAL DATA ONLY
 ═══════════════════════════════════════════
-You have access to a built-in web_search tool. Accurate, up-to-date market and course data is the TOP priority — but you have a hard cap of about 3 searches total across this entire response, so make each one count by merging related needs into one well-crafted query.
-
-Recommended search budget (3 searches — the salary/market one matters most):
-1. ONE combined query for CURRENT salary + job-market demand in the user's country/target market for the role — this is the single most important search (e.g. "electrical engineer salary Jordan 2025 JOD demand entry level"). Pull adjacent-field demand signals from these results too.
-2. ONE query for the best specific courses, combining topic + official vendor/platform (e.g. "CCNA course site:u.cisco.com OR udemy.com OR coursera.org").
-3. ONE query for the most valuable remaining gap — a second course source, remote/freelance rates, or certification details — whichever most improves the plan.
+Live web research has ALREADY been gathered for you and appears in the conversation as a "BACKGROUND RESEARCH" block plus a "COURSE URL CATALOG". You do NOT search the web yourself — base every figure and course on THAT provided research:
+- marketInsights (salaryRange, localDemand, globalDemand, adjacentOpportunities): use the figures and signals from the BACKGROUND RESEARCH. Keep the exact currencies as found; never invent numbers.
+- courseRecommendations: choose the best-matched courses from the COURSE URL CATALOG and copy each url EXACTLY as listed. If a course you want is not in the catalog, set its url to "".
 
 When building courseRecommendations:
 - Take URLs DIRECTLY from your web_search results — copy them character-for-character.
@@ -150,7 +149,7 @@ Frame every notice like a trusted mentor — honest, specific, and always with a
 If there are no genuine concerns, OMIT the notice field entirely.
 
 RELATED & OTHER AREAS — ADJACENT OPPORTUNITIES:
-Beyond their primary goal, identify 2-3 adjacent or alternative fields/roles that leverage similar skills and currently show stronger or growing demand — especially valuable when their primary local market is saturated. Populate marketInsights.adjacentOpportunities with these. Ground the demand signals in your search results, but FOLD any needed lookup into your existing salary/market searches — do NOT spend extra searches on this (stay within the ~3 search cap).
+Beyond their primary goal, identify 2-3 adjacent or alternative fields/roles that leverage similar skills and currently show stronger or growing demand — especially valuable when their primary local market is saturated. Populate marketInsights.adjacentOpportunities with these. Ground the demand signals in the BACKGROUND RESEARCH provided to you (the gatherer already collected adjacent-field demand) — do not invent fields or numbers.
 
 ═══════════════════════════════════════════
 OUTPUT: ONLY THE JSON BELOW
@@ -518,7 +517,7 @@ All description fields must be full, meaningful sentences — never 2-word label
 
 FINAL CRITICAL RULES:
 - Every field reflects their actual answers — personalized to who they are, where they live, and what they said
-- courseRecommendations MUST contain 6-8 REAL courses found via your web searches — real titles, real instructors, real platforms. Do NOT limit to 4. Users need options across all price ranges and platforms
+- courseRecommendations MUST contain 6-8 REAL courses chosen from the COURSE URL CATALOG / BACKGROUND RESEARCH provided — real titles, real instructors, real platforms. Do NOT limit to 4. Users need options across all price ranges and platforms
 - courseRecommendations ORDERING: always list the official vendor/mother company course FIRST (e.g., Cisco U. for CCNA, Microsoft Learn for Azure, AWS Skill Builder for AWS, CompTIA CertMaster for CompTIA certs), followed by paid third-party platforms (Udemy, Coursera, LinkedIn Learning), then free platforms (YouTube, freeCodeCamp, edX)
 - courseRecommendations MUST include sourceType, isFree, and hasCertificate fields on EVERY course entry — these power the source-type badges shown to users so they know what costs money vs what is free vs what earns a certificate
 - courseRecommendations.url CRITICAL: ONLY use a URL that appears word-for-word in the COURSE URL CATALOG provided in the background research. NEVER construct, guess, or hallucinate a URL. If the exact course URL was not in the catalog, set url to "" (empty string). The "Search" fallback button will handle finding it. A fabricated URL that leads to a 404 destroys user trust — empty string is always better.
@@ -704,47 +703,54 @@ function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
 }
 
 
-async function generatePlan(messages: Message[], userId: string, timezone?: string): Promise<string> {
-  // Sonnet runs the web_search tool inline (capped at max_uses to control cost),
-  // feeds results back into the same turn, then emits the full plan JSON.
-  // The static system prompt is cached; the live date is a separate block so it
-  // doesn't invalidate that cache.
+// Stage 1 gatherer — Haiku faithfully collects live data; it does NOT design
+// the plan. Keeping it a pure extractor plays to Haiku's strengths and keeps
+// the token-heavy search work cheap and fast.
+const GATHER_SYSTEM_PROMPT = `You are a research gatherer for a career/learning planner. Use the web_search tool to collect REAL, current data for the user described in the conversation. Hard cap: about 3 searches — merge needs into each query.
+
+Gather, in priority order:
+1. CURRENT salary + job-market demand for the user's target role in their country/target market (most important). Note 2-3 adjacent/related fields that currently have stronger or growing demand.
+2. The best real, specific courses for their goal — official vendor courses first (Cisco U., Microsoft Learn, AWS Skill Builder, CompTIA, KNX, etc.), then reputable paid (Coursera, Udemy, LinkedIn Learning) and free (YouTube, freeCodeCamp, edX). For Arabic-speaking countries, include Arabic-language options.
+
+You do NOT design or format the plan. You only gather and faithfully report what you found, in this exact shape (plain text, no markdown fences):
+
+MARKET DATA:
+- Salary (local): <figures + exact currency as found>
+- Salary (regional / global / remote): <figures + currency>
+- Demand: <honest local + global demand, 1-2 lines>
+- Adjacent fields: <2-3 related/alternative fields, each with a short current-demand note>
+
+COURSE CANDIDATES (only courses you actually found — copy details verbatim):
+- <Title> | <Platform> | <Instructor or Channel> | <exact URL from results>
+(8-12 candidates spanning official / paid / free; copy URLs CHARACTER-FOR-CHARACTER; never invent a URL — drop the line if you don't have a real one.)
+
+Output ONLY those two sections. No commentary, no plan.`;
+
+async function gatherResearch(
+  messages: Message[],
+  timezone?: string,
+): Promise<{ digest: string; pool: { url: string; title: string }[]; searchedUrls: Set<string>; cost: number }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const response = await (client.messages.create as any)({
-    model: SYNTH_MODEL,
-    max_tokens: 8192,
+    model: GATHER_MODEL,
+    max_tokens: 4096,
     system: [
-      {
-        type: "text",
-        text: SYSTEM_PROMPT_BODY,
-        cache_control: { type: "ephemeral" },
-      },
-      {
-        type: "text",
-        text: dateBlock(timezone),
-      },
+      { type: "text", text: GATHER_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
+      { type: "text", text: dateBlock(timezone) },
     ],
-    tools: [
-      {
-        type: SYNTH_WEB_SEARCH,
-        name: "web_search",
-        max_uses: 3,
-      },
-    ],
+    tools: [{ type: GATHER_WEB_SEARCH, name: "web_search", max_uses: 3 }],
     messages: messages.map((m) => ({ role: m.role, content: m.content })),
   });
 
-  // Collect every search-result URL+title into the research bundle. This is the
-  // "wired together" piece: course-link reuses these instead of re-searching.
   const pool: { url: string; title: string }[] = [];
   const searchedUrls = new Set<string>();
-  const seenPoolUrls = new Set<string>();
+  const seen = new Set<string>();
   let searchCount = 0;
-  let finalText = "";
+  let digest = "";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const block of response.content as any[]) {
     if (block.type === "text") {
-      finalText += block.text ?? "";
+      digest += block.text ?? "";
     } else if (block.type === "web_search_tool_result") {
       searchCount += 1;
       const items = block.content;
@@ -752,8 +758,8 @@ async function generatePlan(messages: Message[], userId: string, timezone?: stri
         for (const item of items) {
           if (item?.url && typeof item.url === "string") {
             searchedUrls.add(item.url);
-            if (!seenPoolUrls.has(item.url)) {
-              seenPoolUrls.add(item.url);
+            if (!seen.has(item.url)) {
+              seen.add(item.url);
               pool.push({ url: item.url, title: typeof item.title === "string" ? item.title : "" });
             }
           }
@@ -762,31 +768,101 @@ async function generatePlan(messages: Message[], userId: string, timezone?: stri
     }
   }
 
-  // Persist the bundle BEFORE returning so the course-link lookups that follow
-  // (the client resolves course URLs right after rendering the plan) can read it.
-  if (pool.length > 0) {
-    await setUserResearchPool(userId, pool);
-  }
-
-  // Track cost against the per-user budget (visibility only — never blocks).
-  // input_tokens is the uncached remainder; cache reads/writes are billed apart.
   const usage = response.usage ?? {};
-  // Prefer the API's own search count when present (robust across tool
-  // versions); fall back to counting result blocks.
   const billedSearches =
     typeof usage.server_tool_use?.web_search_requests === "number"
       ? usage.server_tool_use.web_search_requests
       : searchCount;
   const cost =
-    (usage.input_tokens ?? 0) * SYNTH_COST_PER_INPUT_TOKEN +
-    (usage.cache_creation_input_tokens ?? 0) * SYNTH_COST_PER_INPUT_TOKEN * 1.25 +
-    (usage.cache_read_input_tokens ?? 0) * SYNTH_COST_PER_INPUT_TOKEN * 0.1 +
-    (usage.output_tokens ?? 0) * SYNTH_COST_PER_OUTPUT_TOKEN +
+    (usage.input_tokens ?? 0) * HAIKU_IN +
+    (usage.cache_creation_input_tokens ?? 0) * HAIKU_IN * 1.25 +
+    (usage.cache_read_input_tokens ?? 0) * HAIKU_IN * 0.1 +
+    (usage.output_tokens ?? 0) * HAIKU_OUT +
     billedSearches * COST_PER_WEB_SEARCH;
-  if (cost > 0) void addUserApiCost(userId, cost);
 
-  console.log(`[deep-research] plan gen → ${pool.length} URLs bundled, ${billedSearches} searches, $${cost.toFixed(4)}`);
-  return sanitizePlanUrls(finalText, searchedUrls);
+  console.log(`[deep-research] stage1 gather (Haiku) → ${pool.length} URLs, ${billedSearches} searches, $${cost.toFixed(4)}`);
+  return { digest, pool, searchedUrls, cost };
+}
+
+// Stage 2 synthesizer — turns the gathered digest into the plan JSON on `model`
+// (Sonnet for accuracy). No web search, small input. Returns text + cost.
+async function runSynthesis(
+  model: string,
+  inRate: number,
+  outRate: number,
+  messages: Message[],
+  researchBlock: string,
+  timezone?: string,
+): Promise<{ text: string; cost: number }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const response = await (client.messages.create as any)({
+    model,
+    max_tokens: 8192,
+    system: [
+      { type: "text", text: SYSTEM_PROMPT_BODY, cache_control: { type: "ephemeral" } },
+      { type: "text", text: dateBlock(timezone) },
+    ],
+    messages: [
+      ...messages.map((m) => ({ role: m.role, content: m.content })),
+      { role: "user", content: researchBlock },
+    ],
+  });
+
+  let text = "";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const block of response.content as any[]) {
+    if (block.type === "text") text += block.text ?? "";
+  }
+
+  const usage = response.usage ?? {};
+  const cost =
+    (usage.input_tokens ?? 0) * inRate +
+    (usage.cache_creation_input_tokens ?? 0) * inRate * 1.25 +
+    (usage.cache_read_input_tokens ?? 0) * inRate * 0.1 +
+    (usage.output_tokens ?? 0) * outRate;
+
+  return { text, cost };
+}
+
+async function generatePlan(messages: Message[], userId: string, timezone?: string): Promise<string> {
+  // Stage 1: Haiku gathers the live data (cheap + fast; carries the token-heavy
+  // search results at Haiku rates instead of Sonnet's).
+  const research = await gatherResearch(messages, timezone);
+
+  // Persist the bundle BEFORE returning so the course-link lookups that follow
+  // can resolve URLs from these real results for free.
+  if (research.pool.length > 0) {
+    await setUserResearchPool(userId, research.pool);
+  }
+
+  // Verbatim catalog so the synthesizer copies real URLs rather than recalling
+  // them from memory.
+  const catalog = research.pool
+    .map((e) => `- ${e.title || "(untitled)"} | ${e.url}`)
+    .join("\n");
+  const researchBlock =
+    `BACKGROUND RESEARCH (gathered live via web search — base the plan on THIS, do not invent):\n\n` +
+    `${research.digest}\n\n` +
+    `COURSE URL CATALOG (real URLs from search — copy EXACTLY into courseRecommendations.url; use "" if a course is not listed here):\n${catalog || "(none found)"}`;
+
+  // Stage 2: Sonnet synthesizes the accurate plan from the gathered data.
+  // If Sonnet errors, fall back to Haiku so the user always gets a plan rather
+  // than the failure screen.
+  let synth: { text: string; cost: number };
+  try {
+    synth = await runSynthesis(SYNTH_MODEL, SONNET_IN, SONNET_OUT, messages, researchBlock, timezone);
+    console.log(`[deep-research] stage2 synth (Sonnet) → $${synth.cost.toFixed(4)}`);
+  } catch (err) {
+    console.error("[deep-research] Sonnet synthesis failed; falling back to Haiku:", err instanceof Error ? err.message : err);
+    synth = await runSynthesis(GATHER_MODEL, HAIKU_IN, HAIKU_OUT, messages, researchBlock, timezone);
+    console.log(`[deep-research] stage2 synth (Haiku fallback) → $${synth.cost.toFixed(4)}`);
+  }
+
+  const totalCost = research.cost + synth.cost;
+  if (totalCost > 0) void addUserApiCost(userId, totalCost);
+  console.log(`[deep-research] plan total → $${totalCost.toFixed(4)}`);
+
+  return sanitizePlanUrls(synth.text, research.searchedUrls);
 }
 
 export async function POST(req: NextRequest) {
