@@ -1519,12 +1519,13 @@ export function AIDashboard({ firstName, userId }: { firstName: string; userId: 
           }).catch(() => null);
         };
 
-        // Plan generation runs as TWO sequential requests so neither one hits
-        // Vercel's 60s per-call limit: first "gather" (Haiku + live web search),
-        // then "synthesize" (Sonnet writes the plan from that research). The
-        // research bundle is carried through the client between the two calls.
+        // Plan generation runs as TWO sequential requests: first "gather"
+        // (Haiku + live web search), then "synthesize" (Sonnet writes the plan
+        // from that research). The research bundle is carried through the client
+        // between the two calls. Each server call may use up to its 300s window,
+        // so the client budget covers both: gather (~60s) + a full Sonnet write.
         const genController = new AbortController();
-        const genTimeout = setTimeout(() => genController.abort(), 170000);
+        const genTimeout = setTimeout(() => genController.abort(), 290000);
         let genText = "";
         try {
           // Stage 1 — research (fast). Failure is non-fatal: synthesize can
