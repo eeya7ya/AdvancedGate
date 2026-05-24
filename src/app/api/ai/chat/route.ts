@@ -391,7 +391,9 @@ All description fields must be full, meaningful sentences — never 2-word label
 FINAL CRITICAL RULES:
 - Every field reflects their actual answers — personalized to who they are, where they live, and what they said
 - courseRecommendations MUST contain 6-8 REAL courses chosen from the COURSE URL CATALOG / BACKGROUND RESEARCH provided — real titles, real instructors, real platforms. Do NOT limit to 4. Users need options across all price ranges and platforms
-- courseRecommendations ORDERING: always list the official vendor/mother company course FIRST (e.g., Cisco U. for CCNA, Microsoft Learn for Azure, AWS Skill Builder for AWS, CompTIA CertMaster for CompTIA certs), followed by paid third-party platforms (Udemy, Coursera, LinkedIn Learning), then free platforms (YouTube, freeCodeCamp, edX)
+- courseRecommendations OFFICIAL COURSE IS MANDATORY: the FIRST course MUST be the official certification/training provider's OWN course (Cisco U./NetAcad for CCNA, Microsoft Learn for Azure, AWS Skill Builder for AWS, Google Cloud Skills Boost for GCP, CompTIA CertMaster for CompTIA, KNX Association for KNX, PMI for PMP, etc.). NEVER omit it and NEVER replace it with a third-party Udemy/Coursera course. If the official course's exact URL was not in the COURSE URL CATALOG, STILL include it as the first entry with its real title/platform and url "" — the Search button will resolve the link. A plan missing its official anchor course is invalid.
+- courseRecommendations DIFFICULTY SEQUENCING: order courses by ascending difficulty (Beginner → Beginner to Intermediate → Intermediate → Intermediate to Advanced → Advanced) and align each course's "phase" to the month range where it belongs, so earlier months hold the easier foundational courses and later months hold the advanced ones. After the official anchor, list paid third-party platforms (Udemy, Coursera, LinkedIn Learning), then free platforms (YouTube, freeCodeCamp, edX), all kept in difficulty/phase order.
+- courseRecommendations NO REPEATS: never list the same course (same title or same URL) more than once across any phase.
 - courseRecommendations MUST include sourceType, isFree, and hasCertificate fields on EVERY course entry — these power the source-type badges shown to users so they know what costs money vs what is free vs what earns a certificate
 - courseRecommendations.url CRITICAL: ONLY use a URL that appears word-for-word in the COURSE URL CATALOG provided in the background research. NEVER construct, guess, or hallucinate a URL. If the exact course URL was not in the catalog, set url to "" (empty string). The "Search" fallback button will handle finding it. A fabricated URL that leads to a 404 destroys user trust — empty string is always better.
 - roadmap phase count and total duration MUST match their stated timeline exactly
@@ -521,6 +523,65 @@ const TRUSTED_COURSE_DOMAINS = [
   "pmi.org", "autodesk.com", "knx.org", "knxassociation.org",
 ];
 
+// Course-list post-processing (deterministic — runs after the writer):
+//   1. Drop duplicates (same title OR same URL appearing more than once).
+//   2. Stable-sort by ascending phase month → ascending difficulty → source
+//      priority (official → certificate → paid → free), so the official anchor
+//      course leads and the rest read beginner-to-advanced within each month.
+// Runs server-side on the persisted plan, so the UI's index-keyed selection,
+// the schedule generator, and course-link resolution all stay stable.
+const LEVEL_RANK: Record<string, number> = {
+  beginner: 0,
+  "beginner to intermediate": 1,
+  intermediate: 2,
+  "intermediate to advanced": 3,
+  advanced: 4,
+};
+const SOURCE_RANK: Record<string, number> = { official: 0, certificate: 1, paid: 2, free: 3 };
+
+function phaseStartMonth(phase: unknown): number {
+  if (typeof phase !== "string") return 999;
+  const m = phase.match(/\d+/);
+  return m ? parseInt(m[0], 10) : 999;
+}
+function levelRank(level: unknown): number {
+  if (typeof level !== "string") return 2;
+  return LEVEL_RANK[level.trim().toLowerCase()] ?? 2;
+}
+function sourceRank(sourceType: unknown): number {
+  if (typeof sourceType !== "string") return 2;
+  return SOURCE_RANK[sourceType.trim().toLowerCase()] ?? 2;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function orderAndDedupeCourses(plan: Record<string, any>): void {
+  if (!Array.isArray(plan.courseRecommendations)) return;
+
+  const seen = new Set<string>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const deduped = plan.courseRecommendations.filter((c: any) => {
+    const titleKey = typeof c?.title === "string" ? c.title.trim().toLowerCase().replace(/\s+/g, " ") : "";
+    const urlKey = typeof c?.url === "string" ? c.url.trim().toLowerCase().replace(/\/$/, "") : "";
+    if (!titleKey && !urlKey) return true; // nothing to key on — keep it
+    if ((titleKey && seen.has(`t:${titleKey}`)) || (urlKey && seen.has(`u:${urlKey}`))) return false;
+    if (titleKey) seen.add(`t:${titleKey}`);
+    if (urlKey) seen.add(`u:${urlKey}`);
+    return true;
+  });
+
+  // Array.prototype.sort is stable (ES2019+), so equal keys keep writer order.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  deduped.sort((a: any, b: any) => {
+    const pm = phaseStartMonth(a?.phase) - phaseStartMonth(b?.phase);
+    if (pm !== 0) return pm;
+    const lr = levelRank(a?.level) - levelRank(b?.level);
+    if (lr !== 0) return lr;
+    return sourceRank(a?.sourceType) - sourceRank(b?.sourceType);
+  });
+
+  plan.courseRecommendations = deduped;
+}
+
 /**
  * Three-tier URL validation:
  *  1. Exact normalized match against Tavily results → KEEP (best case)
@@ -566,6 +627,8 @@ function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
       });
     }
 
+    orderAndDedupeCourses(plan);
+
     return JSON.stringify(plan);
   } catch {
     return raw;
@@ -576,11 +639,12 @@ function sanitizePlanUrls(raw: string, validUrls: Set<string>): string {
 // Stage 1 gatherer — Haiku faithfully collects live data; it does NOT design
 // the plan. Keeping it a pure extractor plays to Haiku's strengths and keeps
 // the token-heavy search work cheap and fast.
-const GATHER_SYSTEM_PROMPT = `You are a research gatherer for a career/learning planner. Use the web_search tool to collect REAL, current data for the user described in the conversation. Hard cap: about 3 searches — merge needs into each query.
+const GATHER_SYSTEM_PROMPT = `You are a research gatherer for a career/learning planner. Use the web_search tool to collect REAL, current data for the user described in the conversation. Soft cap: about 5 searches — merge needs into each query, but ALWAYS spend at least one dedicated search on the official certification/training provider (rule 3 below).
 
 Gather, in priority order:
 1. CURRENT salary + job-market demand for the user's target role in their country/target market (most important). Note 2-3 adjacent/related fields that currently have stronger or growing demand.
 2. The best real, specific courses for their goal — official vendor courses first (Cisco U., Microsoft Learn, AWS Skill Builder, CompTIA, KNX, etc.), then reputable paid (Coursera, Udemy, LinkedIn Learning) and free (YouTube, freeCodeCamp, edX). For Arabic-speaking countries, include Arabic-language options.
+3. THE OFFICIAL CERTIFICATION COURSE — MANDATORY. Run a dedicated search for the certification/skill's OWN official training portal and capture that exact course/training URL. Examples: CCNA → Cisco Learning Network / Cisco U. / NetAcad; Azure or M365 → Microsoft Learn; AWS → AWS Skill Builder; Google Cloud → Cloud Skills Boost; CompTIA → CompTIA CertMaster; KNX → KNX Association; PMP → PMI; Security+/CISSP/CEH → the issuing body. The official course is the anchor of the plan — never return a candidate list without it. If you genuinely cannot find the official URL, still list the official course by name with a blank URL so the writer can include it.
 
 You do NOT design or format the plan. You only gather and faithfully report what you found, in this exact shape (plain text, no markdown fences):
 
@@ -603,12 +667,12 @@ async function gatherResearch(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const response = await (client.messages.create as any)({
     model: GATHER_MODEL,
-    max_tokens: 4096,
+    max_tokens: 6000,
     system: [
       { type: "text", text: GATHER_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
       { type: "text", text: dateBlock(timezone) },
     ],
-    tools: [{ type: GATHER_WEB_SEARCH, name: "web_search", max_uses: 3 }],
+    tools: [{ type: GATHER_WEB_SEARCH, name: "web_search", max_uses: 5 }],
     messages: messages.map((m) => ({ role: m.role, content: m.content })),
   });
 
