@@ -9,16 +9,21 @@ const client = new Anthropic();
 // Interview + lightweight turns run on Haiku (cheapest).
 const CLAUDE_MODEL = "claude-haiku-4-5";
 
-// The deep-research synthesis (plan generation) runs on Sonnet 4.6 for deeper
-// market analysis, paired with the newer dynamic-filtering web search that
-// Sonnet 4.6 supports (filters results before they hit context → fewer tokens).
-const SYNTH_MODEL = "claude-sonnet-4-6";
-const SYNTH_WEB_SEARCH = "web_search_20260209";
+// Deep-research synthesis (plan generation). Kept on Haiku 4.5 + the proven
+// web_search_20250305 tool — the known-good, fast combination that completes
+// within the serverless timeout. (Sonnet 4.6 + web_search_20260209 was tried
+// but failed in production — the model/tool isn't enabled on this account or
+// the longer call exceeded the function timeout, billing tokens with no result.
+// To re-enable: flip the two constants below to "claude-sonnet-4-6" /
+// "web_search_20260209" AND the pricing to Sonnet rates ($3/$15), AND confirm
+// account access + a generous Vercel function maxDuration.)
+const SYNTH_MODEL = "claude-haiku-4-5";
+const SYNTH_WEB_SEARCH = "web_search_20250305";
 
-// Sonnet 4.6 pricing + web-search fee. Tracked against the per-user budget for
-// visibility, but plan generation is never blocked on it.
-const SYNTH_COST_PER_INPUT_TOKEN  = 3.00 / 1_000_000;  // $3.00 / MTok
-const SYNTH_COST_PER_OUTPUT_TOKEN = 15.00 / 1_000_000; // $15.00 / MTok
+// Pricing for SYNTH_MODEL (Haiku 4.5) + web-search fee. Tracked against the
+// per-user budget for visibility, but plan generation is never blocked on it.
+const SYNTH_COST_PER_INPUT_TOKEN  = 1.00 / 1_000_000;  // $1.00 / MTok
+const SYNTH_COST_PER_OUTPUT_TOKEN = 5.00 / 1_000_000;  // $5.00 / MTok
 const COST_PER_WEB_SEARCH = 10.00 / 1000;              // $0.01 / search
 
 const SYSTEM_PROMPT_BODY = `You are eSpark 🌟 — a brilliant, warm AI advisor who feels like that one amazing friend who always knows exactly what to do. You help EVERYONE: students figuring out what to study, fresh grads navigating their first job, professionals switching careers, freelancers leveling up, entrepreneurs chasing a dream — anyone with a goal.
@@ -702,7 +707,7 @@ async function generatePlan(messages: Message[], userId: string, timezone?: stri
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const response = await (client.messages.create as any)({
     model: SYNTH_MODEL,
-    max_tokens: 10000,
+    max_tokens: 8192,
     system: [
       {
         type: "text",
