@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useLayoutEffect } from "react";
+import { createContext, useContext, useState, useEffect, useLayoutEffect } from "react";
 
 export type Lang = "en" | "ar";
 
@@ -11,18 +11,24 @@ interface LangContextValue {
 
 const LangContext = createContext<LangContextValue>({ lang: "en", toggle: () => {} });
 
-export function LangProvider({ children }: { children: React.ReactNode }) {
-  // Read localStorage synchronously on first render so there is no en→ar flash
-  const [lang, setLang] = useState<Lang>(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("espark-lang");
-      if (stored === "ar" || stored === "en") return stored;
-    }
-    return "en";
-  });
+// Run before paint on the client, but fall back to useEffect on the server so
+// React doesn't warn that useLayoutEffect does nothing during SSR.
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
-  // useLayoutEffect runs before paint → dir/lang attribute set before first pixel drawn
-  useLayoutEffect(() => {
+export function LangProvider({ children }: { children: React.ReactNode }) {
+  // Start as "en" so the FIRST client render matches the server-rendered HTML —
+  // reading localStorage here instead would make the first render diverge and
+  // throw React hydration error #418. The stored language is applied in the
+  // layout effect below, before the browser paints, so there's no en→ar flash.
+  const [lang, setLang] = useState<Lang>("en");
+
+  useIsomorphicLayoutEffect(() => {
+    const stored = localStorage.getItem("espark-lang");
+    if (stored === "ar" || stored === "en") setLang(stored);
+  }, []);
+
+  // Keep the document dir/lang attribute in sync (before paint).
+  useIsomorphicLayoutEffect(() => {
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
     document.documentElement.lang = lang;
   }, [lang]);
