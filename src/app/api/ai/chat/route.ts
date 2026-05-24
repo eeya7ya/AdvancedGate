@@ -9,23 +9,29 @@ const client = new Anthropic();
 // Interview + lightweight turns run on Haiku (cheapest).
 const CLAUDE_MODEL = "claude-haiku-4-5";
 
-// Two-stage deep research, split by model strength:
-//   Stage 1 (GATHER)  — Haiku runs the live web searches and faithfully collects
-//     real course URLs + market figures. The heavy search-result tokens are
-//     billed at cheap Haiku rates, and Haiku is fast.
-//   Stage 2 (SYNTH)   — Sonnet 4.6 turns that gathered data into the plan. This
-//     is where accuracy matters (best course matches, faithful URL copying,
-//     correct salary/currency extraction) and Sonnet sees only the compact
-//     digest — no re-searching — so it stays affordable and quick.
+// Two-stage deep research, run as two separate sub-60s requests:
+//   Stage 1 (GATHER)  — Haiku runs the live web searches and collects real
+//     course URLs + market figures into a compact digest.
+//   Stage 2 (SYNTH)   — writes the plan JSON from that digest (no search).
+// Both run on Haiku 4.5. Sonnet writes slightly nicer prose, but generating the
+// full ~6-8k-token plan JSON takes >60s on Sonnet ALONE — which exceeds Vercel
+// Hobby's per-call limit and 504s (confirmed in production runtime logs). Haiku
+// generates the same schema in ~40s, well inside the limit, and far cheaper.
+// The live market data is identical either way — it comes from the stage-1 web
+// search, not the writer. To restore Sonnet for the writer, first move off the
+// 60s cap (Vercel Pro's 300s maxDuration, or a platform like Cloudflare Workers
+// that doesn't wall-clock-kill streamed responses) and set SYNTH_MODEL back to
+// "claude-sonnet-4-6" together with SYNTH_IN/SYNTH_OUT.
 const GATHER_MODEL = "claude-haiku-4-5";
 const GATHER_WEB_SEARCH = "web_search_20250305";
-const SYNTH_MODEL = "claude-sonnet-4-6";
+const SYNTH_MODEL = "claude-haiku-4-5";
 
 // Pricing (tracked against the per-user budget for visibility; never blocks).
 const HAIKU_IN  = 1.00 / 1_000_000;   // $1 / MTok
 const HAIKU_OUT = 5.00 / 1_000_000;   // $5 / MTok
-const SONNET_IN  = 3.00 / 1_000_000;  // $3 / MTok
-const SONNET_OUT = 15.00 / 1_000_000; // $15 / MTok
+// Writer (synthesize) rates — keep in lockstep with SYNTH_MODEL above.
+const SYNTH_IN  = HAIKU_IN;
+const SYNTH_OUT = HAIKU_OUT;
 const COST_PER_WEB_SEARCH = 10.00 / 1000; // $0.01 / search
 
 // Plan generation is split across TWO requests — "gather" (Haiku + web search)
@@ -1009,13 +1015,13 @@ export async function POST(req: NextRequest) {
 
         let synth: { text: string; cost: number };
         try {
-          synth = await runSynthesis(SYNTH_MODEL, SONNET_IN, SONNET_OUT, messages, researchBlock, timezone);
-          console.log(`[deep-research] stage2 synth (Sonnet) → $${synth.cost.toFixed(4)}`);
+          synth = await runSynthesis(SYNTH_MODEL, SYNTH_IN, SYNTH_OUT, messages, researchBlock, timezone);
         } catch (err) {
-          console.error("[deep-research] Sonnet synthesis failed; falling back to Haiku:", err instanceof Error ? err.message : err);
-          synth = await runSynthesis(GATHER_MODEL, HAIKU_IN, HAIKU_OUT, messages, researchBlock, timezone);
-          console.log(`[deep-research] stage2 synth (Haiku fallback) → $${synth.cost.toFixed(4)}`);
+          // Retry once to ride out a transient API error.
+          console.error("[deep-research] synthesis failed; retrying:", err instanceof Error ? err.message : err);
+          synth = await runSynthesis(SYNTH_MODEL, SYNTH_IN, SYNTH_OUT, messages, researchBlock, timezone);
         }
+        console.log(`[deep-research] stage2 synth (${SYNTH_MODEL}) → $${synth.cost.toFixed(4)}`);
         if (synth.cost > 0) void addUserApiCost(userId, synth.cost);
 
         controller.enqueue(encoder.encode(sanitizePlanUrls(synth.text, validUrls)));
